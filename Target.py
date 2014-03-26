@@ -1,5 +1,5 @@
 import math
-import numpy
+import numpy as np
 
 class Motor:
 	def move(x,y):
@@ -8,18 +8,22 @@ class Motor:
 class RadialMotor(Motor):
 	
 	def __init__(self,angle,radius):
+		
+		# the parent's constructor is called
+		super().__init__()
+
 		self._angle = math.radians(angle)
 		self.radius = radius
 
 	def move(self,pos):
-		return pos + numpy.array([math.cos(self._angle),math.sin(self._angle)])
+		return pos + np.array([math.cos(self._angle),math.sin(self._angle)])
 
 class Target:
 	
 	def __init__(self, motor, xStart=0 ,yStart=0, txPower=15):
 
 		# initialization of the position if received as argument...
-		self._pos = numpy.array([xStart,yStart])
+		self._pos = np.array([xStart,yStart])
 		
 		# ...the same for the transmission power
 		self._txPower = txPower
