@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
 import Target
+import State
 import Sensor
 import math
 import numpy as np
@@ -37,24 +38,25 @@ painter = Painter.WithBorder(Painter.Painter(sensorsPositions),roomBottomLeftCor
 #painter = Painter.Painter(sensorsPositions)
 painter.go()
 
-#firstTarget = Target.Target(Target.RadialMotor(10))
-#firstTarget = Target.Target(Target.BoundedRandomSpeedMotor(roomBottomLeftCorner,roomTopRightCorner))
-#firstTarget = Target.Target(Target.BoundedRandomSpeedMotor(roomBottomLeftCorner,roomTopRightCorner),initialSpeed=np.array([-5,0]))
-#firstTarget = Target.Target(Target.BoundedRandomSpeedMotor(roomBottomLeftCorner,roomTopRightCorner),initialSpeed=np.array([0,-5]))
-#firstTarget = Target.Target(Target.BoundedRandomSpeedMotor(roomBottomLeftCorner,roomTopRightCorner),initialSpeed=np.array([-2,-5]))
-firstTarget = Target.Target(Target.BoundedRandomSpeedMotor(roomBottomLeftCorner,roomTopRightCorner),initialSpeed=np.array([0,3]))
+# a object that represents the prior distribution
+prior = State.BoundedUniformPrior(roomBottomLeftCorner,roomTopRightCorner)
+
+# the target is created
+#target = Target.Target(State.StraightTransitionKernel(10))
+#target = Target.Target(State.BoundedRandomSpeedTransitionKernel(roomBottomLeftCorner,roomTopRightCorner))
+target = Target.Target(State.BoundedRandomSpeedTransitionKernel(roomBottomLeftCorner,roomTopRightCorner),initialPosition=prior.sample(),initialSpeed=np.array([0,3]))
 
 for iTime in range(nTimeInstants):
 	
-	print(firstTarget.pos())
+	print(target.pos())
 
-	painter.update(firstTarget.pos())
+	painter.update(target.pos())
 
-	firstTarget.step()
+	target.step()
 
-	print(firstTarget.pos())
+	print(target.pos())
 
-	painter.update(firstTarget.pos())
+	painter.update(target.pos())
 	
 	print('ENTER to continue...')
 	input()
@@ -63,6 +65,6 @@ sampleSensor = Sensor.Sensor(0.5,0.5,1)
 #sampleSensor = Sensor.Sensor(14,14,1)
 
 #for i in range(100):
-	#print(sampleSensor.detect(firstTarget.pos()))
+	#print(sampleSensor.detect(target.pos()))
 
-print(sampleSensor.detect(firstTarget.pos()))
+print(sampleSensor.detect(target.pos()))

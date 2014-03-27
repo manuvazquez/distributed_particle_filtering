@@ -5,7 +5,7 @@ import math
 class Sensor:
 	def __init__(self,xPos,yPos,threshold,probDetection=0.9,probFalseAlarm=0.1):
 		
-		# position is saved in a NUMPY array for later use
+		# position is saved in a numpy array for later use
 		self._pos = np.array([xPos,yPos])
 		
 		# the distance within reach of the sensor
