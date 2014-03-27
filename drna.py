@@ -15,6 +15,9 @@ M = 20
 # number of sensors
 nSensors = 16
 
+# number of time instants
+nTimeInstants = 15
+
 # tuples containing the coordinates that define the bounds of the room
 roomBottomLeftCorner = np.array([-10,-20])
 roomTopRightCorner = np.array([10,20])
@@ -34,13 +37,27 @@ painter = Painter.WithBorder(Painter.Painter(sensorsPositions),roomBottomLeftCor
 #painter = Painter.Painter(sensorsPositions)
 painter.go()
 
-firstTarget = Target.Target(Target.RadialMotor(10,1))
+#firstTarget = Target.Target(Target.RadialMotor(10))
+#firstTarget = Target.Target(Target.BoundedRandomSpeedMotor(roomBottomLeftCorner,roomTopRightCorner))
+#firstTarget = Target.Target(Target.BoundedRandomSpeedMotor(roomBottomLeftCorner,roomTopRightCorner),initialSpeed=np.array([-5,0]))
+#firstTarget = Target.Target(Target.BoundedRandomSpeedMotor(roomBottomLeftCorner,roomTopRightCorner),initialSpeed=np.array([0,-5]))
+#firstTarget = Target.Target(Target.BoundedRandomSpeedMotor(roomBottomLeftCorner,roomTopRightCorner),initialSpeed=np.array([-2,-5]))
+firstTarget = Target.Target(Target.BoundedRandomSpeedMotor(roomBottomLeftCorner,roomTopRightCorner),initialSpeed=np.array([0,3]))
 
-print(firstTarget.pos())
+for iTime in range(nTimeInstants):
+	
+	print(firstTarget.pos())
 
-firstTarget.step()
+	painter.update(firstTarget.pos())
 
-print(firstTarget.pos())
+	firstTarget.step()
+
+	print(firstTarget.pos())
+
+	painter.update(firstTarget.pos())
+	
+	print('ENTER to continue...')
+	input()
 
 sampleSensor = Sensor.Sensor(0.5,0.5,1)
 #sampleSensor = Sensor.Sensor(14,14,1)
@@ -49,6 +66,3 @@ sampleSensor = Sensor.Sensor(0.5,0.5,1)
 	#print(sampleSensor.detect(firstTarget.pos()))
 
 print(sampleSensor.detect(firstTarget.pos()))
-
-print('ENTER to close the figures and quit the program...')
-input()

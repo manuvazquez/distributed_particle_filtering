@@ -65,11 +65,21 @@ class EquispacedOnRectangleSensorLayer(SensorLayer):
 		nSquaresInXdimension = np.floor(self._diagonal[0]/squareSide)
 		nSquaresInYdimension = np.floor(self._diagonal[1]/squareSide)
 		
+		nOverfittingSensors = (nSquaresInXdimension+1)*(nSquaresInYdimension+1)
+		
+		# if adding a sensor in each dimension we get closer to the number of requested sensors...
+		if (nSensors-(nSquaresInXdimension*nSquaresInYdimension)) > (nOverfittingSensors-nSensors):
+			# ...we repeat the computations with the "overfitting" number of sensors
+			areaPerSensor = self._area/nOverfittingSensors
+			squareSide = math.sqrt(areaPerSensor)
+			nSquaresInXdimension = np.floor(self._diagonal[0]/squareSide)
+			nSquaresInYdimension = np.floor(self._diagonal[1]/squareSide)
+		
 		print('nSquares:',nSquaresInXdimension,nSquaresInYdimension)
 		
-		# in each dimension there is a certain length that is not covered
-		remainingInXdimension = self._diagonal[0] % squareSide
-		remainingInYdimension = self._diagonal[1] % squareSide
+		# in each dimension there is a certain length that is not covered (using % "weird" things happen sometimes...)
+		remainingInXdimension = self._diagonal[0] - nSquaresInXdimension*squareSide
+		remainingInYdimension = self._diagonal[1] - nSquaresInYdimension*squareSide
 		
 		#import code
 		#code.interact(local=dict(globals(), **locals()))
@@ -86,8 +96,5 @@ class EquispacedOnRectangleSensorLayer(SensorLayer):
 				iSensor = iSensor + 1
 
 		print(res)
-		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
 		
 		return res
