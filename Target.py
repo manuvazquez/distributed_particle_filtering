@@ -1,9 +1,11 @@
 import numpy as np
 import numpy.random
 
+import State
+
 class Target:
 	
-	def __init__(self, motor, initialPosition=np.array([0,0]), initialSpeed=numpy.random.randn(2), txPower=15):
+	def __init__(self, transitionKernel, initialPosition, initialVelocity, txPower=15):
 
 		# initialization of the position if received as argument...
 		self._pos = initialPosition
@@ -12,9 +14,10 @@ class Target:
 		self._txPower = txPower
 		
 		# ...and the speed
-		self._speed = initialSpeed
+		self._velocity = initialVelocity
 
-		self._motor = motor
+		# the transition kernel determines the movement of the target
+		self._transitionKernel = transitionKernel
 
 	def pos(self):
 		
@@ -22,10 +25,14 @@ class Target:
 	
 	def speed(self):
 		
-		return self._speed
+		return self._velocity
 		
 	def step(self):
 		
 		print('taking a step...')
+
+		# the new state is first computed...
+		newState = self._transitionKernel.nextState(State.buildState(self._pos,self._velocity))
 		
-		self._pos,self._speed = self._motor.nextState(self._pos,self._speed)
+		# ...and the position and velocity are obtained thereof
+		self._pos,self._velocity = State.position(newState),State.velocity(newState)

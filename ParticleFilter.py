@@ -30,14 +30,6 @@ class MultinomialResamplingAlgorithm(ResamplingAlgorithm):
 		
 	def getIndexes(self,weights):
 		
-		# the hard way...
-		#countPerIndex = np.random.multinomial(weights.size, weights, size=1)
-		## a list of lists, each one containing the selected element the required number of times
-		#indexes = [item*[i] for i,item in enumerate(countPerIndex)]
-		
-		## a "flattened" list is returned
-		#return [item for sublist in indexes for item in sublist]
-	
 		return np.random.choice(range(weights.size), weights.size, p=weights)
 
 class ResampleCriterion:

@@ -39,13 +39,16 @@ painter = Painter.WithBorder(Painter.Painter(sensorsPositions),roomBottomLeftCor
 painter.go()
 
 # a object that represents the prior distribution
-prior = State.BoundedUniformPrior(roomBottomLeftCorner,roomTopRightCorner)
+prior = State.UniformBoundedPositionGaussianVelocityPrior(roomBottomLeftCorner,roomTopRightCorner)
 
 # the target is created
 #target = Target.Target(State.StraightTransitionKernel(10))
 #target = Target.Target(State.BoundedRandomSpeedTransitionKernel(roomBottomLeftCorner,roomTopRightCorner))
+
+initialState = prior.sample()
+
 # notice that samples returns 2D array and Target needs to receive a 1D array, hence the [:,0]
-target = Target.Target(State.BoundedRandomSpeedTransitionKernel(roomBottomLeftCorner,roomTopRightCorner),initialPosition=prior.sample()[:,0],initialSpeed=np.array([0,3]))
+target = Target.Target(State.UniformBoundedPositionGaussianVelocityTransitionKernel(roomBottomLeftCorner,roomTopRightCorner),State.position(initialState),State.velocity(initialState))
 
 for iTime in range(nTimeInstants):
 	
