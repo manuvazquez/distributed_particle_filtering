@@ -44,7 +44,8 @@ prior = State.BoundedUniformPrior(roomBottomLeftCorner,roomTopRightCorner)
 # the target is created
 #target = Target.Target(State.StraightTransitionKernel(10))
 #target = Target.Target(State.BoundedRandomSpeedTransitionKernel(roomBottomLeftCorner,roomTopRightCorner))
-target = Target.Target(State.BoundedRandomSpeedTransitionKernel(roomBottomLeftCorner,roomTopRightCorner),initialPosition=prior.sample(),initialSpeed=np.array([0,3]))
+# notice that samples returns 2D array and Target needs to receive a 1D array, hence the [:,0]
+target = Target.Target(State.BoundedRandomSpeedTransitionKernel(roomBottomLeftCorner,roomTopRightCorner),initialPosition=prior.sample()[:,0],initialSpeed=np.array([0,3]))
 
 for iTime in range(nTimeInstants):
 	
