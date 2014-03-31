@@ -114,9 +114,6 @@ class UniformBoundedPositionGaussianVelocityTransitionKernel(TransitionKernel):
 		# not actually needed...but for the sake of clarity...
 		velocity = state[2:4]
 
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
-
 		# the velocity changes BEFORE moving...
 		velocity += numpy.random.normal(0,math.sqrt(self._velocityVariance/2),(2,1))
 		

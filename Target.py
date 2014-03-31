@@ -33,6 +33,3 @@ class Target:
 		
 		# ...and the position and velocity are obtained thereof
 		self._pos,self._velocity = State.position(newState),State.velocity(newState)
-		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))

@@ -19,6 +19,9 @@ M = 20
 # number of sensors
 nSensors = 16
 
+# radious over which a sensor is able to detect the target
+sensorRadius = 5
+
 # number of time instants
 nTimeInstants = 15
 
@@ -43,9 +46,21 @@ N = K*M
 sensorLayer = Sensor.EquispacedOnRectangleSensorLayer(roomBottomLeftCorner,roomTopRightCorner)
 sensorsPositions = sensorLayer.getPositions(nSensors)
 
-painter = Painter.WithBorder(Painter.Painter(sensorsPositions),roomBottomLeftCorner,roomTopRightCorner)
-#painter = Painter.Painter(sensorsPositions)
+print('Sensors positions:\n',sensorsPositions)
 
+#import code
+#code.interact(local=dict(globals(), **locals()))
+
+# the actual number of sensor might not be equal to that requested
+nSensors = sensorsPositions.shape[1]
+
+# we build the array of sensors
+sensors = [Sensor.Sensor(sensorsPositions[:,i:i+1],sensorRadius) for i in range(nSensors)]
+
+# this object will handle graphics
+painter = Painter.WithBorder(Painter.Painter(sensorsPositions),roomBottomLeftCorner,roomTopRightCorner)
+
+# we tell them to draw the sensors
 painter.setupSensors()
 
 # a object that represents the prior distribution
@@ -56,6 +71,8 @@ initialState = prior.sample()
 
 # the target is created...
 target = Target.Target(transitionKernel,State.position(initialState),State.velocity(initialState))
+
+print('initial position: ',target.pos())
 
 # a resampling algorithm...
 resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm()
@@ -72,18 +89,23 @@ pf.initialize()
 # particles are plotted
 painter.updateParticlesPositions(State.position(pf.getState()))
 
-for iTime in range(nTimeInstants):
-	
-	print(target.pos())
+# the initial position is painted
+painter.updateTargetPosition(target.pos())
 
-	painter.updateTargetPosition(target.pos())
+for iTime in range(nTimeInstants):
 
 	# the target moves
 	target.step()
 	
+	print('position: ',target.pos())
+	
+	# we compute the observations
+	observations = np.array([float(sensors[i].detect(target.pos())) for i in range(nSensors)])
+	print('observations: ',observations)
+
 	# the PF is updated
 	pf.step(None)
-	
+
 	# the plot is updated
 	painter.updateParticlesPositions(State.position(pf.getState()))
 
@@ -93,11 +115,3 @@ for iTime in range(nTimeInstants):
 	
 	print('ENTER to continue...')
 	input()
-
-sampleSensor = Sensor.Sensor(0.5,0.5,1)
-#sampleSensor = Sensor.Sensor(14,14,1)
-
-#for i in range(100):
-	#print(sampleSensor.detect(target.pos()))
-
-print(sampleSensor.detect(target.pos()))

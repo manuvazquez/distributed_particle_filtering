@@ -3,10 +3,10 @@ import random
 import math
 
 class Sensor:
-	def __init__(self,xPos,yPos,threshold,probDetection=0.9,probFalseAlarm=0.1):
+	def __init__(self,position,threshold,probDetection=0.9,probFalseAlarm=0.01):
 		
-		# position is saved in a numpy array for later use
-		self._pos = np.array([xPos,yPos])
+		# position is saved for later use
+		self._position = position
 		
 		# the distance within reach of the sensor
 		self._threshold = threshold
@@ -19,12 +19,13 @@ class Sensor:
 		
 	def detect(self,targetPos):
 		
-		print('sensor position:',self._pos)
-		print('target position:',targetPos)
+		#print('sensor position:\n',self._position)
+		#print('target position:\n',targetPos)
 		
-		distance = np.linalg.norm((self._pos - targetPos))
+		distance = np.linalg.norm((self._position - targetPos))
 		
-		print('distance:',distance)
+		#print('distance:',distance)
+		#print('---------------------------------------')
 		
 		if distance<self._threshold:
 			return random.random()<self._probDetection
@@ -75,26 +76,19 @@ class EquispacedOnRectangleSensorLayer(SensorLayer):
 			nSquaresInXdimension = np.floor(self._diagonal[0]/squareSide)
 			nSquaresInYdimension = np.floor(self._diagonal[1]/squareSide)
 		
-		print('nSquares:',nSquaresInXdimension,nSquaresInYdimension)
-		
 		# in each dimension there is a certain length that is not covered (using % "weird" things happen sometimes...)
 		remainingInXdimension = self._diagonal[0] - nSquaresInXdimension*squareSide
 		remainingInYdimension = self._diagonal[1] - nSquaresInYdimension*squareSide
 		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
-		
-		#res = [np.array([(remainingInXdimension + squareSide)/2 + i*squareSide,(remainingInYdimension + squareSide)/2 + j*squareSide]) for i in range(int(nSquaresInXdimension)) for j in range(int(nSquaresInYdimension))]
-		
 		# avoided list comprehension in order to get a numpy array as result
-		res = np.empty([nSquaresInXdimension*nSquaresInYdimension,2])
+		res = np.empty([2,nSquaresInXdimension*nSquaresInYdimension])
 		iSensor = 0
 		for i in range(int(nSquaresInXdimension)):
 			for j in range(int(nSquaresInYdimension)):
-				res[iSensor,0] = self._bottomLeftCorner[0] + (remainingInXdimension + squareSide)/2 + i*squareSide
-				res[iSensor,1] = self._bottomLeftCorner[1] + (remainingInYdimension + squareSide)/2 + j*squareSide
+				res[0,iSensor] = self._bottomLeftCorner[0] + (remainingInXdimension + squareSide)/2 + i*squareSide
+				res[1,iSensor] = self._bottomLeftCorner[1] + (remainingInYdimension + squareSide)/2 + j*squareSide
 				iSensor = iSensor + 1
 
-		print(res)
+		#print(res)
 		
 		return res

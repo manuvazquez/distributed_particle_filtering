@@ -17,7 +17,7 @@ class Painter:
 		plt.ion()
 		
 	def setupSensors(self):
-		self._ax.plot(self._sensorsPositions[:,0], self._sensorsPositions[:,1],color='red',marker='+',linewidth=0)
+		self._ax.plot(self._sensorsPositions[0,:], self._sensorsPositions[1,:],color='red',marker='+',linewidth=0)
 		self._ax.set_aspect('equal', 'datalim')
 		plt.show()
 		#plt.hold(True)
