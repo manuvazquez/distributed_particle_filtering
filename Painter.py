@@ -10,22 +10,25 @@ class Painter:
 		
 		self._previousPosition = None
 		
+		# used to erase the previous particles and paint the new ones
+		self._particles = None
+		
 		# so that the program doesn't wait for the open windows to be closed in order to continue
 		plt.ion()
 		
-	def go(self):
-		self._ax.plot(self._sensorsPositions[:,0], self._sensorsPositions[:,1], '+')
+	def setupSensors(self):
+		self._ax.plot(self._sensorsPositions[:,0], self._sensorsPositions[:,1],color='red',marker='+',linewidth=0)
 		self._ax.set_aspect('equal', 'datalim')
 		plt.show()
 		#plt.hold(True)
 		
-	def update(self,position):
+	def updateTargetPosition(self,position):
 		
 		#import code
 		#code.interact(local=dict(globals(), **locals()))
 		
 		#plt.hold(False)
-		#self.go()
+		#self.setupSensors()
 		plt.hold(True)
 		
 		# if this is not the first update (i.e., there exists a previous position)...
@@ -40,7 +43,17 @@ class Painter:
 		plt.draw()
 		
 		self._previousPosition = position
-		
+
+	def updateParticlesPositions(self,positions):
+
+		# if previous particles are being displayed...
+		if self._particles:
+			# ...we erase them
+			self._ax.lines.remove(self._particles)
+			#del self._ax.lines[-1]
+
+		self._particles, = self._ax.plot(positions[0,:],positions[1,:],color='blue',marker='o',linewidth=0)
+
 class PainterDecorator(Painter):
 	def __init__(self,decorated):
 		# let the superclass do its stuff
@@ -56,9 +69,9 @@ class WithBorder(PainterDecorator):
 		self._roomTopRightCorner = roomTopRightCorner
 		self._roomDiagonalVector = self._roomTopRightCorner - self._roomBottomLeftCorner
 		
-	def go(self):
+	def setupSensors(self):
 		# let the superclass do its stuff
-		super().go()
+		super().setupSensors()
 		
 		# we define a rectangular patch...
 		roomEdge = matplotlib.patches.Rectangle((self._roomBottomLeftCorner[0],self._roomBottomLeftCorner[1]), self._roomDiagonalVector[0], self._roomDiagonalVector[1], fill=False, color='blue')

@@ -14,7 +14,7 @@ def position(state):
 	The purpose is to encapsulate the state so that other modules/classes don't need to know about the structure of the state vector.
 	"""
 	
-	return state[0:2]
+	return state[0:2,:]
 
 def velocity(state):
 	"""It extracts the velocity elements out of the state vector.
@@ -22,7 +22,7 @@ def velocity(state):
 	The purpose is to encapsulate the state so that other modules/classes don't need to know about the structure of the state vector.
 	"""
 	
-	return state[2:4]
+	return state[2:4,:]
 
 def buildState(position,velocity):
 	"""It builds a state vector given a position and a velocity vectors.
@@ -113,7 +113,10 @@ class UniformBoundedPositionGaussianVelocityTransitionKernel(TransitionKernel):
 		
 		# not actually needed...but for the sake of clarity...
 		velocity = state[2:4]
-		
+
+		#import code
+		#code.interact(local=dict(globals(), **locals()))
+
 		# the velocity changes BEFORE moving...
 		velocity += numpy.random.normal(0,math.sqrt(self._velocityVariance/2),(2,1))
 		
@@ -138,9 +141,6 @@ class UniformBoundedPositionGaussianVelocityTransitionKernel(TransitionKernel):
 				
 				tentativeNewPos = state[0:2] + velocity*self._stepDuration + numpy.random.normal(0,math.sqrt(self._noiseVariance/2),(2,1))
 				
-				#import code
-				#code.interact(local=dict(globals(), **locals()))
-
 			elif (tentativeNewPos[1] < self._bottomLeftCorner[1]) or (tentativeNewPos[1] > self._topRightCorner[1]):
 				
 				# we compute the angle between the velocity vector and a unit horizontal vector (with coordinates [1,0]) using the dot product
@@ -163,5 +163,4 @@ class UniformBoundedPositionGaussianVelocityTransitionKernel(TransitionKernel):
 				# the new position is OK
 				break
 		
-		#return (tentativeNewPos,velocity)
 		return np.vstack((tentativeNewPos,velocity))

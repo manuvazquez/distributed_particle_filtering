@@ -1,23 +1,37 @@
 import numpy as np
-import State
+#import State
 
 class ParticleFilter:
 	
-	def __init__(self,nParticles):
+	def __init__(self,nParticles,resamplingAlgorithm,resamplingCriterion):
 		
 		self._nParticles = nParticles
 		self._weights = np.empty([1,nParticles])
+		
+		self._resamplingAlgorithm = resamplingAlgorithm
+		self._resamplingCriterion = resamplingCriterion
+		
+		# at first...the state is empty
+		self._state = None
 		
 	def initialize(self):
 		
 		# the weights are assigned equal probabilities
 		self._weights.fill(1/nParticles)
 		
+	def getState(self):
+		
+		return self._state
+
+	def step(self,observations):
+		
+		pass
+
 class TrackingParticleFilter(ParticleFilter):
 	
-	def __init__(self,nParticles,prior,stateTransitionKernel):
+	def __init__(self,nParticles,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel):
 		
-		super().__init__(nParticles)
+		super().__init__(nParticles,resamplingAlgorithm,resamplingCriterion)
 		
 		self._stateTransitionKernel = stateTransitionKernel
 		self._prior = prior
@@ -25,44 +39,10 @@ class TrackingParticleFilter(ParticleFilter):
 	def initialize(self):
 		
 		# initial samples...
-		prior.sample(self._nParticles)
-	
-class ResamplingAlgorithm:
-	
-	def __init__(self):
+		self._state = self._prior.sample(self._nParticles)
 		
-		pass
-	
-	def getIndexes(self,weights):
-		"""It returns the indexes of the particles that should be kept after resampling.
+	def step(self,observations):
 		
-		Notice that it doesn't perform any "real" resampling"...the real work must be performed somewhere else.
-		"""
-		pass
-	
-class MultinomialResamplingAlgorithm(ResamplingAlgorithm):
-	
-	def __init__(self):
-		
-		super().__init__()
-		
-	def getIndexes(self,weights):
-		
-		return np.random.choice(range(weights.size), weights.size, p=weights)
-
-class ResampleCriterion:
-	
-	def __init__(resamplingRatio):
-		
-		self._resamplingRatio = resamplingRatio
-		
-	def isResamplingNeeded(self,weights):
-		
-		# a division by zero may occur...
-		try:
-			nEffectiveParticles = 1/np.dot(weights,weights)
-		except ZeroDivisionError:
-			print('ResampleCriterion::isResamplingNeeded: all the weights are zero!!...quitting')
-			raise SystemExit(0)
+		for i in range(self._nParticles):
 			
-		return nEffectiveParticles<(self._resamplingRatio*weights.size)
+			self._state[:,i:i+1] = self._stateTransitionKernel.nextState(self._state[:,i:i+1])
