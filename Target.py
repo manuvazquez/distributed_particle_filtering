@@ -1,6 +1,3 @@
-import numpy as np
-import numpy.random
-
 import State
 
 class Target:

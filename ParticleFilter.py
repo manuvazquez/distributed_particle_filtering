@@ -1,4 +1,5 @@
 import numpy as np
+import State
 
 class ParticleFilter:
 	
@@ -12,6 +13,20 @@ class ParticleFilter:
 		# the weights are assigned equal probabilities
 		self._weights.fill(1/nParticles)
 		
+class TrackingParticleFilter(ParticleFilter):
+	
+	def __init__(self,nParticles,prior,stateTransitionKernel):
+		
+		super().__init__(nParticles)
+		
+		self._stateTransitionKernel = stateTransitionKernel
+		self._prior = prior
+	
+	def initialize(self):
+		
+		# initial samples...
+		prior.sample(self._nParticles)
+	
 class ResamplingAlgorithm:
 	
 	def __init__(self):
@@ -19,7 +34,10 @@ class ResamplingAlgorithm:
 		pass
 	
 	def getIndexes(self,weights):
+		"""It returns the indexes of the particles that should be kept after resampling.
 		
+		Notice that it doesn't perform any "real" resampling"...the real work must be performed somewhere else.
+		"""
 		pass
 	
 class MultinomialResamplingAlgorithm(ResamplingAlgorithm):

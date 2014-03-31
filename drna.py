@@ -1,11 +1,13 @@
 #! /usr/bin/env python3
 
+import math
+import numpy as np
+
 import Target
 import State
 import Sensor
-import math
-import numpy as np
 import Painter
+import ParticleFilter
 
 # number of particles per processing element (PE)
 K = 10
@@ -23,6 +25,9 @@ nTimeInstants = 15
 roomBottomLeftCorner = np.array([-10,-20])
 roomTopRightCorner = np.array([10,20])
 
+# the variance of the noise that rules the evolution of the velocity vector
+velocityVariance = 0.25
+
 # ---------------------------------------------
 
 # it gives the width and height
@@ -39,16 +44,18 @@ painter = Painter.WithBorder(Painter.Painter(sensorsPositions),roomBottomLeftCor
 painter.go()
 
 # a object that represents the prior distribution
-prior = State.UniformBoundedPositionGaussianVelocityPrior(roomBottomLeftCorner,roomTopRightCorner)
-
-# the target is created
-#target = Target.Target(State.StraightTransitionKernel(10))
-#target = Target.Target(State.BoundedRandomSpeedTransitionKernel(roomBottomLeftCorner,roomTopRightCorner))
+prior = State.UniformBoundedPositionGaussianVelocityPrior(roomBottomLeftCorner,roomTopRightCorner,velocityVariance=velocityVariance)
+transitionKernel = State.UniformBoundedPositionGaussianVelocityTransitionKernel(roomBottomLeftCorner,roomTopRightCorner,velocityVariance=velocityVariance)
 
 initialState = prior.sample()
 
+# the target is created...
+
 # notice that samples returns 2D array and Target needs to receive a 1D array, hence the [:,0]
-target = Target.Target(State.UniformBoundedPositionGaussianVelocityTransitionKernel(roomBottomLeftCorner,roomTopRightCorner),State.position(initialState),State.velocity(initialState))
+target = Target.Target(transitionKernel,State.position(initialState),State.velocity(initialState))
+
+# particle filter is created
+ParticleFilter.TrackingParticleFilter(20,prior,transitionKernel)
 
 for iTime in range(nTimeInstants):
 	

@@ -9,16 +9,28 @@ import numpy.random
 #	[ vel_y ]
 
 def position(state):
+	"""It extracts the position elements out of the state vector.
+	
+	The purpose is to encapsulate the state so that other modules/classes don't need to know about the structure of the state vector.
+	"""
 	
 	return state[0:2]
 
 def velocity(state):
+	"""It extracts the velocity elements out of the state vector.
+	
+	The purpose is to encapsulate the state so that other modules/classes don't need to know about the structure of the state vector.
+	"""
 	
 	return state[2:4]
 
 def buildState(position,velocity):
+	"""It builds a state vector given a position and a velocity vectors.
 	
-	return numpy.vstack((position,velocity))
+	The purpose is to encapsulate the state so that other modules/classes don't need to know about the structure of the state vector.
+	"""
+	
+	return np.vstack((position,velocity))
 
 class Prior:
 	
@@ -45,7 +57,7 @@ class UniformBoundedPositionGaussianVelocityPrior(Prior):
 		# velocity
 		velocity = numpy.random.normal(self._velocityMean,math.sqrt(self._velocityVariance/2),(2,nSamples))
 		
-		return numpy.vstack((position,velocity))
+		return np.vstack((position,velocity))
 
 class TransitionKernel:
 	
