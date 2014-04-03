@@ -50,9 +50,6 @@ sensorsPositions = sensorLayer.getPositions(nSensors)
 
 print('Sensors positions:\n',sensorsPositions)
 
-#import code
-#code.interact(local=dict(globals(), **locals()))
-
 # the actual number of sensor might not be equal to that requested
 nSensors = sensorsPositions.shape[1]
 
@@ -99,20 +96,14 @@ for iTime in range(nTimeInstants):
 	# the target moves
 	target.step()
 	
-	print('position: ',target.pos())
-	
 	# we compute the observations (one per sensor)
 	observations = np.array([float(sensors[i].detect(target.pos())) for i in range(nSensors)])
-	print('observations: ',observations)
 	
 	# the PF is updated
 	pf.step(observations)
 
 	# the plot is updated
 	painter.updateParticlesPositions(State.position(pf.getState()))
-
-	print(target.pos())
-
 	painter.updateTargetPosition(target.pos())
 	
 	print('ENTER to continue...')

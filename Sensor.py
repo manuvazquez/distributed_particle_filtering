@@ -1,7 +1,6 @@
 import numpy as np
-import random
+import numpy.random
 import math
-import numpy as np
 
 class Sensor:
 	def __init__(self,position,threshold,probDetection=0.9,probFalseAlarm=0.01):
@@ -27,18 +26,12 @@ class Sensor:
 		
 	def detect(self,targetPos):
 		
-		#print('sensor position:\n',self._position)
-		#print('target position:\n',targetPos)
-		
 		distance = np.linalg.norm((self._position - targetPos))
 		
-		#print('distance:',distance)
-		#print('---------------------------------------')
-		
 		if distance<self._threshold:
-			return random.random()<self._probDetection
+			return numpy.random.random()<self._probDetection
 		else:
-			return random.random()<self._probFalseAlarm
+			return numpy.random.random()<self._probFalseAlarm
 
 	def likelihood(self,observation,positions):
 		
@@ -47,9 +40,6 @@ class Sensor:
 
 		# an empty array with the same dimensions as distances is created
 		likelihoods = np.empty_like(distances)
-
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
 
 		# the likelihood for a given observation is computed a probability mass funciton if the target is within the reach of the sensor...
 		likelihoods[distances<self._threshold] = self._pmfObservationsWhenClose[observation]

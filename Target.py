@@ -26,8 +26,6 @@ class Target:
 		
 	def step(self):
 		
-		print('taking a step...')
-
 		# the new state is first computed...
 		newState = self._transitionKernel.nextState(State.buildState(self._pos,self._velocity))
 		
