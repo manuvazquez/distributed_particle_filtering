@@ -43,6 +43,8 @@ roomDiagonalVector = roomTopRightCorner - roomBottomLeftCorner
 # overall number of particles
 N = K*M
 
+N = 20
+
 sensorLayer = Sensor.EquispacedOnRectangleSensorLayer(roomBottomLeftCorner,roomTopRightCorner)
 sensorsPositions = sensorLayer.getPositions(nSensors)
 
@@ -81,7 +83,7 @@ resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm()
 resamplingCriterion = Resampling.ResampleCriterion(resamplingRatio)
 
 # ...are needed for the particle filter
-pf = ParticleFilter.TrackingParticleFilter(20,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel)
+pf = ParticleFilter.TrackingParticleFilter(N,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
 # initialization
 pf.initialize()
@@ -99,12 +101,12 @@ for iTime in range(nTimeInstants):
 	
 	print('position: ',target.pos())
 	
-	# we compute the observations
+	# we compute the observations (one per sensor)
 	observations = np.array([float(sensors[i].detect(target.pos())) for i in range(nSensors)])
 	print('observations: ',observations)
-
+	
 	# the PF is updated
-	pf.step(None)
+	pf.step(observations)
 
 	# the plot is updated
 	painter.updateParticlesPositions(State.position(pf.getState()))

@@ -1,6 +1,7 @@
 import numpy as np
 import random
 import math
+import numpy as np
 
 class Sensor:
 	def __init__(self,position,threshold,probDetection=0.9,probFalseAlarm=0.01):
@@ -17,6 +18,13 @@ class Sensor:
 		# the probability of false alarm
 		self._probFalseAlarm = probFalseAlarm
 		
+		# for the sake of convenience when computing the likelihood: we keep in an array the probability mass funciton of the observations conditional on the target being close enough (it depends on the threshold)...
+		# self._pmfObservationsWhenClose[x] = p(observation=x | |<target position> - <sensor position>| < threshold)
+		self._pmfObservationsWhenClose = np.array([1-probDetection,probDetection])
+		
+		# ...and that of the observations conditional on the target being far
+		self._pmfObservationsWhenFar = np.array([1-probFalseAlarm,probFalseAlarm])
+		
 	def detect(self,targetPos):
 		
 		#print('sensor position:\n',self._position)
@@ -31,6 +39,25 @@ class Sensor:
 			return random.random()<self._probDetection
 		else:
 			return random.random()<self._probFalseAlarm
+
+	def likelihood(self,observation,positions):
+		
+		# the distances to ALL the positions are computed
+		distances = np.linalg.norm(np.subtract(positions,self._position),axis=0)
+
+		# an empty array with the same dimensions as distances is created
+		likelihoods = np.empty_like(distances)
+
+		#import code
+		#code.interact(local=dict(globals(), **locals()))
+
+		# the likelihood for a given observation is computed a probability mass funciton if the target is within the reach of the sensor...
+		likelihoods[distances<self._threshold] = self._pmfObservationsWhenClose[observation]
+		
+		#...and a different one if it's outside it
+		likelihoods[distances>=self._threshold] = self._pmfObservationsWhenFar[observation]
+
+		return likelihoods
 
 class SensorLayer:
 	
@@ -80,15 +107,11 @@ class EquispacedOnRectangleSensorLayer(SensorLayer):
 		remainingInXdimension = self._diagonal[0] - nSquaresInXdimension*squareSide
 		remainingInYdimension = self._diagonal[1] - nSquaresInYdimension*squareSide
 		
-		# avoided list comprehension in order to get a numpy array as result
-		res = np.empty([2,nSquaresInXdimension*nSquaresInYdimension])
-		iSensor = 0
-		for i in range(int(nSquaresInXdimension)):
-			for j in range(int(nSquaresInYdimension)):
-				res[0,iSensor] = self._bottomLeftCorner[0] + (remainingInXdimension + squareSide)/2 + i*squareSide
-				res[1,iSensor] = self._bottomLeftCorner[1] + (remainingInYdimension + squareSide)/2 + j*squareSide
-				iSensor = iSensor + 1
+		res = np.transpose(
+				np.array(
+					[
+						[self._bottomLeftCorner[0] + (remainingInXdimension + squareSide)/2 + i*squareSide,self._bottomLeftCorner[1] + (remainingInYdimension + squareSide)/2 + j*squareSide]
+						for i in range(int(nSquaresInXdimension)) for j in range(int(nSquaresInYdimension))]))
 
-		#print(res)
-		
+
 		return res

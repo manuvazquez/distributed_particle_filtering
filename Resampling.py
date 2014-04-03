@@ -1,3 +1,5 @@
+import numpy as np
+
 class ResamplingAlgorithm:
 	
 	def __init__(self):
@@ -35,5 +37,5 @@ class ResampleCriterion:
 		except ZeroDivisionError:
 			print('ResampleCriterion::isResamplingNeeded: all the weights are zero!!...quitting')
 			raise SystemExit(0)
-			
+		
 		return nEffectiveParticles<(self._resamplingRatio*weights.size)
