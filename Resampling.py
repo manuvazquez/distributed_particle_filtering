@@ -23,13 +23,21 @@ class MultinomialResamplingAlgorithm(ResamplingAlgorithm):
 		
 		return np.random.choice(range(weights.size), weights.size, p=weights)
 
-class ResampleCriterion:
+class ResamplingCriterion:
+	
+	def isResamplingNeeded(self,weights):
+		
+		pass
+
+class EffectiveSampleSizeBasedResamplingCriterion(ResamplingCriterion):
 	
 	def __init__(self,resamplingRatio):
 		
 		self._resamplingRatio = resamplingRatio
 		
 	def isResamplingNeeded(self,weights):
+		
+		super().isResamplingNeeded(weights)
 		
 		# a division by zero may occur...
 		try:
@@ -39,3 +47,11 @@ class ResampleCriterion:
 			raise SystemExit(0)
 		
 		return nEffectiveParticles<(self._resamplingRatio*weights.size)
+	
+class AlwaysResamplingCriterion(ResamplingCriterion):
+	
+	def isResamplingNeeded(self,weights):
+		
+		super().isResamplingNeeded(weights)
+		
+		return True

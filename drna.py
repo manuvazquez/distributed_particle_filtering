@@ -77,7 +77,8 @@ print('initial position: ',target.pos())
 resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm()
 
 # ...and a resampling criterion...
-resamplingCriterion = Resampling.ResampleCriterion(resamplingRatio)
+resamplingCriterion = Resampling.EffectiveSampleSizeBasedResamplingCriterion(resamplingRatio)
+#resamplingCriterion = Resampling.AlwaysResamplingCriterion()
 
 # ...are needed for the particle filter
 pf = ParticleFilter.TrackingParticleFilter(N,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
