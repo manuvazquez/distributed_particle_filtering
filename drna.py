@@ -8,6 +8,7 @@ import State
 import Sensor
 import Painter
 import ParticleFilter
+import DRNA
 import Resampling
 
 # number of particles per processing element (PE)
@@ -35,6 +36,8 @@ velocityVariance = 0.25
 # for the particle filters
 resamplingRatio = 0.9
 
+DRNAexchangePeriod = 5
+
 # ---------------------------------------------
 
 # it gives the width and height
@@ -43,7 +46,7 @@ roomDiagonalVector = roomTopRightCorner - roomBottomLeftCorner
 # overall number of particles
 N = K*M
 
-N = 20
+N = 200
 
 sensorLayer = Sensor.EquispacedOnRectangleSensorLayer(roomBottomLeftCorner,roomTopRightCorner)
 sensorsPositions = sensorLayer.getPositions(nSensors)
@@ -85,6 +88,10 @@ pf = ParticleFilter.TrackingParticleFilter(N,resamplingAlgorithm,resamplingCrite
 
 # initialization
 pf.initialize()
+
+# distributed particle filtering
+distributedPf = DRNA.ParticleFiltersCompoundWithDRNA(M,DRNAexchangePeriod,N,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
+distributedPf.initialize()
 
 # particles are plotted
 painter.updateParticlesPositions(State.position(pf.getState()))

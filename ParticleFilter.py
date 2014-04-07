@@ -3,7 +3,7 @@ import State
 
 class ParticleFilter:
 	
-	def __init__(self,nParticles,resamplingAlgorithm,resamplingCriterion):
+	def __init__(self,nParticles,resamplingAlgorithm,resamplingCriterion,aggregatedWeight):
 		
 		self._nParticles = nParticles
 		self._weights = np.empty(nParticles)
@@ -13,11 +13,13 @@ class ParticleFilter:
 		
 		# at first...the state is empty
 		self._state = None
-		
+
+		self._aggregatedWeight = aggregatedWeight
+
 	def initialize(self):
 		
 		# the weights are assigned equal probabilities
-		self._weights.fill(1/self._nParticles)
+		self._weights.fill(self._aggregatedWeight/self._nParticles)
 		
 	def getState(self):
 		
@@ -34,15 +36,17 @@ class ParticleFilter:
 	def keepParticles(self,indexes):
 		
 		self._state = self._state[:,indexes]
-		self._weights.fill(1/self._nParticles)
+		self._weights.fill(self._aggregatedWeight/self._nParticles)
 
 class TrackingParticleFilter(ParticleFilter):
 	
-	def __init__(self,nParticles,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors):
+	def __init__(self,nParticles,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,aggregatedWeight=1.0):
 		
-		super().__init__(nParticles,resamplingAlgorithm,resamplingCriterion)
+		super().__init__(nParticles,resamplingAlgorithm,resamplingCriterion,aggregatedWeight)
 		
+		# the state equation is encoded in the transition kernel
 		self._stateTransitionKernel = stateTransitionKernel
+		
 		self._prior = prior
 		
 		self._sensors = sensors
@@ -72,14 +76,17 @@ class TrackingParticleFilter(ParticleFilter):
 		# the weights are updated
 		self._weights *= likelihoodsProduct
 		
-		# weights are normalized
-		self.normalizeWeights()
+		# the aggregated weight is simply the sum of the non-normalized weights
+		self._aggregatedWeight = self._weights.sum()
+		
+		# the normalized weights are computed
+		normalizedWeights = self._weights / self._aggregatedWeight
 
 		# if resampling is needed
-		if self._resamplingCriterion.isResamplingNeeded(self._weights):
+		if self._resamplingCriterion.isResamplingNeeded(normalizedWeights):
 			
 			# the resampling algorithm is used to decide which particles to keep
-			iParticlesToBeKept = self._resamplingAlgorithm.getIndexes(self._weights)
+			iParticlesToBeKept = self._resamplingAlgorithm.getIndexes(normalizedWeights)
 			
 			# actual resampling
 			self.keepParticles(iParticlesToBeKept)
