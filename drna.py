@@ -8,8 +8,8 @@ import Target
 import State
 import Sensor
 import Painter
-import ParticleFilter
-import Resampling
+from smc import ParticleFilter
+from smc import Resampling
 
 # the parameters file is read to memory
 with open('parameters.json') as jsonData:
