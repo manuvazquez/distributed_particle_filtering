@@ -9,7 +9,6 @@ import State
 import Sensor
 import Painter
 import ParticleFilter
-import DRNA
 import Resampling
 
 # the parameters file is read to memory
@@ -94,7 +93,7 @@ resamplingCriterion = Resampling.EffectiveSampleSizeBasedResamplingCriterion(res
 pf = ParticleFilter.TrackingParticleFilter(N,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
 # distributed particle filter
-distributedPf = DRNA.ParticleFiltersCompoundWithDRNA(M,drnaExchangePeriod,drnaExchangeMap,K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
+distributedPf = ParticleFilter.ParticleFiltersCompoundWithDRNA(M,drnaExchangePeriod,drnaExchangeMap,K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
 # initialization of the particle filters
 pf.initialize()
