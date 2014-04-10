@@ -1,0 +1,29 @@
+{
+	"number-of-particles-per-PE": 20,
+	"number-of-PEs": 10,
+	"number-of-sensors": 16,
+	"sensor-radius": 5,
+	"number-of-time-instants": 15,
+	"bottom-left-corner-of-the-room": [-10,-20],
+	"top-right-corner-of-the-room": [10,20],
+	"velocity-variance": 0.25,
+	"resampling-ratio": 0.9,
+	"DRNA-exchange-period": 5,
+	"exchange-tuples":
+	[
+		[0,4,1,4],
+		[0,10,1,12],
+		[1,4,2,4],
+		[1,4,2,4],
+		[3,1,4,9],
+		[3,4,1,4],
+		[4,1,5,9],
+		[4,8,5,2],
+		[5,1,6,9],
+		[5,2,6,1],
+		[6,12,7,19],
+		[6,10,7,11],
+		[7,1,8,2],
+		[7,9,8,5]
+	]
+}

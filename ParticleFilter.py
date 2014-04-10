@@ -3,13 +3,32 @@ import State
 
 class ParticleFilter:
 	
-	def __init__(self,nParticles,resamplingAlgorithm,resamplingCriterion,aggregatedWeight):
+	def __init__(self,nParticles,resamplingAlgorithm,resamplingCriterion):
 		
 		self._nParticles = nParticles
-		self._weights = np.empty(nParticles)
 		
 		self._resamplingAlgorithm = resamplingAlgorithm
 		self._resamplingCriterion = resamplingCriterion
+		
+	def initialize(self):
+
+		pass
+		
+	def step(self,observations):
+		
+		pass
+	
+	def getState(self):
+		
+		pass
+	
+class PlainParticleFilter(ParticleFilter):
+	
+	def __init__(self,nParticles,resamplingAlgorithm,resamplingCriterion,aggregatedWeight):
+		
+		super().__init__(nParticles,resamplingAlgorithm,resamplingCriterion)
+		
+		self._weights = np.empty(nParticles)
 		
 		# at first...the state is empty
 		self._state = None
@@ -18,16 +37,18 @@ class ParticleFilter:
 
 	def initialize(self):
 		
+		super().initialize()
+		
 		# the weights are assigned equal probabilities
 		self._weights.fill(self._aggregatedWeight/self._nParticles)
+
+	def step(self,observations):
+		
+		super().step(observations)
 		
 	def getState(self):
 		
 		return self._state
-
-	def step(self,observations):
-		
-		pass
 	
 	def normalizeWeights(self):
 		
@@ -37,8 +58,17 @@ class ParticleFilter:
 		
 		self._state = self._state[:,indexes]
 		self._weights.fill(self._aggregatedWeight/self._nParticles)
+		
+	def getParticle(self,index):
+		
+		return (self._state[:,index:index+1],self._weights[index])
+	
+	def setParticle(self,index,particle):
+		
+		self._state[:,index:index+1] = particle[0]
+		self._weights[index] = particle[1]
 
-class TrackingParticleFilter(ParticleFilter):
+class TrackingParticleFilter(PlainParticleFilter):
 	
 	def __init__(self,nParticles,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,aggregatedWeight=1.0):
 		
@@ -63,6 +93,8 @@ class TrackingParticleFilter(ParticleFilter):
 		
 	def step(self,observations):
 		
+		super().step(observations)
+		
 		# every particle is updated (previous state is not stored...)
 		self._state = np.hstack(
 			[self._stateTransitionKernel.nextState(self._state[:,i:i+1]) for i in range(self._nParticles)])
@@ -76,8 +108,7 @@ class TrackingParticleFilter(ParticleFilter):
 		# the weights are updated
 		self._weights *= likelihoodsProduct
 		
-		# the aggregated weight is simply the sum of the non-normalized weights
-		self._aggregatedWeight = self._weights.sum()
+		self.updateAggregatedWeight()
 		
 		# the normalized weights are computed
 		normalizedWeights = self._weights / self._aggregatedWeight
@@ -90,3 +121,8 @@ class TrackingParticleFilter(ParticleFilter):
 			
 			# actual resampling
 			self.keepParticles(iParticlesToBeKept)
+			
+	def updateAggregatedWeight(self):
+		
+		# the aggregated weight is simply the sum of the non-normalized weights
+		self._aggregatedWeight = self._weights.sum()

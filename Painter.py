@@ -56,6 +56,7 @@ class Painter:
 
 class PainterDecorator(Painter):
 	def __init__(self,decorated):
+
 		# let the superclass do its stuff
 		super().__init__(decorated._sensorsPositions)
 		

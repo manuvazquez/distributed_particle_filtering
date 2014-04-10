@@ -2,6 +2,7 @@
 
 import math
 import numpy as np
+import json
 
 import Target
 import State
@@ -11,32 +12,38 @@ import ParticleFilter
 import DRNA
 import Resampling
 
+# the parameters file is read to memory
+with open('parameters.json') as jsonData:
+	parameters = json.load(jsonData)
+
 # number of particles per processing element (PE)
-K = 10
+K = parameters["number-of-particles-per-PE"]
 
 # number of PEs
-M = 20
+M = parameters["number-of-PEs"]
 
 # number of sensors
-nSensors = 16
+nSensors = parameters["number-of-sensors"]
 
 # radious over which a sensor is able to detect the target
-sensorRadius = 5
+sensorRadius = parameters["sensor-radius"]
 
 # number of time instants
-nTimeInstants = 15
+nTimeInstants = parameters["number-of-time-instants"]
 
-# tuples containing the coordinates that define the bounds of the room
-roomBottomLeftCorner = np.array([-10,-20])
-roomTopRightCorner = np.array([10,20])
+# arrays containing the coordinates that define the bounds of the room
+roomBottomLeftCorner = np.array(parameters["bottom-left-corner-of-the-room"])
+roomTopRightCorner = np.array(parameters["top-right-corner-of-the-room"])
 
 # the variance of the noise that rules the evolution of the velocity vector
-velocityVariance = 0.25
+velocityVariance = parameters["velocity-variance"]
 
 # for the particle filters
-resamplingRatio = 0.9
+resamplingRatio = parameters["resampling-ratio"]
 
-DRNAexchangePeriod = 5
+# DRNA related
+drnaExchangePeriod = parameters["DRNA-exchange-period"]
+drnaExchangeMap = parameters["exchange-tuples"]
 
 # ---------------------------------------------
 
@@ -45,8 +52,6 @@ roomDiagonalVector = roomTopRightCorner - roomBottomLeftCorner
 
 # overall number of particles
 N = K*M
-
-N = 200
 
 sensorLayer = Sensor.EquispacedOnRectangleSensorLayer(roomBottomLeftCorner,roomTopRightCorner)
 sensorsPositions = sensorLayer.getPositions(nSensors)
@@ -62,11 +67,13 @@ sensors = [Sensor.Sensor(sensorsPositions[:,i:i+1],sensorRadius) for i in range(
 # this object will handle graphics
 painter = Painter.WithBorder(Painter.Painter(sensorsPositions),roomBottomLeftCorner,roomTopRightCorner)
 
-# we tell them to draw the sensors
+# we tell it to draw the sensors
 painter.setupSensors()
 
-# a object that represents the prior distribution
+# a object that represents the prior distribution...
 prior = State.UniformBoundedPositionGaussianVelocityPrior(roomBottomLeftCorner,roomTopRightCorner,velocityVariance=velocityVariance)
+
+# ...and a different one for the transition kernel
 transitionKernel = State.UniformBoundedPositionGaussianVelocityTransitionKernel(roomBottomLeftCorner,roomTopRightCorner,velocityVariance=velocityVariance)
 
 initialState = prior.sample()
@@ -79,22 +86,23 @@ print('initial position: ',target.pos())
 # a resampling algorithm...
 resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm()
 
-# ...and a resampling criterion...
+# ...and a resampling criterion are needed for the particle filters
 resamplingCriterion = Resampling.EffectiveSampleSizeBasedResamplingCriterion(resamplingRatio)
 #resamplingCriterion = Resampling.AlwaysResamplingCriterion()
 
-# ...are needed for the particle filter
+# plain non-parallelized particle filter
 pf = ParticleFilter.TrackingParticleFilter(N,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
-# initialization
-pf.initialize()
+# distributed particle filter
+distributedPf = DRNA.ParticleFiltersCompoundWithDRNA(M,drnaExchangePeriod,drnaExchangeMap,K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
-# distributed particle filtering
-distributedPf = DRNA.ParticleFiltersCompoundWithDRNA(M,DRNAexchangePeriod,N,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
+# initialization of the particle filters
+pf.initialize()
 distributedPf.initialize()
 
 # particles are plotted
 painter.updateParticlesPositions(State.position(pf.getState()))
+#painter.updateParticlesPositions(State.position(distributedPf.getState()))
 
 # the initial position is painted
 painter.updateTargetPosition(target.pos())
@@ -104,14 +112,18 @@ for iTime in range(nTimeInstants):
 	# the target moves
 	target.step()
 	
-	# we compute the observations (one per sensor)
+	# the observations (one per sensor) are computed
 	observations = np.array([float(sensors[i].detect(target.pos())) for i in range(nSensors)])
 	
-	# the PF is updated
+	# particle filters are updated
 	pf.step(observations)
+	distributedPf.step(observations)
 
-	# the plot is updated
+	# the plot is updated with the new positions of the particles...
 	painter.updateParticlesPositions(State.position(pf.getState()))
+	#painter.updateParticlesPositions(State.position(distributedPf.getState()))
+	
+	# ...and the target
 	painter.updateTargetPosition(target.pos())
 	
 	print('ENTER to continue...')
