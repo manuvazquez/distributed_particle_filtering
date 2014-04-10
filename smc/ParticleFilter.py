@@ -1,4 +1,6 @@
 import numpy as np
+import math
+
 import State
 
 class ParticleFilter:
@@ -69,6 +71,10 @@ class PlainParticleFilter(ParticleFilter):
 		
 		self._state[:,index:index+1] = particle[0]
 		self._weights[index] = particle[1]
+	
+	def getAggregatedWeight(self):
+		
+		return self._aggregatedWeight
 
 # =========================================================================================================
 
@@ -112,6 +118,7 @@ class TrackingParticleFilter(PlainParticleFilter):
 		# the weights are updated
 		self._weights *= likelihoodsProduct
 		
+		# the aggregated weight is kept up to date at any time
 		self.updateAggregatedWeight()
 		
 		# the normalized weights are computed
@@ -123,7 +130,7 @@ class TrackingParticleFilter(PlainParticleFilter):
 			# the resampling algorithm is used to decide which particles to keep
 			iParticlesToBeKept = self._resamplingAlgorithm.getIndexes(normalizedWeights)
 			
-			# actual resampling
+			# actual resampling (the aggregated weight doesn't change: it's just fairly split among the particles)
 			self.keepParticles(iParticlesToBeKept)
 			
 	def updateAggregatedWeight(self):
@@ -131,18 +138,31 @@ class TrackingParticleFilter(PlainParticleFilter):
 		# the aggregated weight is simply the sum of the non-normalized weights
 		self._aggregatedWeight = self._weights.sum()
 
+	def computeMean(self):
+		
+		normalizedWeights = self._weights / self._aggregatedWeight
+		
+		#import code
+		#code.interact(local=dict(globals(), **locals()))
+		
+		np.tile(normalizedWeights,(self._state.shape[0],1))
+		
+		
+
 # =========================================================================================================
 
 class ParticleFiltersCompoundWithDRNA(ParticleFilter):
 	
-	def __init__(self,nPEs,exchangePeriod,exchangeMap,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors):
+	def __init__(self,nPEs,exchangePeriod,exchangeMap,c,epsilon,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors):
 		
 		super().__init__(nPEs*nParticlesPerPE,resamplingAlgorithm,resamplingCriterion)
 		
-		self._nParticlesPerPE = nParticlesPerPE
+		self._nPEs = nPEs
 
 		# the PEs list will be looped through many times...so, for the sake of convenience
 		self._rPEs = range(nPEs)
+		
+		self._nParticlesPerPE = nParticlesPerPE
 
 		# the particle filters are built
 		self._PEs = [TrackingParticleFilter(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,1.0/nPEs) for i in self._rPEs]
@@ -150,8 +170,12 @@ class ParticleFiltersCompoundWithDRNA(ParticleFilter):
 		# a exchange of particles among PEs will happen every...
 		self._exchangePeriod = exchangePeriod
 		
-		# ...seconds, according to the map
+		# ...time instants, according to the map
 		self._exchangeMap = exchangeMap
+		
+		# parameters for checking the aggregated weights degeneration
+		self._c = c
+		self._epsilon = epsilon
 		
 		# the number of exchanges will be used repeatedly in loops
 		self._rExchanges = range(len(self._exchangeMap))
@@ -189,6 +213,10 @@ class ParticleFiltersCompoundWithDRNA(ParticleFilter):
 				
 				self._PEs[i].updateAggregatedWeight()
 		
+		if self.degeneratedAggregatedWeights():
+			
+			print('aggregated weights degenerated...')
+		
 	def exchangeParticles(self):
 		
 		# all the exchanges specified in the map are carried out
@@ -209,11 +237,21 @@ class ParticleFiltersCompoundWithDRNA(ParticleFilter):
 			self._PEs[exchangeTuple[2]].setParticle(exchangeTuple[3],particle)
 			
 			
-	def generateExchangeTuples(self,nParticlesPerNeighbour=3,nSurroundingNeighbours=2):
+	#def generateExchangeTuples(self,nParticlesPerNeighbour=3,nSurroundingNeighbours=2):
 		
-		pass
+		#pass
 	
 	def getState(self):
 		
 		# the state from every PE is gathered together
 		return np.hstack([self._PEs[i].getState() for i in self._rPEs])
+	
+	def getAggregatedWeights(self):
+		
+		return np.array([self._PEs[i].getAggregatedWeight() for i in self._rPEs])
+	
+	def degeneratedAggregatedWeights(self):
+
+		if self.getAggregatedWeights().max() > self._c/math.pow(self._nPEs,1.0-self._epsilon):
+			
+			return True

@@ -42,7 +42,9 @@ resamplingRatio = parameters["resampling-ratio"]
 
 # DRNA related
 drnaExchangePeriod = parameters["DRNA-exchange-period"]
-drnaExchangeMap = parameters["exchange-tuples"]
+drnaExchangeMap = parameters["DRNA-exchange-tuples"]
+drnaAggregatedWeights_c = parameters["DRNA-Aggregated-Weights-degeneration-c"]
+drnaAggregatedWeights_epsilon = parameters["DRNA-Aggregated-Weights-degeneration-epsilon"]
 
 # ---------------------------------------------
 
@@ -93,7 +95,7 @@ resamplingCriterion = Resampling.EffectiveSampleSizeBasedResamplingCriterion(res
 pf = ParticleFilter.TrackingParticleFilter(N,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
 # distributed particle filter
-distributedPf = ParticleFilter.ParticleFiltersCompoundWithDRNA(M,drnaExchangePeriod,drnaExchangeMap,K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
+distributedPf = ParticleFilter.ParticleFiltersCompoundWithDRNA(M,drnaExchangePeriod,drnaExchangeMap,drnaAggregatedWeights_c,drnaAggregatedWeights_epsilon,K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
 # initialization of the particle filters
 pf.initialize()
@@ -124,6 +126,10 @@ for iTime in range(nTimeInstants):
 	
 	# ...and the target
 	painter.updateTargetPosition(target.pos())
+	
+	pf.computeMean()
+	#import code
+	#code.interact(local=dict(globals(), **locals()))
 	
 	print('ENTER to continue...')
 	input()
