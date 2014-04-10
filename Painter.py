@@ -11,7 +11,7 @@ class Painter:
 		self._previousPosition = None
 		
 		# used to erase the previous particles and paint the new ones
-		self._particles = None
+		self._particles = {}
 		
 		# so that the program doesn't wait for the open windows to be closed in order to continue
 		plt.ion()
@@ -24,17 +24,12 @@ class Painter:
 		
 	def updateTargetPosition(self,position):
 		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
-		
-		#plt.hold(False)
-		#self.setupSensors()
 		plt.hold(True)
 		
 		# if this is not the first update (i.e., there exists a previous position)...
 		if self._previousPosition is not None:
 			# ...plot the step taken
-			self._ax.plot(np.array([self._previousPosition[0],position[0]]),np.array([self._previousPosition[1],position[1]]),'r-')
+			self._ax.plot(np.array([self._previousPosition[0],position[0]]),np.array([self._previousPosition[1],position[1]]),linestyle='-',color='red')
 		# if this is the first update...
 		else:
 			# ...just plot the position
@@ -44,15 +39,14 @@ class Painter:
 		
 		self._previousPosition = position
 
-	def updateParticlesPositions(self,positions):
+	def updateParticlesPositions(self,positions,identifier="unnamed",color="blue"):
 
 		# if previous particles are being displayed...
-		if self._particles:
+		if identifier in self._particles:
 			# ...we erase them
-			self._ax.lines.remove(self._particles)
-			#del self._ax.lines[-1]
+			self._ax.lines.remove(self._particles[identifier])
 
-		self._particles, = self._ax.plot(positions[0,:],positions[1,:],color='blue',marker='o',linewidth=0)
+		self._particles[identifier], = self._ax.plot(positions[0,:],positions[1,:],color=color,marker='o',linewidth=0)
 
 class PainterDecorator(Painter):
 	def __init__(self,decorated):

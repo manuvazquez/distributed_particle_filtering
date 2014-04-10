@@ -101,8 +101,8 @@ pf.initialize()
 distributedPf.initialize()
 
 # particles are plotted
-painter.updateParticlesPositions(State.position(pf.getState()))
-#painter.updateParticlesPositions(State.position(distributedPf.getState()))
+painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized')
+painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color='green')
 
 # the initial position is painted
 painter.updateTargetPosition(target.pos())
@@ -120,8 +120,8 @@ for iTime in range(nTimeInstants):
 	distributedPf.step(observations)
 
 	# the plot is updated with the new positions of the particles...
-	painter.updateParticlesPositions(State.position(pf.getState()))
-	#painter.updateParticlesPositions(State.position(distributedPf.getState()))
+	painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized')
+	painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color='green')
 	
 	# ...and the target
 	painter.updateTargetPosition(target.pos())
