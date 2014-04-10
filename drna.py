@@ -92,10 +92,10 @@ resamplingCriterion = Resampling.EffectiveSampleSizeBasedResamplingCriterion(res
 #resamplingCriterion = Resampling.AlwaysResamplingCriterion()
 
 # plain non-parallelized particle filter
-pf = ParticleFilter.TrackingParticleFilter(N,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
+pf = ParticleFilter.CentralizedTargetTrackingParticleFilter(N,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
 # distributed particle filter
-distributedPf = ParticleFilter.ParticleFiltersCompoundWithDRNA(M,drnaExchangePeriod,drnaExchangeMap,drnaAggregatedWeights_c,drnaAggregatedWeights_epsilon,K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
+distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(M,drnaExchangePeriod,drnaExchangeMap,drnaAggregatedWeights_c,drnaAggregatedWeights_epsilon,K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
 # initialization of the particle filters
 pf.initialize()

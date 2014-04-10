@@ -26,72 +26,29 @@ class ParticleFilter:
 
 # =========================================================================================================
 
-class PlainParticleFilter(ParticleFilter):
-	
-	def __init__(self,nParticles,resamplingAlgorithm,resamplingCriterion,aggregatedWeight):
-		
-		super().__init__(nParticles,resamplingAlgorithm,resamplingCriterion)
-		
-		self._weights = np.empty(nParticles)
-		
-		# at first...the state is empty
-		self._state = None
-
-		self._aggregatedWeight = aggregatedWeight
-
-	def initialize(self):
-		
-		super().initialize()
-		
-		# the weights are assigned equal probabilities
-		self._weights.fill(self._aggregatedWeight/self._nParticles)
-
-	def step(self,observations):
-		
-		super().step(observations)
-		
-	def getState(self):
-		
-		return self._state
-	
-	def normalizeWeights(self):
-		
-		self._weights /= self._weights.sum()
-		
-	def keepParticles(self,indexes):
-		
-		self._state = self._state[:,indexes]
-		self._weights.fill(self._aggregatedWeight/self._nParticles)
-		
-	def getParticle(self,index):
-		
-		return (self._state[:,index:index+1],self._weights[index])
-	
-	def setParticle(self,index,particle):
-		
-		self._state[:,index:index+1] = particle[0]
-		self._weights[index] = particle[1]
-	
-	def getAggregatedWeight(self):
-		
-		return self._aggregatedWeight
-
-# =========================================================================================================
-
-class TrackingParticleFilter(PlainParticleFilter):
+class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 	
 	def __init__(self,nParticles,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,aggregatedWeight=1.0):
 		
-		super().__init__(nParticles,resamplingAlgorithm,resamplingCriterion,aggregatedWeight)
+		super().__init__(nParticles,resamplingAlgorithm,resamplingCriterion)
+		
+		# a vector with the weights is created...but not initialized (that must be done by the "initialize" method)
+		self._weights = np.empty(nParticles)
 		
 		# the state equation is encoded in the transition kernel
 		self._stateTransitionKernel = stateTransitionKernel
 		
+		# the prior is needed to inialize the state
 		self._prior = prior
 		
+		# the sensors are kept
 		self._sensors = sensors
 		
-		self._rangeSensors = range(len(sensors))
+		# we will frequently loop through all the sensors, so...for the sake of convenience
+		self._rSensors = range(len(sensors))
+		
+		# this variable just keeps tabs on the sum of all the weights
+		self._aggregatedWeight = aggregatedWeight
 	
 	def initialize(self):
 		
@@ -100,6 +57,9 @@ class TrackingParticleFilter(PlainParticleFilter):
 		
 		# initial samples...
 		self._state = self._prior.sample(self._nParticles)
+		
+		# the weights are assigned equal probabilities
+		self._weights.fill(1.0/self._nParticles)
 		
 	def step(self,observations):
 		
@@ -110,7 +70,7 @@ class TrackingParticleFilter(PlainParticleFilter):
 			[self._stateTransitionKernel.nextState(self._state[:,i:i+1]) for i in range(self._nParticles)])
 		
 		# for each sensor, we compute the likelihood of EVERY particle (position)
-		likelihoods = np.array([self._sensors[i].likelihood(observations[i],State.position(self._state)) for i in self._rangeSensors])
+		likelihoods = np.array([self._sensors[i].likelihood(observations[i],State.position(self._state)) for i in self._rSensors])
 		
 		# for each particle, we compute the product of the likelihoods for all the sensors
 		likelihoodsProduct = likelihoods.prod(axis=0)
@@ -130,9 +90,30 @@ class TrackingParticleFilter(PlainParticleFilter):
 			# the resampling algorithm is used to decide which particles to keep
 			iParticlesToBeKept = self._resamplingAlgorithm.getIndexes(normalizedWeights)
 			
-			# actual resampling (the aggregated weight doesn't change: it's just fairly split among the particles)
+			# actual resampling
 			self.keepParticles(iParticlesToBeKept)
-			
+
+	def getState(self):
+		
+		return self._state
+
+	def keepParticles(self,indexes):
+		
+		self._state = self._state[:,indexes]
+		self._weights.fill(1.0/self._nParticles)
+		
+		# we forced this above
+		self._aggregatedWeight = 1.0
+		
+	def getParticle(self,index):
+		
+		return (self._state[:,index:index+1],self._weights[index])
+	
+	def setParticle(self,index,particle):
+		
+		self._state[:,index:index+1] = particle[0]
+		self._weights[index] = particle[1]
+
 	def updateAggregatedWeight(self):
 		
 		# the aggregated weight is simply the sum of the non-normalized weights
@@ -146,12 +127,38 @@ class TrackingParticleFilter(PlainParticleFilter):
 		#code.interact(local=dict(globals(), **locals()))
 		
 		np.tile(normalizedWeights,(self._state.shape[0],1))
-		
-		
+
 
 # =========================================================================================================
 
-class ParticleFiltersCompoundWithDRNA(ParticleFilter):
+class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilter):
+	
+	def initialize(self):
+		
+		# the grandfather's method...
+		ParticleFilter.initialize(self)
+		
+		# state initialization...just like in the centralized version
+		self._state = self._prior.sample(self._nParticles)
+		
+		# NOT exactly the same in the centralized version
+		self._weights.fill(self._aggregatedWeight/self._nParticles)
+
+	def keepParticles(self,indexes):
+		
+		# just like in the centralized version
+		self._state = self._state[:,indexes]
+		
+		# NOT exactly the same in the centralized version
+		self._weights.fill(self._aggregatedWeight/self._nParticles)
+
+	def getAggregatedWeight(self):
+		
+		return self._aggregatedWeight
+
+# =========================================================================================================
+
+class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 	
 	def __init__(self,nPEs,exchangePeriod,exchangeMap,c,epsilon,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors):
 		
@@ -165,7 +172,7 @@ class ParticleFiltersCompoundWithDRNA(ParticleFilter):
 		self._nParticlesPerPE = nParticlesPerPE
 
 		# the particle filters are built
-		self._PEs = [TrackingParticleFilter(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,1.0/nPEs) for i in self._rPEs]
+		self._PEs = [EmbeddedTargetTrackingParticleFilter(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,1.0/nPEs) for i in self._rPEs]
 		
 		# a exchange of particles among PEs will happen every...
 		self._exchangePeriod = exchangePeriod
