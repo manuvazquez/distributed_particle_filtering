@@ -10,6 +10,7 @@ import Sensor
 import Painter
 from smc import ParticleFilter
 from smc import Resampling
+import PEsNetwork
 
 # the parameters file is read to memory
 with open('parameters.json') as jsonData:
@@ -42,11 +43,16 @@ resamplingRatio = parameters["resampling-ratio"]
 
 # DRNA related
 drnaExchangePeriod = parameters["DRNA-exchange-period"]
-drnaExchangeMap = parameters["DRNA-exchange-tuples"]
+drnaExchangeTuples = parameters["DRNA-exchange-tuples"]
 drnaAggregatedWeights_c = parameters["DRNA-Aggregated-Weights-degeneration-c"]
 drnaAggregatedWeights_epsilon = parameters["DRNA-Aggregated-Weights-degeneration-epsilon"]
 
 # ---------------------------------------------
+
+# a PEsNetwork is created and used to get the exchange tuples
+drnaExchangeTuples = PEsNetwork.PEsNetwork(M,K,0.05,[
+	[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]
+	]).getExchangeTuples()
 
 # it gives the width and height
 roomDiagonalVector = roomTopRightCorner - roomBottomLeftCorner
@@ -95,7 +101,7 @@ resamplingCriterion = Resampling.EffectiveSampleSizeBasedResamplingCriterion(res
 pf = ParticleFilter.CentralizedTargetTrackingParticleFilter(N,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
 # distributed particle filter
-distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(M,drnaExchangePeriod,drnaExchangeMap,drnaAggregatedWeights_c,drnaAggregatedWeights_epsilon,K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
+distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(M,drnaExchangePeriod,drnaExchangeTuples,drnaAggregatedWeights_c,drnaAggregatedWeights_epsilon,K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
 # initialization of the particle filters
 pf.initialize()

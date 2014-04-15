@@ -91,13 +91,13 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 			iParticlesToBeKept = self._resamplingAlgorithm.getIndexes(normalizedWeights)
 			
 			# actual resampling
-			self.keepParticles(iParticlesToBeKept)
+			self.resample(iParticlesToBeKept)
 
 	def getState(self):
 		
 		return self._state
 
-	def keepParticles(self,indexes):
+	def resample(self,indexes):
 		
 		self._state = self._state[:,indexes]
 		self._weights.fill(1.0/self._nParticles)
@@ -141,15 +141,15 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 		# state initialization...just like in the centralized version
 		self._state = self._prior.sample(self._nParticles)
 		
-		# NOT exactly the same in the centralized version
+		# NOT exactly the same as in the centralized version
 		self._weights.fill(self._aggregatedWeight/self._nParticles)
 
-	def keepParticles(self,indexes):
+	def resample(self,indexes):
 		
 		# just like in the centralized version
 		self._state = self._state[:,indexes]
 		
-		# NOT exactly the same in the centralized version
+		# NOT exactly the same as in the centralized version
 		self._weights.fill(self._aggregatedWeight/self._nParticles)
 
 	def getAggregatedWeight(self):
@@ -243,11 +243,6 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 			
 			self._PEs[exchangeTuple[2]].setParticle(exchangeTuple[3],particle)
 			
-			
-	#def generateExchangeTuples(self,nParticlesPerNeighbour=3,nSurroundingNeighbours=2):
-		
-		#pass
-	
 	def getState(self):
 		
 		# the state from every PE is gathered together
