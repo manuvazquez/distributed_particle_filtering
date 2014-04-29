@@ -81,10 +81,13 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		# the aggregated weight is kept up to date at any time
 		self.updateAggregatedWeight()
 		
-		# the normalized weights are computed
+		# if required (depending on the algorithm), the weights are normalized...
+		self.normalizeWeightsIfRequired()
+		
+		# ...though the normalized weights are computed anyway...
 		normalizedWeights = self._weights / self._aggregatedWeight
-
-		# if resampling is needed
+		
+		# ...in order to perform resampling if needed
 		if self._resamplingCriterion.isResamplingNeeded(normalizedWeights):
 			
 			# the resampling algorithm is used to decide which particles to keep
@@ -122,12 +125,16 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 	def computeMean(self):
 		
 		normalizedWeights = self._weights / self._aggregatedWeight
-		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
-		
-		np.tile(normalizedWeights,(self._state.shape[0],1))
 
+		# element-wise multiplication of the state vectors and their correspondent weights...followed by addition => weighted mean
+		return np.multiply(self._state,normalizedWeights).sum(axis=1)[np.newaxis].T
+		
+	def normalizeWeightsIfRequired(self):
+		
+		self._weights /= self._aggregatedWeight
+		
+		# we forced this above
+		self._aggregatedWeight = 1.0
 
 # =========================================================================================================
 
@@ -155,6 +162,10 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 	def getAggregatedWeight(self):
 		
 		return self._aggregatedWeight
+	
+	def normalizeWeightsIfRequired(self):
+		
+		pass
 
 # =========================================================================================================
 
@@ -172,7 +183,7 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		self._nParticlesPerPE = nParticlesPerPE
 
 		# the particle filters are built
-		self._PEs = [EmbeddedTargetTrackingParticleFilter(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,1.0/nPEs) for i in self._rPEs]
+		self._PEs = [EmbeddedTargetTrackingParticleFilter(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,aggregatedWeight=1.0/nPEs) for i in self._rPEs]
 		
 		# a exchange of particles among PEs will happen every...
 		self._exchangePeriod = exchangePeriod
@@ -257,3 +268,13 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		if self.getAggregatedWeights().max() > self._c/math.pow(self._nPEs,1.0-self._epsilon):
 			
 			return True
+		
+	def computeMean(self):
+		
+		# the aggregated weights are not necessarily normalized
+		normalizedAggregatedWeights = self.getAggregatedWeights()/self.getAggregatedWeights().sum()
+		
+		#import code
+		#code.interact(local=dict(globals(), **locals()))
+		
+		return np.multiply(np.hstack([self._PEs[i].computeMean() for i in self._rPEs]),normalizedAggregatedWeights).sum(axis=1)[np.newaxis].T

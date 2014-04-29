@@ -8,6 +8,9 @@
 	"top-right-corner-of-the-room": [10,20],
 	"velocity-variance": 0.25,
 	"resampling-ratio": 0.9,
+	"sleep-time-between-plot-updates": 0.1,
+	"color-centralized-PF": "blue",
+	"color-distributed-PF": "green",
 	"DRNA-exchange-period": 5,
 	"DRNA-exchange-tuples":
 	[

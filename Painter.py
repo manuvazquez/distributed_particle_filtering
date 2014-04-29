@@ -3,10 +3,15 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 class Painter:
-	def __init__(self,sensorsPositions):
+	def __init__(self,sensorsPositions,sleepTime=0.5):
+		
+		self._sensorsPositions = sensorsPositions
+		self._sleepTime = sleepTime
+		
+		print('sleep time = ',sleepTime)
+		
 		self._figure = plt.figure('room')
 		self._ax = plt.axes()
-		self._sensorsPositions = sensorsPositions
 		
 		self._previousPosition = None
 		
@@ -47,15 +52,34 @@ class Painter:
 			self._ax.lines.remove(self._particles[identifier])
 
 		self._particles[identifier], = self._ax.plot(positions[0,:],positions[1,:],color=color,marker='o',linewidth=0)
+		
+		# plot now...
+		plt.draw()
+		
+		# and wait...to 
+		plt.pause(self._sleepTime)
 
 class PainterDecorator(Painter):
+	
 	def __init__(self,decorated):
 
-		# let the superclass do its stuff
-		super().__init__(decorated._sensorsPositions)
+		# the superclass constructor is not called so we don't duplicate attributes
 		
 		# we keep a reference to the object being decorated
 		self._decorated = decorated
+
+	# let the decorated class do its stuff when the methods are not redefined in subclasses:
+	def setupSensors(self):
+
+		self._decorated.setupSensors()
+
+	def updateTargetPosition(self,position):
+		
+		self._decorated.updateTargetPosition(position)
+
+	def updateParticlesPositions(self,positions,identifier="unnamed",color="blue"):
+		
+		self._decorated.updateParticlesPositions(positions,identifier=identifier,color=color)
 		
 class WithBorder(PainterDecorator):
 	def __init__(self,decorated,roomBottomLeftCorner,roomTopRightCorner):
@@ -65,13 +89,12 @@ class WithBorder(PainterDecorator):
 		self._roomDiagonalVector = self._roomTopRightCorner - self._roomBottomLeftCorner
 		
 	def setupSensors(self):
-		# let the superclass do its stuff
-		super().setupSensors()
+		
+		# let the decorated class do its stuff
+		self._decorated.setupSensors()
 		
 		# we define a rectangular patch...
 		roomEdge = matplotlib.patches.Rectangle((self._roomBottomLeftCorner[0],self._roomBottomLeftCorner[1]), self._roomDiagonalVector[0], self._roomDiagonalVector[1], fill=False, color='blue')
 		
 		# ...and added to the axes
-		self._ax.add_patch(roomEdge)
-		
-		
+		self._decorated._ax.add_patch(roomEdge)
