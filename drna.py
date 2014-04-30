@@ -4,7 +4,6 @@ import math
 import numpy as np
 import json
 import time
-#import matplotlib
 import matplotlib.pyplot as plt
 
 import Target
@@ -57,6 +56,15 @@ drnaExchangeTuples = parameters["DRNA-exchange-tuples"]
 drnaAggregatedWeights_c = parameters["DRNA-Aggregated-Weights-degeneration-c"]
 drnaAggregatedWeights_epsilon = parameters["DRNA-Aggregated-Weights-degeneration-epsilon"]
 
+# name of the output file for the MSE vs time plot
+MSEvsTimeOutputFile = parameters["MSEvsTime-output-file"]
+
+# a flag indicating whether target and particles evolution should be displayed
+displayEvolution = parameters["display-evolution"]
+
+#import code
+#code.interact(local=dict(globals(), **locals()))
+
 # ---------------------------------------------
 
 # a PEs network is created and used to get the exchange tuples
@@ -81,12 +89,6 @@ nSensors = sensorsPositions.shape[1]
 # we build the array of sensors
 sensors = [Sensor.Sensor(sensorsPositions[:,i:i+1],sensorRadius) for i in range(nSensors)]
 
-# this object will handle graphics
-painter = Painter.WithBorder(Painter.Painter(sensorsPositions,sleepTime=sleepTime),roomBottomLeftCorner,roomTopRightCorner)
-
-# we tell it to draw the sensors
-painter.setupSensors()
-
 # a object that represents the prior distribution...
 prior = State.UniformBoundedPositionGaussianVelocityPrior(roomBottomLeftCorner,roomTopRightCorner,velocityVariance=velocityVariance)
 
@@ -98,7 +100,7 @@ initialState = prior.sample()
 # the target is created...
 target = Target.Target(transitionKernel,State.position(initialState),State.velocity(initialState))
 
-print('initial position: ',target.pos())
+print('initial position:\n',target.pos())
 
 # a resampling algorithm...
 resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm()
@@ -117,12 +119,20 @@ distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(M,drnaExchan
 pf.initialize()
 distributedPf.initialize()
 
-# particles are plotted
-painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=centralizedPFcolor)
-painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=distributedPFcolor)
+if displayEvolution:
 
-# the initial position is painted
-painter.updateTargetPosition(target.pos())
+	# this object will handle graphics
+	painter = Painter.WithBorder(Painter.Painter(sensorsPositions,sleepTime=sleepTime),roomBottomLeftCorner,roomTopRightCorner)
+
+	# we tell it to draw the sensors
+	painter.setupSensors()
+
+	# particles are plotted
+	painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=centralizedPFcolor)
+	painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=distributedPFcolor)
+
+	# the initial position is painted
+	painter.updateTargetPosition(target.pos())
 
 # the mean square error will be stored here
 MSE = np.empty((2,nTimeInstants))
@@ -139,24 +149,34 @@ for iTime in range(nTimeInstants):
 	pf.step(observations)
 	distributedPf.step(observations)
 
-	# the plot is updated with the new positions of the particles...
-	painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=centralizedPFcolor)
-	painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=distributedPFcolor)
-	
-	# ...and the target
-	painter.updateTargetPosition(target.pos())
+	if displayEvolution:
+
+		# the plot is updated with the new positions of the particles...
+		painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=centralizedPFcolor)
+		painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=distributedPFcolor)
+		
+		# ...and the target
+		painter.updateTargetPosition(target.pos())
 	
 	# MSE for both the centralized and distributed particle filters is computed
 	MSE[0,iTime],MSE[1,iTime] = ((State.position(pf.computeMean())-target.pos())**2).mean(),((State.position(distributedPf.computeMean())-target.pos())**2).mean()
+
+plt.ion()
 
 # a new figure is created to plot the MSE vs time
 mseVsTimeFigure = plt.figure('MSE vs Time')
 mseVsTimeAxes = plt.axes()
 
-mseVsTimeAxes.plot(MSE[0,:],color=centralizedPFcolor,label='Centralized PF')
-mseVsTimeAxes.plot(MSE[1,:],color=distributedPFcolor,label='Distributed PF')
+mseVsTimeAxes.plot(MSE[0,:],color=centralizedPFcolor,marker='+',label='Centralized PF')
 
+plt.hold(True)
+
+mseVsTimeAxes.plot(MSE[1,:],color=distributedPFcolor,marker='o',label='Distributed PF')
+
+# the labes are shown
 plt.legend()
+
+plt.savefig(MSEvsTimeOutputFile)
 
 print('ENTER to continue...')
 input()
