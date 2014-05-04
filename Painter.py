@@ -2,15 +2,71 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
-class Painter:
+def plotMSEvsTime(centralizedPF_MSE,distributedPF_MSE,centralizedPFcolor,distributedPFcolor,centralizedPFmarker,distributedPFmarker,outputFile):
+
+	# interactive mode on
+	plt.ion()
+
+	# a new figure is created to plot the MSE vs time
+	mseVsTimeFigure = plt.figure('MSE vs Time')
+	mseVsTimeAxes = plt.axes()
+
+	mseVsTimeAxes.plot(centralizedPF_MSE,color=centralizedPFcolor,marker=centralizedPFmarker,label='Centralized PF')
+
+	mseVsTimeAxes.hold(True)
+
+	mseVsTimeAxes.plot(distributedPF_MSE,color=distributedPFcolor,marker=distributedPFmarker,label='Distributed PF')
+
+	# the labes are shown
+	mseVsTimeAxes.legend()
+
+	plt.savefig(outputFile)
+
+def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregatedWeightsVsTime.eps'):
+	
+	# interactive mode on
+	plt.ion()
+
+	# a new figure is created to plot the MSE vs time
+	aggregatedWeightsVsTimeFigure = plt.figure('Aggregated Weights Evolution')
+	aggregatedWeightsVsTimeAxes = plt.axes()
+	
+	# the shape of the array with the aggregated weights is used to figure out the number of PEs and time instants
+	nTimeInstants,nPEs = aggregatedWeights.shape
+
+	# the aggregated weights are represented normalized
+	normalizedAggregatedWeights = np.divide(aggregatedWeights,aggregatedWeights.sum(axis=1)[np.newaxis].T)
+
+	# in order to keep tabs on the sum of the aggregated weights already represented at each time instant
+	accum = np.zeros(nTimeInstants)
+
+	# positions for the bars corresponding to the different time instants
+	t = range(nTimeInstants)
+
+	# the colors associated to the different PEs are generated randomly
+	PEsColors = np.random.rand(nPEs,3)
+
+	for i in range(nPEs):
+		
+		aggregatedWeightsVsTimeAxes.bar(t,normalizedAggregatedWeights[:,i],bottom=accum,color=PEsColors[i,:])
+		accum += normalizedAggregatedWeights[:,i]
+	
+	aggregatedWeightsVsTimeAxes.set_xticks(np.arange(0.5,nTimeInstants))
+	aggregatedWeightsVsTimeAxes.set_xticklabels(range(1,nTimeInstants+1))
+	aggregatedWeightsVsTimeAxes.set_xbound(upper=nTimeInstants)
+	
+	aggregatedWeightsVsTimeAxes.set_yticks([0,0.5,1])
+	aggregatedWeightsVsTimeAxes.set_ybound(upper=1)
+
+	plt.savefig(outputFile)
+
+class RoomPainter:
 	def __init__(self,sensorsPositions,sleepTime=0.5):
 		
 		self._sensorsPositions = sensorsPositions
 		self._sleepTime = sleepTime
 		
-		print('sleep time = ',sleepTime)
-		
-		self._figure = plt.figure('room')
+		self._figure = plt.figure('Room')
 		self._ax = plt.axes()
 		
 		self._previousPosition = None
@@ -59,7 +115,7 @@ class Painter:
 		# and wait...to 
 		plt.pause(self._sleepTime)
 
-class PainterDecorator(Painter):
+class RoomPainterDecorator(RoomPainter):
 	
 	def __init__(self,decorated):
 
@@ -81,7 +137,7 @@ class PainterDecorator(Painter):
 		
 		self._decorated.updateParticlesPositions(positions,identifier=identifier,color=color)
 		
-class WithBorder(PainterDecorator):
+class WithBorder(RoomPainterDecorator):
 	def __init__(self,decorated,roomBottomLeftCorner,roomTopRightCorner):
 		super().__init__(decorated)
 		self._roomBottomLeftCorner = roomBottomLeftCorner

@@ -122,7 +122,7 @@ distributedPf.initialize()
 if displayEvolution:
 
 	# this object will handle graphics
-	painter = Painter.WithBorder(Painter.Painter(sensorsPositions,sleepTime=sleepTime),roomBottomLeftCorner,roomTopRightCorner)
+	painter = Painter.WithBorder(Painter.RoomPainter(sensorsPositions,sleepTime=sleepTime),roomBottomLeftCorner,roomTopRightCorner)
 
 	# we tell it to draw the sensors
 	painter.setupSensors()
@@ -134,8 +134,14 @@ if displayEvolution:
 	# the initial position is painted
 	painter.updateTargetPosition(target.pos())
 
-# the mean square error will be stored here
-MSE = np.empty((2,nTimeInstants))
+# we store the computed mean square errors...
+centralizedPF_MSE,distributedPF_MSE = np.empty(nTimeInstants),np.empty(nTimeInstants)
+
+# ...and the aggregated weights
+distributedPFaggregatedWeights = np.empty((nTimeInstants+1,M))
+
+# the aggregated weights of the different PEs in the distributed PF at the initial time instant
+distributedPFaggregatedWeights[0,:] = distributedPf.getAggregatedWeights()
 
 for iTime in range(nTimeInstants):
 
@@ -159,27 +165,16 @@ for iTime in range(nTimeInstants):
 		painter.updateTargetPosition(target.pos())
 	
 	# MSE for both the centralized and distributed particle filters is computed
-	MSE[0,iTime],MSE[1,iTime] = ((State.position(pf.computeMean())-target.pos())**2).mean(),((State.position(distributedPf.computeMean())-target.pos())**2).mean()
+	centralizedPF_MSE[iTime],distributedPF_MSE[iTime] = ((State.position(pf.computeMean())-target.pos())**2).mean(),((State.position(distributedPf.computeMean())-target.pos())**2).mean()
+	
+	# the aggregated weights of the different PEs in the distributed PF are stored
+	distributedPFaggregatedWeights[iTime+1,:] = distributedPf.getAggregatedWeights()
 
-plt.ion()
+# MSE vs time
+Painter.plotMSEvsTime(centralizedPF_MSE,distributedPF_MSE,centralizedPFcolor,distributedPFcolor,'+','o',MSEvsTimeOutputFile)
 
-# a new figure is created to plot the MSE vs time
-mseVsTimeFigure = plt.figure('MSE vs Time')
-mseVsTimeAxes = plt.axes()
+# aggregated weights vs time in a stackbar diagram
+Painter.plotAggregatedWeightsDistributionVsTime(distributedPFaggregatedWeights)
 
-mseVsTimeAxes.plot(MSE[0,:],color=centralizedPFcolor,marker='+',label='Centralized PF')
-
-plt.hold(True)
-
-mseVsTimeAxes.plot(MSE[1,:],color=distributedPFcolor,marker='o',label='Distributed PF')
-
-# the labes are shown
-plt.legend()
-
-plt.savefig(MSEvsTimeOutputFile)
-
-print('ENTER to continue...')
-input()
-
-#import code
-#code.interact(local=dict(globals(), **locals()))
+import code
+code.interact(local=dict(globals(), **locals()))
