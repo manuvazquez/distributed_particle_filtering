@@ -4,6 +4,7 @@ import math
 import numpy as np
 import json
 import time
+import sys
 import matplotlib.pyplot as plt
 
 import Target
@@ -175,6 +176,9 @@ Painter.plotMSEvsTime(centralizedPF_MSE,distributedPF_MSE,centralizedPFcolor,dis
 
 # aggregated weights vs time in a stackbar diagram
 Painter.plotAggregatedWeightsDistributionVsTime(distributedPFaggregatedWeights)
+
+# evolution of the largest aggregated weight over time
+Painter.plotMaxAggregatedWeightVsTime(distributedPFaggregatedWeights)
 
 import code
 code.interact(local=dict(globals(), **locals()))

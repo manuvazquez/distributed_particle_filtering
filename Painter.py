@@ -22,7 +22,7 @@ def plotMSEvsTime(centralizedPF_MSE,distributedPF_MSE,centralizedPFcolor,distrib
 
 	plt.savefig(outputFile)
 
-def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregatedWeightsVsTime.eps'):
+def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregatedWeightsVsTime.eps',xticksStep=10):
 	
 	# interactive mode on
 	plt.ion()
@@ -51,12 +51,37 @@ def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggreg
 		aggregatedWeightsVsTimeAxes.bar(t,normalizedAggregatedWeights[:,i],bottom=accum,color=PEsColors[i,:])
 		accum += normalizedAggregatedWeights[:,i]
 	
-	aggregatedWeightsVsTimeAxes.set_xticks(np.arange(0.5,nTimeInstants))
-	aggregatedWeightsVsTimeAxes.set_xticklabels(range(1,nTimeInstants+1))
+	aggregatedWeightsVsTimeAxes.set_xticks(np.arange(0.5,nTimeInstants,xticksStep))
+	aggregatedWeightsVsTimeAxes.set_xticklabels(range(0,nTimeInstants,xticksStep))
 	aggregatedWeightsVsTimeAxes.set_xbound(upper=nTimeInstants)
 	
 	aggregatedWeightsVsTimeAxes.set_yticks([0,0.5,1])
 	aggregatedWeightsVsTimeAxes.set_ybound(upper=1)
+
+	plt.savefig(outputFile)
+
+def plotMaxAggregatedWeightVsTime(aggregatedWeights,outputFile='maxAggregatedWeightVsTime.eps',xticksStep=10):
+	
+	# interactive mode on
+	plt.ion()
+
+	# a new figure is created to plot the MSE vs time
+	maxAggregatedWeightVsTimeFigure = plt.figure('Maximum Aggregated Weight')
+	maxAggregatedWeightVsTimeAxes = plt.axes()
+	
+	# the aggregated weights are  normalized...
+	normalizedAggregatedWeights = np.divide(aggregatedWeights,aggregatedWeights.sum(axis=1)[np.newaxis].T)
+	
+	# ...and the maximum weight at every time instant obtained
+	maxWeights = normalizedAggregatedWeights.max(axis=1)
+
+	maxAggregatedWeightVsTimeAxes.plot(maxWeights,label='Max. weight')
+	#maxAggregatedWeightVsTimeAxes.plot(maxWeights)
+	
+	maxAggregatedWeightVsTimeAxes.set_xbound(upper=len(maxWeights)-1)
+	
+	# in order to show the legend
+	maxAggregatedWeightVsTimeAxes.legend(loc='lower right')
 
 	plt.savefig(outputFile)
 
