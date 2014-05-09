@@ -15,6 +15,8 @@ from smc import ParticleFilter
 from smc import Resampling
 import PEsNetwork
 
+np.set_printoptions(precision=3,linewidth=100)
+
 # the parameters file is read to memory
 with open('parameters.json') as jsonData:
 	parameters = json.load(jsonData)
@@ -53,7 +55,7 @@ distributedPFcolor = parameters["color-distributed-PF"]
 
 # DRNA related
 drnaExchangePeriod = parameters["DRNA-exchange-period"]
-drnaExchangeTuples = parameters["DRNA-exchange-tuples"]
+drnaExchangePercentage = parameters["DRNA-exchange-percentage"]
 drnaAggregatedWeights_c = parameters["DRNA-Aggregated-Weights-degeneration-c"]
 drnaAggregatedWeights_epsilon = parameters["DRNA-Aggregated-Weights-degeneration-epsilon"]
 
@@ -63,13 +65,13 @@ MSEvsTimeOutputFile = parameters["MSEvsTime-output-file"]
 # a flag indicating whether target and particles evolution should be displayed
 displayEvolution = parameters["display-evolution"]
 
-#import code
-#code.interact(local=dict(globals(), **locals()))
-
 # ---------------------------------------------
 
+np.random.seed(9554)
+#np.random.seed(123456)
+
 # a PEs network is created and used to get the exchange tuples
-drnaExchangeTuples = PEsNetwork.PEsNetwork(M,K,0.05,[
+drnaExchangeTuples = PEsNetwork.PEsNetwork(M,K,drnaExchangePercentage,[
 	[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]
 	]).getExchangeTuples()
 
@@ -145,6 +147,8 @@ distributedPFaggregatedWeights = np.empty((nTimeInstants+1,M))
 distributedPFaggregatedWeights[0,:] = distributedPf.getAggregatedWeights()
 
 for iTime in range(nTimeInstants):
+
+	print('---------- iTime = ' + repr(iTime) + ' ---------------')
 
 	# the target moves
 	target.step()

@@ -84,14 +84,22 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		# if required (depending on the algorithm), the weights are normalized...
 		self.normalizeWeightsIfRequired()
 		
-		# ...though the normalized weights are computed anyway...
-		normalizedWeights = self._weights / self._aggregatedWeight
+		# ...though the normalized weights are computed anyway...if possible...
+		if self._aggregatedWeight!=0:
+			normalizedWeights = self._weights / self._aggregatedWeight
+		else:
+			normalizedWeights = np.ones_like(self._weights)/self._nParticles
 		
 		# ...in order to perform resampling if needed
 		if self._resamplingCriterion.isResamplingNeeded(normalizedWeights):
 			
-			# the resampling algorithm is used to decide which particles to keep
-			iParticlesToBeKept = self._resamplingAlgorithm.getIndexes(normalizedWeights)
+			try:
+				# the resampling algorithm is used to decide which particles to keep
+				iParticlesToBeKept = self._resamplingAlgorithm.getIndexes(normalizedWeights)
+			except ValueError:
+				print('WTF')
+				import code
+				code.interact(local=dict(globals(), **locals()))
 			
 			# actual resampling
 			self.resample(iParticlesToBeKept)
@@ -110,12 +118,15 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		
 	def getParticle(self,index):
 		
-		return (self._state[:,index:index+1],self._weights[index])
+		return (self._state[:,index:index+1].copy(),self._weights[index])
 	
 	def setParticle(self,index,particle):
 		
 		self._state[:,index:index+1] = particle[0]
 		self._weights[index] = particle[1]
+		
+		# the sum of the weights might have changed...
+		self.updateAggregatedWeight()
 
 	def updateAggregatedWeight(self):
 		
@@ -191,15 +202,11 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		# ...time instants, according to the map
 		self._exchangeMap = exchangeMap
 		
-		# parameters for checking the aggregated weights degeneration
-		self._c = c
-		self._epsilon = epsilon
-		
-		# the number of exchanges will be used repeatedly in loops
-		self._rExchanges = range(len(self._exchangeMap))
+		# parameter for checking the aggregated weights degeneration
+		self._aggregatedWeightsUpperBound = c/math.pow(nPEs,1.0-epsilon)
 		
 		# because of the exchange period, we must keep track of the elapsed (discreet) time instants
-		self._n = 0
+		self._n = 1
 		
 	def initialize(self):
 		
@@ -222,7 +229,7 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		# a new time instant has elapsed
 		self._n += 1
 		
-		if self._n % self._exchangePeriod:
+		if self._n % self._exchangePeriod == 0:
 			
 			self.exchangeParticles()
 			
@@ -233,27 +240,26 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		
 		if self.degeneratedAggregatedWeights():
 			
-			print('aggregated weights degenerated...')
+			#print('aggregated weights degenerated...')
+			#print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
+			
+			self.exchangeParticles()
+			
+			#print('still degenerated: ',self.degeneratedAggregatedWeights())
+			#print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
 		
 	def exchangeParticles(self):
+
+		# first, we compile all the particles that are going to be exchanged in an auxiliar variable
+		aux = []
+		for exchangeTuple in self._exchangeMap:
+			aux.append([self._PEs[exchangeTuple[0]].getParticle(exchangeTuple[1]),self._PEs[exchangeTuple[2]].getParticle(exchangeTuple[3])])
+
+		# afterwards, we loop through all the exchange tuples performing the real exchange
+		for (exchangeTuple,particles) in zip(self._exchangeMap,aux):
+			self._PEs[exchangeTuple[0]].setParticle(exchangeTuple[1],particles[1])
+			self._PEs[exchangeTuple[2]].setParticle(exchangeTuple[3],particles[0])
 		
-		# all the exchanges specified in the map are carried out
-		for i in self._rExchanges:
-			
-			# for the sake of convenience when referring to the current exchange tuple
-			exchangeTuple = self._exchangeMap[i]
-			
-			# auxiliar variable storing the first particle
-			particle = self._PEs[exchangeTuple[0]].getParticle(exchangeTuple[1])
-			
-			# the first particle is set to the second
-			self._PEs[exchangeTuple[0]].setParticle(
-				exchangeTuple[1],
-				self._PEs[exchangeTuple[2]].getParticle(exchangeTuple[3])
-				)
-			
-			self._PEs[exchangeTuple[2]].setParticle(exchangeTuple[3],particle)
-			
 	def getState(self):
 		
 		# the state from every PE is gathered together
@@ -265,7 +271,9 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 	
 	def degeneratedAggregatedWeights(self):
 
-		if self.getAggregatedWeights().max() > self._c/math.pow(self._nPEs,1.0-self._epsilon):
+		normalizedWeights = self.getAggregatedWeights() / self.getAggregatedWeights().sum()
+
+		if normalizedWeights.max() > self._aggregatedWeightsUpperBound:
 			
 			return True
 		
