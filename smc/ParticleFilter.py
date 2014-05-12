@@ -44,9 +44,6 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		# the sensors are kept
 		self._sensors = sensors
 		
-		# we will frequently loop through all the sensors, so...for the sake of convenience
-		self._rSensors = range(len(sensors))
-		
 		# this variable just keeps tabs on the sum of all the weights
 		self._aggregatedWeight = aggregatedWeight
 	
@@ -70,7 +67,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 			[self._stateTransitionKernel.nextState(self._state[:,i:i+1]) for i in range(self._nParticles)])
 		
 		# for each sensor, we compute the likelihood of EVERY particle (position)
-		likelihoods = np.array([self._sensors[i].likelihood(observations[i],State.position(self._state)) for i in self._rSensors])
+		likelihoods = np.array([sensor.likelihood(observations[i],State.position(self._state)) for i,sensor in enumerate(self._sensors)])
 		
 		# for each particle, we compute the product of the likelihoods for all the sensors
 		likelihoodsProduct = likelihoods.prod(axis=0)
@@ -177,6 +174,11 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 	def normalizeWeightsIfRequired(self):
 		
 		pass
+	
+	def scaleWeights(self,factor):
+		
+		self._weights *= factor
+		self._aggregatedWeight *= factor
 
 # =========================================================================================================
 
@@ -188,13 +190,10 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		
 		self._nPEs = nPEs
 
-		# the PEs list will be looped through many times...so, for the sake of convenience
-		self._rPEs = range(nPEs)
-		
 		self._nParticlesPerPE = nParticlesPerPE
 
 		# the particle filters are built
-		self._PEs = [EmbeddedTargetTrackingParticleFilter(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,aggregatedWeight=1.0/nPEs) for i in self._rPEs]
+		self._PEs = [EmbeddedTargetTrackingParticleFilter(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,aggregatedWeight=1.0/nPEs) for i in range(nPEs)]
 		
 		# a exchange of particles among PEs will happen every...
 		self._exchangePeriod = exchangePeriod
@@ -207,24 +206,28 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		
 		# because of the exchange period, we must keep track of the elapsed (discreet) time instants
 		self._n = 1
+	
+	def getAggregatedWeightsUpperBound(self):
 		
+		return self._aggregatedWeightsUpperBound
+	
 	def initialize(self):
 		
 		super().initialize()
 		
 		# all the PFs are initialized
-		for i in self._rPEs:
+		for PE in self._PEs:
 			
-			self._PEs[i].initialize()
+			PE.initialize()
 			
 	def step(self,observations):
 		
 		super().step(observations)
 		
 		# a step is taken in every PF (ideally, this would occur concurrently)
-		for i in self._rPEs:
+		for PE in self._PEs:
 			
-			self._PEs[i].step(observations)
+			PE.step(observations)
 		
 		# a new time instant has elapsed
 		self._n += 1
@@ -233,22 +236,40 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 			
 			self.exchangeParticles()
 			
-			# after the exchange, the aggregated weight of every PE must be computed updated
-			for i in self._rPEs:
+			# after the exchange, the aggregated weight of every PE must be updated
+			for PE in self._PEs:
 				
-				self._PEs[i].updateAggregatedWeight()
+				PE.updateAggregatedWeight()
 		
+		# in order to peform some checks...
+		aggregatedWeightsSum = self.getAggregatedWeights().sum()
+		
+		# if the aggregated weights are too small for the computer precision
+		if aggregatedWeightsSum < np.finfo(float).eps:
+			
+			# an "appropriate" factor is computed...
+			scaleFactor = 10**(-1*np.ceil(np.log10(aggregatedWeightsSum)))
+			
+			# ...to scale all the weights within ALL the PEs
+			for PE in self._PEs:
+				
+				PE.scaleWeights(scaleFactor)
+			
+		# if the weights degenerate so that they don't satisfy the corresponding assumption...
 		if self.degeneratedAggregatedWeights():
 			
-			#print('aggregated weights degenerated...')
-			#print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
+			print('aggregated weights degenerated...')
+			print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
 			
+			# a few particles are exchanged
 			self.exchangeParticles()
 			
-			#print('still degenerated: ',self.degeneratedAggregatedWeights())
-			#print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
+			print('still degenerated: ',self.degeneratedAggregatedWeights())
+			print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
 		
 	def exchangeParticles(self):
+		
+		print('exchangeParticles: sum before = ',self.getAggregatedWeights().sum())
 
 		# first, we compile all the particles that are going to be exchanged in an auxiliar variable
 		aux = []
@@ -260,16 +281,25 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 			self._PEs[exchangeTuple[0]].setParticle(exchangeTuple[1],particles[1])
 			self._PEs[exchangeTuple[2]].setParticle(exchangeTuple[3],particles[0])
 		
+		print('exchangeParticles: sum after = ',self.getAggregatedWeights().sum())
+		
 	def getState(self):
 		
 		# the state from every PE is gathered together
-		return np.hstack([self._PEs[i].getState() for i in self._rPEs])
+		return np.hstack([PE.getState() for PE in self._PEs])
 	
 	def getAggregatedWeights(self):
 		
-		return np.array([self._PEs[i].getAggregatedWeight() for i in self._rPEs])
+		return np.array([PE.getAggregatedWeight() for PE in self._PEs])
 	
 	def degeneratedAggregatedWeights(self):
+
+		if self.getAggregatedWeights().sum()==0:
+			
+			print('pesos agregados 0!!')
+			
+			import code
+			code.interact(local=dict(globals(), **locals()))
 
 		normalizedWeights = self.getAggregatedWeights() / self.getAggregatedWeights().sum()
 
@@ -285,4 +315,4 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		#import code
 		#code.interact(local=dict(globals(), **locals()))
 		
-		return np.multiply(np.hstack([self._PEs[i].computeMean() for i in self._rPEs]),normalizedAggregatedWeights).sum(axis=1)[np.newaxis].T
+		return np.multiply(np.hstack([PE.computeMean() for PE in self._PEs]),normalizedAggregatedWeights).sum(axis=1)[np.newaxis].T

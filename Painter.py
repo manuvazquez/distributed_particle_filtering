@@ -60,13 +60,13 @@ def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggreg
 
 	plt.savefig(outputFile)
 
-def plotMaxAggregatedWeightVsTime(aggregatedWeights,outputFile='maxAggregatedWeightVsTime.eps',xticksStep=10):
+def plotMaxAggregatedWeightVsTime(aggregatedWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',xticksStep=10):
 	
 	# interactive mode on
 	plt.ion()
 
 	# a new figure is created to plot the MSE vs time
-	maxAggregatedWeightVsTimeFigure = plt.figure('Maximum Aggregated Weight')
+	maxAggregatedWeightVsTimeFigure = plt.figure('Aggregated Weights Supremum')
 	maxAggregatedWeightVsTimeAxes = plt.axes()
 	
 	# the aggregated weights are  normalized...
@@ -75,13 +75,17 @@ def plotMaxAggregatedWeightVsTime(aggregatedWeights,outputFile='maxAggregatedWei
 	# ...and the maximum weight at every time instant obtained
 	maxWeights = normalizedAggregatedWeights.max(axis=1)
 
-	maxAggregatedWeightVsTimeAxes.plot(maxWeights,label='Max. weight')
-	#maxAggregatedWeightVsTimeAxes.plot(maxWeights)
+	# this is plotted along time
+	maxAggregatedWeightVsTimeAxes.plot(maxWeights,label='Supremum')
 	
+	# the x-axis is adjusted so that it ends exactly at the last time instant
 	maxAggregatedWeightVsTimeAxes.set_xbound(upper=len(maxWeights)-1)
 	
+	# the upper bound is plotted
+	maxAggregatedWeightVsTimeAxes.axhline(y=upperBound,linewidth=2, color='red',linestyle='dashed',label='$c/M^{1-{\\varepsilon}}$')
+	
 	# in order to show the legend
-	maxAggregatedWeightVsTimeAxes.legend(loc='lower right')
+	maxAggregatedWeightVsTimeAxes.legend(loc='upper right')
 
 	plt.savefig(outputFile)
 

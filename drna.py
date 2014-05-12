@@ -154,7 +154,9 @@ for iTime in range(nTimeInstants):
 	target.step()
 	
 	# the observations (one per sensor) are computed
-	observations = np.array([float(sensors[i].detect(target.pos())) for i in range(nSensors)])
+	observations = np.array(
+			[float(sensor.detect(target.pos())) for sensor in sensors]
+			)
 	
 	# particle filters are updated
 	pf.step(observations)
@@ -178,11 +180,11 @@ for iTime in range(nTimeInstants):
 # MSE vs time
 Painter.plotMSEvsTime(centralizedPF_MSE,distributedPF_MSE,centralizedPFcolor,distributedPFcolor,'+','o',MSEvsTimeOutputFile)
 
-# aggregated weights vs time in a stackbar diagram
-Painter.plotAggregatedWeightsDistributionVsTime(distributedPFaggregatedWeights)
+## aggregated weights vs time in a stackbar diagram
+#Painter.plotAggregatedWeightsDistributionVsTime(distributedPFaggregatedWeights)
 
 # evolution of the largest aggregated weight over time
-Painter.plotMaxAggregatedWeightVsTime(distributedPFaggregatedWeights)
+Painter.plotMaxAggregatedWeightVsTime(distributedPFaggregatedWeights,distributedPf.getAggregatedWeightsUpperBound())
 
 import code
 code.interact(local=dict(globals(), **locals()))

@@ -17,7 +17,7 @@ class Sensor:
 		# the probability of false alarm
 		self._probFalseAlarm = probFalseAlarm
 		
-		# for the sake of convenience when computing the likelihood: we keep in an array the probability mass funciton of the observations conditional on the target being close enough (it depends on the threshold)...
+		# for the sake of convenience when computing the likelihood: we keep an array with the probability mass funciton of the observations conditional on the target being close enough (it depends on the threshold)...
 		# self._pmfObservationsWhenClose[x] = p(observation=x | |<target position> - <sensor position>| < threshold)
 		self._pmfObservationsWhenClose = np.array([1-probDetection,probDetection])
 		
@@ -41,7 +41,7 @@ class Sensor:
 		# an empty array with the same dimensions as distances is created
 		likelihoods = np.empty_like(distances)
 
-		# the likelihood for a given observation is computed a probability mass funciton if the target is within the reach of the sensor...
+		# the likelihood for a given observation is computed using probability mass funciton if the target is within the reach of the sensor...
 		likelihoods[distances<self._threshold] = self._pmfObservationsWhenClose[observation]
 		
 		#...and a different one if it's outside it
