@@ -65,18 +65,25 @@ MSEvsTimeOutputFile = parameters["MSEvsTime-output-file"]
 
 # a flag indicating whether target and particles evolution should be displayed
 displayEvolution = parameters["display-evolution"]
+displayParticlesEvolution = parameters["display-particles-evolution"]
 
 normalizationPeriod = 5
 
 # ---------------------------------------------
 
-np.random.seed(9554)
-#np.random.seed(123456)
+#np.random.seed(9554)
+np.random.seed(283627627)
 
 # a PEs network is created and used to get the exchange tuples
-drnaExchangeTuples = PEsNetwork.PEsNetwork(M,K,drnaExchangePercentage,[
-	[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]
-	]).getExchangeTuples()
+
+#drnaExchangeTuples = PEsNetwork.ManuallyCraftedPEsNetwork(M,K,drnaExchangePercentage,[
+	#[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]
+	#]).getExchangeTuples()
+
+drnaExchangeTuples = PEsNetwork.CircularPEsNetwork(M,K,drnaExchangePercentage).getExchangeTuples()
+
+print('drnaExchangeTuples')
+print(drnaExchangeTuples)
 
 # it gives the width and height
 roomDiagonalVector = roomTopRightCorner - roomBottomLeftCorner
@@ -107,6 +114,7 @@ initialState = prior.sample()
 target = Target.Target(transitionKernel,State.position(initialState),State.velocity(initialState))
 
 print('initial position:\n',target.pos())
+print('initial velocity:\n',target.velocity())
 
 # a resampling algorithm...
 resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm()
@@ -134,13 +142,15 @@ if displayEvolution:
 
 	# we tell it to draw the sensors
 	painter.setupSensors()
-
-	# particles are plotted
-	painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=centralizedPFcolor)
-	painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=distributedPFcolor)
-
+	
 	# the initial position is painted
 	painter.updateTargetPosition(target.pos())
+
+	if displayParticlesEvolution:
+
+		# particles are plotted
+		painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=centralizedPFcolor)
+		painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=distributedPFcolor)
 
 # we store the computed mean square errors...
 centralizedPF_MSE,distributedPF_MSE = np.empty(nTimeInstants),np.empty(nTimeInstants)
@@ -157,6 +167,9 @@ for iTime in range(nTimeInstants):
 
 	# the target moves
 	target.step()
+
+	print('position:\n',target.pos())
+	print('velocity:\n',target.velocity())
 	
 	# the observations (one per sensor) are computed
 	observations = np.array(
@@ -166,21 +179,33 @@ for iTime in range(nTimeInstants):
 	# particle filters are updated
 	pf.step(observations)
 	distributedPf.step(observations)
-
-	if displayEvolution:
-
-		# the plot is updated with the new positions of the particles...
-		painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=centralizedPFcolor)
-		painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=distributedPFcolor)
-		
-		# ...and the target
-		painter.updateTargetPosition(target.pos())
+	
+	# the mean computed by the centralized and distributed PFs
+	centralizedPF_mean,distributedPF_mean = pf.computeMean(),distributedPf.computeMean()
 	
 	# MSE for both the centralized and distributed particle filters is computed
-	centralizedPF_MSE[iTime],distributedPF_MSE[iTime] = ((State.position(pf.computeMean())-target.pos())**2).mean(),((State.position(distributedPf.computeMean())-target.pos())**2).mean()
+	centralizedPF_MSE[iTime],distributedPF_MSE[iTime] = ((State.position(centralizedPF_mean)-target.pos())**2).mean(),((State.position(distributedPF_mean)-target.pos())**2).mean()
 	
 	# the aggregated weights of the different PEs in the distributed PF are stored
 	distributedPFaggregatedWeights[iTime+1,:] = distributedPf.getAggregatedWeights()
+	
+	print('centralized PF\n',centralizedPF_mean)
+	print('distributed PF\n',distributedPF_mean)
+	
+	if displayEvolution:
+
+		# the plot is updated with the position of the target...
+		painter.updateTargetPosition(target.pos())
+		
+		# ...those estimated by the PFs
+		painter.updateEstimatedPosition(State.position(centralizedPF_mean),identifier='centralized',color=centralizedPFcolor)
+		painter.updateEstimatedPosition(State.position(distributedPF_mean),identifier='distributed',color=distributedPFcolor)
+
+		if displayParticlesEvolution:
+
+			# ...and those of the particles...
+			painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=centralizedPFcolor)
+			painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=distributedPFcolor)
 
 # MSE vs time
 Painter.plotMSEvsTime(centralizedPF_MSE,distributedPF_MSE,centralizedPFcolor,distributedPFcolor,'+','o',MSEvsTimeOutputFile)
@@ -190,6 +215,9 @@ Painter.plotMSEvsTime(centralizedPF_MSE,distributedPF_MSE,centralizedPFcolor,dis
 
 # evolution of the largest aggregated weight over time
 Painter.plotAggregatedWeightsSupremumVsTime(distributedPFaggregatedWeights,distributedPf.getAggregatedWeightsUpperBound())
+
+if displayEvolution:
+	painter.save()
 
 import code
 code.interact(local=dict(globals(), **locals()))

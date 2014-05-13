@@ -3,7 +3,7 @@ import numpy.random
 
 class PEsNetwork:
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,neighbours):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage):
 		
 		self._nPEs = nPEs
 		
@@ -12,14 +12,17 @@ class PEsNetwork:
 		
 		# ...out of which, this will be exchanged
 		self._nParticlesToBeExchanged = int(np.ceil(nParticlesPerPE*exchangePercentage))
-		self._rParticlesToBeExchanged = range(self._nParticlesToBeExchanged)
 		
-		# each element in the list is another list specifying the neighbours of the corresponding PE
-		self._neighbours = neighbours
+		# no neighbours for the different PEs are specified in this class...this should be done in the children classes
+		self._neighbours = []
 		
 		# indexes of the particles...just for the sake of efficiency (this array will be used many times)
 		self._iParticles = np.arange(nParticlesPerPE)
 		
+	def getNumberOfParticlesToBeExchanged(self):
+		
+		return self._nParticlesToBeExchanged
+	
 	def getExchangeTuples(self):
 		
 		# an array to keep tabs of pairs of PEs already processed
@@ -43,7 +46,7 @@ class PEsNetwork:
 					iParticlesToExchangeWithinNeighbour = numpy.random.choice(self._iParticles[iNotSwappedYetParticles[iNeighbour,:]],size=self._nParticlesToBeExchanged,replace=False)
 
 					# new "exchange tuple"s are generated
-					exchangeTuples.extend([[iPE,iParticlesToExchangeWithinPE[i],iNeighbour,iParticlesToExchangeWithinNeighbour[i]] for i in self._rParticlesToBeExchanged])
+					exchangeTuples.extend([[iPE,iParticleWithinPE,iNeighbour,iParticleWithinNeighbour] for iParticleWithinPE,iParticleWithinNeighbour in zip(iParticlesToExchangeWithinPE,iParticlesToExchangeWithinNeighbour)])
 					
 					# these PEs (the one considered in the main loop and the neighbour being processed) should not exchange the selected particles (different in each case) with other PEs
 					iNotSwappedYetParticles[iPE,iParticlesToExchangeWithinPE] = False
@@ -53,3 +56,20 @@ class PEsNetwork:
 					alreadyProcessedPEs[iNeighbour,iPE] = alreadyProcessedPEs[iPE,iNeighbour] = True
 					
 		return exchangeTuples
+
+class ManuallyCraftedPEsNetwork(PEsNetwork):
+	
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,neighbours):
+		
+		super().__init__(nPEs,nParticlesPerPE,exchangePercentage)
+			
+		# each element in the list is another list specifying the neighbours of the corresponding PE
+		self._neighbours = neighbours
+		
+class CircularPEsNetwork(PEsNetwork):
+	
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage):
+		
+		super().__init__(nPEs,nParticlesPerPE,exchangePercentage)
+		
+		self._neighbours = [[(i-1) % nPEs,(i+1) % nPEs] for i in range(nPEs)]

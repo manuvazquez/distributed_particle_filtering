@@ -66,7 +66,7 @@ def plotAggregatedWeightsSupremumVsTime(aggregatedWeights,upperBound,outputFile=
 	plt.ion()
 
 	# a new figure is created to plot the MSE vs time
-	maxAggregatedWeightVsTimeFigure = plt.figure('Aggregated Weights Supremum')
+	maxAggregatedWeightVsTimeFigure = plt.figure('Aggregated Weights Supremum Vs Time')
 	maxAggregatedWeightVsTimeAxes = plt.axes()
 	
 	# the aggregated weights are  normalized...
@@ -90,27 +90,38 @@ def plotAggregatedWeightsSupremumVsTime(aggregatedWeights,upperBound,outputFile=
 	plt.savefig(outputFile)
 
 class RoomPainter:
-	def __init__(self,sensorsPositions,sleepTime=0.5):
+	
+	def __init__(self,sensorsPositions,sleepTime=0.5,outputFile='trajectory.eps'):
 		
 		self._sensorsPositions = sensorsPositions
 		self._sleepTime = sleepTime
+		self._outputFile = outputFile
 		
 		self._figure = plt.figure('Room')
 		self._ax = plt.axes()
 		
+		# in order to draw a segment from the previous position to the current one, we need to remember the former
 		self._previousPosition = None
+		
+		# the same for the estimates, but since there can be more than one, we use a dictionary
+		self._previousEstimates = {}
 		
 		# used to erase the previous particles and paint the new ones
 		self._particles = {}
+		
+		# in order to avoid a legend entry per plotted segment
+		self._legendEntries = []
 		
 		# so that the program doesn't wait for the open windows to be closed in order to continue
 		plt.ion()
 		
 	def setupSensors(self):
+		
 		self._ax.plot(self._sensorsPositions[0,:], self._sensorsPositions[1,:],color='red',marker='+',linewidth=0)
 		self._ax.set_aspect('equal', 'datalim')
+		
+		# plot now...
 		plt.show()
-		#plt.hold(True)
 		
 	def updateTargetPosition(self,position):
 		
@@ -122,14 +133,42 @@ class RoomPainter:
 			self._ax.plot(np.array([self._previousPosition[0],position[0]]),np.array([self._previousPosition[1],position[1]]),linestyle='-',color='red')
 		# if this is the first update...
 		else:
-			# ...just plot the position
-			self._ax.plot(position[0],position[1],'r*')
-		
-		plt.draw()
+			# ...just plot the position keeping the handler...
+			p, = self._ax.plot(position[0],position[1],color='red')
+			
+			# we add this to the list of entries in the legend (just once!!)
+			self._legendEntries.append(p)
 		
 		self._previousPosition = position
+		
+		# plot now...
+		plt.draw()
 
-	def updateParticlesPositions(self,positions,identifier="unnamed",color="blue"):
+		# ...and wait...
+		plt.pause(self._sleepTime)
+	
+	def updateEstimatedPosition(self,position,identifier='unnamed',color='blue'):
+		
+		plt.hold(True)
+		
+		# if this is not the first update (i.e., there exists a previous estimate)...
+		if identifier in self._previousEstimates:
+			# ...plot the step taken
+			self._ax.plot(np.array([self._previousEstimates[identifier][0],position[0]]),np.array([self._previousEstimates[identifier][1],position[1]]),linestyle='-',color=color)
+		# if this is the first update...
+		else:
+			# ...just plot the position keeping the handler...
+			p, = self._ax.plot(position[0],position[1],color=color)
+			
+			# ...to add it to the legend
+			self._legendEntries.append(p)
+		
+		self._previousEstimates[identifier] = position
+		
+		# plot now...
+		plt.draw()
+
+	def updateParticlesPositions(self,positions,identifier='unnamed',color='blue'):
 
 		# if previous particles are being displayed...
 		if identifier in self._particles:
@@ -141,14 +180,23 @@ class RoomPainter:
 		# plot now...
 		plt.draw()
 		
-		# and wait...to 
-		plt.pause(self._sleepTime)
+	def save(self):
+		
+		# just in case...the current figure is set to the proper value
+		plt.figure(self._figure.number)
+		
+		
+		self._ax.legend(self._legendEntries,['real'] + list(self._previousEstimates.keys()),ncol=3)
+		
+		#self._ax.set_ybound(lower=-8)
+		
+		plt.savefig(self._outputFile)
 
 class RoomPainterDecorator(RoomPainter):
 	
 	def __init__(self,decorated):
 
-		# the superclass constructor is not called so we don't duplicate attributes
+		# the superclass constructor is not called so that we don't duplicate attributes
 		
 		# we keep a reference to the object being decorated
 		self._decorated = decorated
@@ -162,20 +210,34 @@ class RoomPainterDecorator(RoomPainter):
 		
 		self._decorated.updateTargetPosition(position)
 
-	def updateParticlesPositions(self,positions,identifier="unnamed",color="blue"):
+	def updateParticlesPositions(self,positions,identifier='unnamed',color='blue'):
 		
 		self._decorated.updateParticlesPositions(positions,identifier=identifier,color=color)
 		
+	def updateEstimatedPosition(self,position,identifier='unnamed',color='blue'):
+		
+		self._decorated.updateEstimatedPosition(position,identifier=identifier,color=color)
+		
+	def save(self):
+		
+		#self._decorated._ax.set_ybound(lower=self._roomBottomLeftCorner[1]+5)
+		#self._decorated._ax.set_ybound(upper=self._roomTopRightCorner[1]-5)
+		
+		self._decorated.save()
+		
 class WithBorder(RoomPainterDecorator):
+	
 	def __init__(self,decorated,roomBottomLeftCorner,roomTopRightCorner):
+		
 		super().__init__(decorated)
+		
 		self._roomBottomLeftCorner = roomBottomLeftCorner
 		self._roomTopRightCorner = roomTopRightCorner
 		self._roomDiagonalVector = self._roomTopRightCorner - self._roomBottomLeftCorner
 		
 	def setupSensors(self):
 		
-		# let the decorated class do its stuff
+		# let the decorated class do its thing
 		self._decorated.setupSensors()
 		
 		# we define a rectangular patch...

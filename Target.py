@@ -20,7 +20,7 @@ class Target:
 		
 		return self._pos
 	
-	def speed(self):
+	def velocity(self):
 		
 		return self._velocity
 		
