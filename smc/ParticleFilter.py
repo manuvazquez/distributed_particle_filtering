@@ -56,7 +56,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		self._state = self._prior.sample(self._nParticles)
 		
 		# the weights are assigned equal probabilities
-		self._weights.fill(1.0/self._nParticles)
+		self._weights.fill(self._aggregatedWeight/self._nParticles)
 		
 	def step(self,observations):
 		
@@ -67,7 +67,9 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 			[self._stateTransitionKernel.nextState(self._state[:,i:i+1]) for i in range(self._nParticles)])
 		
 		# for each sensor, we compute the likelihood of EVERY particle (position)
-		likelihoods = np.array([sensor.likelihood(observations[i],State.position(self._state)) for i,sensor in enumerate(self._sensors)])
+		likelihoods = np.array(
+			[sensor.likelihood(observations[i],State.position(self._state)) for i,sensor in enumerate(self._sensors)]
+			)
 		
 		# for each particle, we compute the product of the likelihoods for all the sensors
 		likelihoodsProduct = likelihoods.prod(axis=0)
@@ -81,11 +83,9 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		# if required (depending on the algorithm), the weights are normalized...
 		self.normalizeWeightsIfRequired()
 		
-		# ...though the normalized weights are computed anyway...if possible...
+		# ...though the normalized weights are computed anyway if needed/possible (if all the weights are zero normalization makes no sense)
 		if self._aggregatedWeight!=0:
 			normalizedWeights = self._weights / self._aggregatedWeight
-		else:
-			normalizedWeights = np.ones_like(self._weights)/self._nParticles
 		
 		# ...in order to perform resampling if needed
 		if self._resamplingCriterion.isResamplingNeeded(normalizedWeights):
@@ -93,8 +93,11 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 			try:
 				# the resampling algorithm is used to decide which particles to keep
 				iParticlesToBeKept = self._resamplingAlgorithm.getIndexes(normalizedWeights)
+				
 			except ValueError:
-				print('WTF')
+				
+				print("CentralizedTargetTrackingParticleFilter:step: this shouldn't have happened...")
+				
 				import code
 				code.interact(local=dict(globals(), **locals()))
 			
@@ -108,10 +111,9 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 	def resample(self,indexes):
 		
 		self._state = self._state[:,indexes]
-		self._weights.fill(1.0/self._nParticles)
 		
-		# we forced this above
-		self._aggregatedWeight = 1.0
+		# note that if the weights have been normalized, then "self._aggregatedWeight" is already equal to 1
+		self._weights.fill(self._aggregatedWeight/self._nParticles)
 		
 	def getParticle(self,index):
 		
@@ -148,32 +150,13 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 
 class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilter):
 	
-	def initialize(self):
+	def normalizeWeightsIfRequired(self):
 		
-		# the grandfather's method...
-		ParticleFilter.initialize(self)
-		
-		# state initialization...just like in the centralized version
-		self._state = self._prior.sample(self._nParticles)
-		
-		# NOT exactly the same as in the centralized version
-		self._weights.fill(self._aggregatedWeight/self._nParticles)
-
-	def resample(self,indexes):
-		
-		# just like in the centralized version
-		self._state = self._state[:,indexes]
-		
-		# NOT exactly the same as in the centralized version
-		self._weights.fill(self._aggregatedWeight/self._nParticles)
+		pass
 
 	def getAggregatedWeight(self):
 		
 		return self._aggregatedWeight
-	
-	def normalizeWeightsIfRequired(self):
-		
-		pass
 	
 	def scaleWeights(self,factor):
 		
@@ -184,7 +167,7 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 
 class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 	
-	def __init__(self,nPEs,exchangePeriod,exchangeMap,c,epsilon,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors):
+	def __init__(self,nPEs,exchangePeriod,exchangeMap,c,epsilon,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors):
 		
 		super().__init__(nPEs*nParticlesPerPE,resamplingAlgorithm,resamplingCriterion)
 		
@@ -201,12 +184,15 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		# ...time instants, according to the map
 		self._exchangeMap = exchangeMap
 		
+		# period for the normalization of the aggregated weights
+		self._normalizationPeriod = normalizationPeriod
+		
 		# parameter for checking the aggregated weights degeneration
 		self._aggregatedWeightsUpperBound = c/math.pow(nPEs,1.0-epsilon)
 		
-		# because of the exchange period, we must keep track of the elapsed (discreet) time instants
-		self._n = 1
-	
+		# because of the exchange and normalization periods, we must keep track of the elapsed (discreet) time instants
+		self._n = 0
+		
 	def getAggregatedWeightsUpperBound(self):
 		
 		return self._aggregatedWeightsUpperBound
@@ -232,6 +218,7 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		# a new time instant has elapsed
 		self._n += 1
 		
+		# if it is exchanging particles time...
 		if self._n % self._exchangePeriod == 0:
 			
 			self.exchangeParticles()
@@ -244,16 +231,13 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		# in order to peform some checks...
 		aggregatedWeightsSum = self.getAggregatedWeights().sum()
 		
-		# if the aggregated weights are too small for the computer precision
-		if aggregatedWeightsSum < np.finfo(float).eps:
-			
-			# an "appropriate" factor is computed...
-			scaleFactor = 10**(-1*np.ceil(np.log10(aggregatedWeightsSum)))
+		# the aggregated weights must be normalized every now and then to avoid computer precision issues
+		if self._n % self._normalizationPeriod == 0:
 			
 			# ...to scale all the weights within ALL the PEs
 			for PE in self._PEs:
 				
-				PE.scaleWeights(scaleFactor)
+				PE.scaleWeights(1.0/aggregatedWeightsSum)
 			
 		# if the weights degenerate so that they don't satisfy the corresponding assumption...
 		if self.degeneratedAggregatedWeights():
@@ -296,7 +280,7 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 
 		if self.getAggregatedWeights().sum()==0:
 			
-			print('pesos agregados 0!!')
+			print('aggregated weights add up to 0!!')
 			
 			import code
 			code.interact(local=dict(globals(), **locals()))

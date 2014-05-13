@@ -60,7 +60,7 @@ def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggreg
 
 	plt.savefig(outputFile)
 
-def plotMaxAggregatedWeightVsTime(aggregatedWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',xticksStep=10):
+def plotAggregatedWeightsSupremumVsTime(aggregatedWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',xticksStep=10):
 	
 	# interactive mode on
 	plt.ion()

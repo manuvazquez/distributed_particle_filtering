@@ -58,12 +58,15 @@ drnaExchangePeriod = parameters["DRNA-exchange-period"]
 drnaExchangePercentage = parameters["DRNA-exchange-percentage"]
 drnaAggregatedWeights_c = parameters["DRNA-Aggregated-Weights-degeneration-c"]
 drnaAggregatedWeights_epsilon = parameters["DRNA-Aggregated-Weights-degeneration-epsilon"]
+drnaNormalizationPeriod = parameters["DRNA-normalization-period"]
 
 # name of the output file for the MSE vs time plot
 MSEvsTimeOutputFile = parameters["MSEvsTime-output-file"]
 
 # a flag indicating whether target and particles evolution should be displayed
 displayEvolution = parameters["display-evolution"]
+
+normalizationPeriod = 5
 
 # ---------------------------------------------
 
@@ -116,7 +119,9 @@ resamplingCriterion = Resampling.AlwaysResamplingCriterion()
 pf = ParticleFilter.CentralizedTargetTrackingParticleFilter(N,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
 # distributed particle filter
-distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(M,drnaExchangePeriod,drnaExchangeTuples,drnaAggregatedWeights_c,drnaAggregatedWeights_epsilon,K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
+distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(
+	M,drnaExchangePeriod,drnaExchangeTuples,drnaAggregatedWeights_c,drnaAggregatedWeights_epsilon,K,drnaNormalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
+	)
 
 # initialization of the particle filters
 pf.initialize()
@@ -184,7 +189,7 @@ Painter.plotMSEvsTime(centralizedPF_MSE,distributedPF_MSE,centralizedPFcolor,dis
 #Painter.plotAggregatedWeightsDistributionVsTime(distributedPFaggregatedWeights)
 
 # evolution of the largest aggregated weight over time
-Painter.plotMaxAggregatedWeightVsTime(distributedPFaggregatedWeights,distributedPf.getAggregatedWeightsUpperBound())
+Painter.plotAggregatedWeightsSupremumVsTime(distributedPFaggregatedWeights,distributedPf.getAggregatedWeightsUpperBound())
 
 import code
 code.interact(local=dict(globals(), **locals()))
