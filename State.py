@@ -81,9 +81,6 @@ class StraightTransitionKernel(TransitionKernel):
 
 	def nextState(self,state):
 		
-		# the position is modified linearly sloping at the given angle, and the speed stays the same
-		return (currentPos + np.array([math.cos(self._angle),math.sin(self._angle)]),speed)
-	
 		# the position is increased linearly sloping at the given angle
 		position = state[0:2] + np.array([[math.cos(self._angle)],[math.sin(self._angle)]])
 		
@@ -93,9 +90,9 @@ class StraightTransitionKernel(TransitionKernel):
 		return np.vstack((position,velocity))
 	
 
-class UniformBoundedPositionGaussianVelocityTransitionKernel(TransitionKernel):
+class BouncingWithinRectangleTransitionKernel(TransitionKernel):
 	
-	def __init__(self,bottomLeftCorner,topRightCorner,velocityVariance=0.5,noiseVariance=0.5,stepDuration=1):
+	def __init__(self,bottomLeftCorner,topRightCorner,velocityVariance=0.5,noiseVariance=0.1,stepDuration=1):
 		
 		# the parent's constructor is called
 		super().__init__(stepDuration)
@@ -109,6 +106,13 @@ class UniformBoundedPositionGaussianVelocityTransitionKernel(TransitionKernel):
 		# variance of the noise affecting the position
 		self._noiseVariance = noiseVariance
 		
+		# canonical vectors used in computations
+		self._iVector = np.array([[1.0],[0.0]])
+		self._jVector = np.array([[0.0],[1.0]])
+		
+		# top right, top left, bottom left, and bottom right corners stored as column vectors
+		self._corners = [topRightCorner[np.newaxis].T,np.array([[bottomLeftCorner[0]],[topRightCorner[1]]]),bottomLeftCorner[np.newaxis].T,np.array([[topRightCorner[0]],[bottomLeftCorner[1]]])]
+		
 	def nextState(self,state):
 		
 		# not actually needed...but for the sake of clarity...
@@ -117,47 +121,79 @@ class UniformBoundedPositionGaussianVelocityTransitionKernel(TransitionKernel):
 		# the velocity changes BEFORE moving...
 		velocity += numpy.random.normal(0,math.sqrt(self._velocityVariance/2),(2,1))
 		
-		# ...and a new "tentative" position is obtained from the previous one, the velocity and a noise component
-		tentativeNewPos = state[0:2] + velocity*self._stepDuration + numpy.random.normal(0,math.sqrt(self._noiseVariance/2),(2,1))
+		# step to be taken is obtained from the velocity and a noise component
+		step = velocity*self._stepDuration + numpy.random.normal(0,math.sqrt(self._noiseVariance/2),(2,1))
+		#step = velocity*self._stepDuration
+		
+		# this may be updated in the while loop when bouncing off several walls
+		previousPos = state[0:2].copy()
+		
+		# a new "tentative" position is obtained from the previous one and the step
+		tentativeNewPos = previousPos + step
+		
+		# to be used in the loop...
+		anglesWithCorners = np.empty(4)
 		
 		while(True):
-		
-			# if the new position is to the left of the left bound...
-			if (tentativeNewPos[0] < self._bottomLeftCorner[0]) or (tentativeNewPos[0] > self._topRightCorner[0]):
-				
-				# we compute the angle between the velocity vector and a unit vertical vector (with coordinates [0,1]) using the dot product
-				angle = math.acos(velocity[1]/np.linalg.norm(velocity))
-				
-				# the rotation must be clockwise (*-1) if we reached the left bound and counter-clockwise if going through the right one (*1)
-				rotationAngle = (-1)**(tentativeNewPos[0] < self._bottomLeftCorner[0]) * 2 * angle
-				
-				# we compute the corresponding rotation matrix
-				rotationMatrix = np.array([[math.cos(rotationAngle),math.sin(rotationAngle)],[-math.sin(rotationAngle),math.cos(rotationAngle)]])
-				
-				velocity = np.dot(rotationMatrix,velocity)
-				
-				tentativeNewPos = state[0:2] + velocity*self._stepDuration + numpy.random.normal(0,math.sqrt(self._noiseVariance/2),(2,1))
-				
-			elif (tentativeNewPos[1] < self._bottomLeftCorner[1]) or (tentativeNewPos[1] > self._topRightCorner[1]):
-				
-				# we compute the angle between the velocity vector and a unit horizontal vector (with coordinates [1,0]) using the dot product
-				angle = math.acos(velocity[0]/np.linalg.norm(velocity))
-				
-				# we need to distinguish two cases:
-				if angle < (math.pi/2):
-					rotationAngle = (-1)**(tentativeNewPos[1] >= self._bottomLeftCorner[1]) * 2 * angle
-				else:
-					rotationAngle = (-1)**(tentativeNewPos[1] >= self._bottomLeftCorner[1]) * 2 * (math.pi - angle)
-
-				# we compute the corresponding rotation matrix
-				rotationMatrix = np.array([[math.cos(rotationAngle),math.sin(rotationAngle)],[-math.sin(rotationAngle),math.cos(rotationAngle)]])
-				
-				velocity = np.dot(rotationMatrix,velocity)
-				
-				tentativeNewPos = state[0:2] + velocity*self._stepDuration + numpy.random.normal(0,math.sqrt(self._noiseVariance/2),(2,1))
-				
-			else:
+			
+			if (tentativeNewPos > self._corners[2]).all() and (tentativeNewPos < self._corners[0]).all():
+			
 				# the new position is OK
 				break
-		
+			
+			else:
+				
+				for i,corner in enumerate(self._corners):
+					
+					# a vector joining the previous position and the corresponding corner
+					positionToCorner = corner - previousPos
+					
+					# the angle between the above vector and a horizontal line
+					anglesWithCorners[i] = math.acos(positionToCorner[0]/np.linalg.norm(positionToCorner))
+				
+				# we account for the fact that the angle between two vectors computed by means of the dot product is always between 0 and pi (the shortest)
+				anglesWithCorners[2:] = 2*math.pi - anglesWithCorners[2:]
+				
+				# angle between the step to be taken and the horizontal line
+				angle = math.acos(step[0]/np.linalg.norm(step))
+				
+				if step[1]<=0:
+					# we account for the fact that the angle between two vectors computed by means of the dot product is always between 0 and pi (the shortest)
+					angle = 2*math.pi - angle
+				
+				# up
+				if anglesWithCorners[0] <= angle < anglesWithCorners[1]:
+					normal = -self._jVector
+					scaleFactor = (self._topRightCorner[1] - previousPos[1])/step[1]
+				# left
+				elif anglesWithCorners[1] <= angle < anglesWithCorners[2]:
+					normal = self._iVector
+					scaleFactor = (self._bottomLeftCorner[0] - previousPos[0])/step[0]
+				# down
+				elif anglesWithCorners[2] <= angle < anglesWithCorners[3]:
+					normal = self._jVector
+					scaleFactor = (self._bottomLeftCorner[1] - previousPos[1])/step[1]
+				# right
+				else:
+					normal = -self._iVector
+					scaleFactor = (self._topRightCorner[0] - previousPos[0])/step[0]
+
+				# the components of the "step" vector before...
+				stepBeforeBounce = scaleFactor*step
+				
+				# ...and after reaching the wall
+				stepAfterBounce = (1.0-scaleFactor)*step
+				
+				# in case we need to bounce again, we update the previous position...
+				previousPos = previousPos + stepBeforeBounce
+
+				# ...and the step, this one by computing the reflected ray using a formula involving the normal of the reflecting surface...
+				step = stepAfterBounce - 2*normal*np.dot(normal.T,stepAfterBounce)
+
+				tentativeNewPos = previousPos + step
+				
+				# the direction of the velocity is updated according to the reflection that occured in the trajectory
+				# note that this only needs to be done in the last iteration of the while loop, but since the velocity is not used within the "else" part, it's not a problem
+				velocity = step/np.linalg.norm(step)*np.linalg.norm(velocity)
+
 		return np.vstack((tentativeNewPos,velocity))

@@ -253,8 +253,6 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		
 	def exchangeParticles(self):
 		
-		print('exchangeParticles: sum before = ',self.getAggregatedWeights().sum())
-
 		# first, we compile all the particles that are going to be exchanged in an auxiliar variable
 		aux = []
 		for exchangeTuple in self._exchangeMap:
@@ -264,8 +262,6 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		for (exchangeTuple,particles) in zip(self._exchangeMap,aux):
 			self._PEs[exchangeTuple[0]].setParticle(exchangeTuple[1],particles[1])
 			self._PEs[exchangeTuple[2]].setParticle(exchangeTuple[3],particles[0])
-		
-		print('exchangeParticles: sum after = ',self.getAggregatedWeights().sum())
 		
 	def getState(self):
 		

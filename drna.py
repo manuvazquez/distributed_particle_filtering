@@ -43,6 +43,9 @@ roomTopRightCorner = np.array(parameters["top-right-corner-of-the-room"])
 # the variance of the noise that rules the evolution of the velocity vector
 velocityVariance = parameters["velocity-variance"]
 
+# the variance of the noise that rules the evolution of the position
+positionVariance = parameters["position-variance"]
+
 # for the particle filters
 resamplingRatio = parameters["resampling-ratio"]
 
@@ -91,10 +94,8 @@ roomDiagonalVector = roomTopRightCorner - roomBottomLeftCorner
 # overall number of particles
 N = K*M
 
-sensorLayer = Sensor.EquispacedOnRectangleSensorLayer(roomBottomLeftCorner,roomTopRightCorner)
-sensorsPositions = sensorLayer.getPositions(nSensors)
-
-print('Sensors positions:\n',sensorsPositions)
+# an object for computing the positions of the sensors is created and used
+sensorsPositions = Sensor.EquispacedOnRectangleSensorLayer(roomBottomLeftCorner,roomTopRightCorner).getPositions(nSensors)
 
 # the actual number of sensor might not be equal to that requested
 nSensors = sensorsPositions.shape[1]
@@ -106,7 +107,7 @@ sensors = [Sensor.Sensor(sensorsPositions[:,i:i+1],sensorRadius) for i in range(
 prior = State.UniformBoundedPositionGaussianVelocityPrior(roomBottomLeftCorner,roomTopRightCorner,velocityVariance=velocityVariance)
 
 # ...and a different one for the transition kernel
-transitionKernel = State.UniformBoundedPositionGaussianVelocityTransitionKernel(roomBottomLeftCorner,roomTopRightCorner,velocityVariance=velocityVariance)
+transitionKernel = State.BouncingWithinRectangleTransitionKernel(roomBottomLeftCorner,roomTopRightCorner,velocityVariance=velocityVariance)
 
 initialState = prior.sample()
 
@@ -166,6 +167,11 @@ for iTime in range(nTimeInstants):
 	print('---------- iTime = ' + repr(iTime) + ' ---------------')
 
 	# the target moves
+	
+	#import pdb
+	#if iTime==19:
+		#pdb.set_trace()
+	
 	target.step()
 
 	print('position:\n',target.pos())
