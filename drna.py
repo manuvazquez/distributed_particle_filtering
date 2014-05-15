@@ -79,11 +79,13 @@ np.random.seed(283627627)
 
 # a PEs network is created and used to get the exchange tuples
 
-#drnaExchangeTuples = PEsNetwork.ManuallyCraftedPEsNetwork(M,K,drnaExchangePercentage,[
+#drnaExchangeTuples = PEsNetwork.Customized(M,K,drnaExchangePercentage,[
 	#[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]
 	#]).getExchangeTuples()
 
-drnaExchangeTuples = PEsNetwork.CircularPEsNetwork(M,K,drnaExchangePercentage).getExchangeTuples()
+#drnaExchangeTuples = PEsNetwork.Ring(M,K,drnaExchangePercentage).getExchangeTuples()
+
+drnaExchangeTuples = PEsNetwork.Mesh(M,K,drnaExchangePercentage,4,4).getExchangeTuples()
 
 print('drnaExchangeTuples')
 print(drnaExchangeTuples)
@@ -167,11 +169,6 @@ for iTime in range(nTimeInstants):
 	print('---------- iTime = ' + repr(iTime) + ' ---------------')
 
 	# the target moves
-	
-	#import pdb
-	#if iTime==19:
-		#pdb.set_trace()
-	
 	target.step()
 
 	print('position:\n',target.pos())

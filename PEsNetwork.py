@@ -57,7 +57,7 @@ class PEsNetwork:
 					
 		return exchangeTuples
 
-class ManuallyCraftedPEsNetwork(PEsNetwork):
+class Customized(PEsNetwork):
 	
 	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,neighbours):
 		
@@ -66,10 +66,47 @@ class ManuallyCraftedPEsNetwork(PEsNetwork):
 		# each element in the list is another list specifying the neighbours of the corresponding PE
 		self._neighbours = neighbours
 		
-class CircularPEsNetwork(PEsNetwork):
+class Ring(PEsNetwork):
 	
 	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage):
 		
 		super().__init__(nPEs,nParticlesPerPE,exchangePercentage)
 		
 		self._neighbours = [[(i-1) % nPEs,(i+1) % nPEs] for i in range(nPEs)]
+
+class Mesh(PEsNetwork):
+	
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,nRows,nCols):
+		
+		super().__init__(nPEs,nParticlesPerPE,exchangePercentage)
+		
+		assert nRows*nCols == nPEs
+		
+		# for the sake of clarity, and in order to avoid some computations...
+		arrayedPEs = np.arange(nPEs).reshape((nRows,nCols),order='F')
+		
+		# relative position of the potential neighbours of a certain PE
+		potentialNeighboursRelativePosition = [[-1,0],[1,0],[0,1],[0,-1]]
+		
+		self._neighbours = []
+		
+		for j in range(nCols):
+			for i in range(nRows):
+				
+				# here we store the neighbours of the PE being processed
+				currentPEneighbours = []
+				
+				# for every potential neighbour
+				for neighbourRelativePosition in potentialNeighboursRelativePosition:
+					
+					# we compute its position
+					iNeighbour,jNeighbour = i+neighbourRelativePosition[0],j+neighbourRelativePosition[1]
+					
+					# if the position corresponds to that of a PE (i.e., it is within the PEs array)
+					if (0 <= iNeighbour < nRows) and (0 <= jNeighbour < nCols):
+						
+						# we add this neighbour to the list
+						currentPEneighbours.append(arrayedPEs[iNeighbour,jNeighbour])
+				
+				# the list of neighbours of this PE is added to the list of lists of neighbours
+				self._neighbours.append(currentPEneighbours)
