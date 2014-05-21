@@ -24,13 +24,13 @@ with open('parameters.json') as jsonData:
 # number of particles per processing element (PE)
 K = parameters["number-of-particles-per-PE"]
 
-# number of PEs
-M = parameters["number-of-PEs"]
+# different setups for the PEs
+PEs = parameters["PEs"]
 
 # number of sensors
 nSensors = parameters["number-of-sensors"]
 
-# radious over which a sensor is able to detect the target
+# radius over which a sensor is able to detect the target
 sensorRadius = parameters["sensor-radius"]
 
 # number of time instants
@@ -40,11 +40,14 @@ nTimeInstants = parameters["number-of-time-instants"]
 roomBottomLeftCorner = np.array(parameters["bottom-left-corner-of-the-room"])
 roomTopRightCorner = np.array(parameters["top-right-corner-of-the-room"])
 
+# the variance of the prior density for the velocity
+priorVelocityVariance = parameters["prior-velocity-variance"]
+
 # the variance of the noise that rules the evolution of the velocity vector
-velocityVariance = parameters["velocity-variance"]
+stateTransitionVelocityVariance = parameters["state-transition-velocity-variance"]
 
 # the variance of the noise that rules the evolution of the position
-positionVariance = parameters["position-variance"]
+stateTransitionPositionVariance = parameters["state-transition-position-variance"]
 
 # for the particle filters
 resamplingRatio = parameters["resampling-ratio"]
@@ -70,12 +73,27 @@ MSEvsTimeOutputFile = parameters["MSEvsTime-output-file"]
 displayEvolution = parameters["display-evolution"]
 displayParticlesEvolution = parameters["display-particles-evolution"]
 
-normalizationPeriod = 5
-
 # ---------------------------------------------
+
+# number of PEs
+M = PEs[0]['number']
+
+# size of the grid when the network of PEs is a mesh
+PEsnetworkMeshSize = PEs[0]['mesh size']
+
+# it gives the width and height
+roomDiagonalVector = roomTopRightCorner - roomBottomLeftCorner
 
 #np.random.seed(9554)
 np.random.seed(283627627)
+
+#import pdb
+#pdb.set_trace()
+
+#import code
+#code.interact(local=dict(globals(), **locals()))
+
+# ----------------------------------------------------------- Processing Elements (PEs) ------------------------------------------------------------------
 
 # a PEs network is created and used to get the exchange tuples
 
@@ -85,16 +103,12 @@ np.random.seed(283627627)
 
 #drnaExchangeTuples = PEsNetwork.Ring(M,K,drnaExchangePercentage).getExchangeTuples()
 
-drnaExchangeTuples = PEsNetwork.Mesh(M,K,drnaExchangePercentage,4,4).getExchangeTuples()
+drnaExchangeTuples = PEsNetwork.Mesh(M,K,drnaExchangePercentage,*PEsnetworkMeshSize).getExchangeTuples()
 
 print('drnaExchangeTuples')
 print(drnaExchangeTuples)
 
-# it gives the width and height
-roomDiagonalVector = roomTopRightCorner - roomBottomLeftCorner
-
-# overall number of particles
-N = K*M
+# ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
 
 # an object for computing the positions of the sensors is created and used
 sensorsPositions = Sensor.EquispacedOnRectangleSensorLayer(roomBottomLeftCorner,roomTopRightCorner).getPositions(nSensors)
@@ -105,19 +119,15 @@ nSensors = sensorsPositions.shape[1]
 # we build the array of sensors
 sensors = [Sensor.Sensor(sensorsPositions[:,i:i+1],sensorRadius) for i in range(nSensors)]
 
+# ----------------------------------------------------------------- dynamic model ------------------------------------------------------------------------
+
 # a object that represents the prior distribution...
-prior = State.UniformBoundedPositionGaussianVelocityPrior(roomBottomLeftCorner,roomTopRightCorner,velocityVariance=velocityVariance)
+prior = State.UniformBoundedPositionGaussianVelocityPrior(roomBottomLeftCorner,roomTopRightCorner,velocityVariance=priorVelocityVariance)
 
 # ...and a different one for the transition kernel
-transitionKernel = State.BouncingWithinRectangleTransitionKernel(roomBottomLeftCorner,roomTopRightCorner,velocityVariance=velocityVariance)
+transitionKernel = State.BouncingWithinRectangleTransitionKernel(roomBottomLeftCorner,roomTopRightCorner,velocityVariance=stateTransitionVelocityVariance,noiseVariance=stateTransitionPositionVariance)
 
-initialState = prior.sample()
-
-# the target is created...
-target = Target.Target(transitionKernel,State.position(initialState),State.velocity(initialState))
-
-print('initial position:\n',target.pos())
-print('initial velocity:\n',target.velocity())
+# ------------------------------------------------------------------- SMC stuff --------------------------------------------------------------------------
 
 # a resampling algorithm...
 resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm()
@@ -127,16 +137,28 @@ resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm()
 resamplingCriterion = Resampling.AlwaysResamplingCriterion()
 
 # plain non-parallelized particle filter
-pf = ParticleFilter.CentralizedTargetTrackingParticleFilter(N,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
+pf = ParticleFilter.CentralizedTargetTrackingParticleFilter(K*M,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
 # distributed particle filter
 distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(
 	M,drnaExchangePeriod,drnaExchangeTuples,drnaAggregatedWeights_c,drnaAggregatedWeights_epsilon,K,drnaNormalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
 	)
 
+#----------------------------------------------------------------- initialization ------------------------------------------------------------------------
+
+initialState = prior.sample()
+
+# the target is created...
+target = Target.Target(transitionKernel,State.position(initialState),State.velocity(initialState))
+
+print('initial position:\n',target.pos())
+print('initial velocity:\n',target.velocity())
+
 # initialization of the particle filters
 pf.initialize()
 distributedPf.initialize()
+
+#-------------------------------------------------------------- plots initialization ---------------------------------------------------------------------
 
 if displayEvolution:
 
@@ -148,6 +170,10 @@ if displayEvolution:
 	
 	# the initial position is painted
 	painter.updateTargetPosition(target.pos())
+	
+	# ...along with those estimated by the PFs (they should around the middle of the room...)
+	painter.updateEstimatedPosition(State.position(pf.computeMean()),identifier='centralized',color=centralizedPFcolor)
+	painter.updateEstimatedPosition(State.position(distributedPf.computeMean()),identifier='distributed',color=distributedPFcolor)
 
 	if displayParticlesEvolution:
 
@@ -155,14 +181,15 @@ if displayEvolution:
 		painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=centralizedPFcolor)
 		painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=distributedPFcolor)
 
+#------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
+
 # we store the computed mean square errors...
 centralizedPF_MSE,distributedPF_MSE = np.empty(nTimeInstants),np.empty(nTimeInstants)
 
 # ...and the aggregated weights
-distributedPFaggregatedWeights = np.empty((nTimeInstants+1,M))
+distributedPFaggregatedWeights = np.empty((nTimeInstants,M))
 
-# the aggregated weights of the different PEs in the distributed PF at the initial time instant
-distributedPFaggregatedWeights[0,:] = distributedPf.getAggregatedWeights()
+#-------------------------------------------------------------------- main loop --------------------------------------------------------------------------
 
 for iTime in range(nTimeInstants):
 
@@ -190,7 +217,7 @@ for iTime in range(nTimeInstants):
 	centralizedPF_MSE[iTime],distributedPF_MSE[iTime] = ((State.position(centralizedPF_mean)-target.pos())**2).mean(),((State.position(distributedPF_mean)-target.pos())**2).mean()
 	
 	# the aggregated weights of the different PEs in the distributed PF are stored
-	distributedPFaggregatedWeights[iTime+1,:] = distributedPf.getAggregatedWeights()
+	distributedPFaggregatedWeights[iTime,:] = distributedPf.getAggregatedWeights()
 	
 	print('centralized PF\n',centralizedPF_mean)
 	print('distributed PF\n',distributedPF_mean)
