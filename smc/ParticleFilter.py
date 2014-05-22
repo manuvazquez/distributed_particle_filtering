@@ -218,8 +218,12 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		# a new time instant has elapsed
 		self._n += 1
 		
-		# if it is exchanging particles time...
-		if self._n % self._exchangePeriod == 0:
+		# if it is exchanging particles time, or the aggregated weights are degenerated
+		if (self._n % self._exchangePeriod == 0) or self.degeneratedAggregatedWeights():
+			
+			if self.degeneratedAggregatedWeights():
+				print('aggregated weights degenerated (upper bound = ' + repr(self._aggregatedWeightsUpperBound) + ' )...')
+				print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
 			
 			self.exchangeParticles()
 			
@@ -227,7 +231,11 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 			for PE in self._PEs:
 				
 				PE.updateAggregatedWeight()
-		
+			
+			if self.degeneratedAggregatedWeights():
+				print('after exchanging step, aggregated weights are still degenerated => assumption 4 is not being satisfied!!')
+				print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
+
 		# in order to peform some checks...
 		aggregatedWeightsSum = self.getAggregatedWeights().sum()
 		
@@ -238,20 +246,7 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 			for PE in self._PEs:
 				
 				PE.scaleWeights(1.0/aggregatedWeightsSum)
-			
-		# if the weights degenerate so that they don't satisfy the corresponding assumption...
-		if self.degeneratedAggregatedWeights() and not (self._n % self._exchangePeriod == 0):
-			
-			print('aggregated weights degenerated (upper bound = ' + repr(self._aggregatedWeightsUpperBound) + ' )...')
-			print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
-			
-			# a few particles are exchanged
-			self.exchangeParticles()
 
-			if self.degeneratedAggregatedWeights():
-				print('still degenerated => assumption 4 is not being satisfied!!')
-				print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
-		
 	def exchangeParticles(self):
 
 		# first, we compile all the particles that are going to be exchanged in an auxiliar variable
@@ -263,7 +258,7 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		for (exchangeTuple,particles) in zip(self._exchangeMap,aux):
 			self._PEs[exchangeTuple[0]].setParticle(exchangeTuple[1],particles[1])
 			self._PEs[exchangeTuple[2]].setParticle(exchangeTuple[3],particles[0])
-		
+			
 	def getState(self):
 		
 		# the state from every PE is gathered together
