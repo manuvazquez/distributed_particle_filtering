@@ -87,6 +87,7 @@ class Mesh(PEsNetwork):
 		
 		# relative position of the potential neighbours of a certain PE
 		potentialNeighboursRelativePosition = [[-1,0],[1,0],[0,1],[0,-1]]
+		#potentialNeighboursRelativePosition = [[-1,0],[1,0],[0,1],[0,-1],[-1,1],[1,1],[-1,-1],[1,-1]]
 		
 		self._neighbours = []
 		
@@ -110,3 +111,15 @@ class Mesh(PEsNetwork):
 				
 				# the list of neighbours of this PE is added to the list of lists of neighbours
 				self._neighbours.append(currentPEneighbours)
+
+class FullyConnected(PEsNetwork):
+	
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage):
+		
+		super().__init__(nPEs,nParticlesPerPE,exchangePercentage)
+		
+		self._neighbours = [list(range(nPEs)) for i in range(nPEs)]
+		
+		for i in range(nPEs):
+			
+			del self._neighbours[i][i]

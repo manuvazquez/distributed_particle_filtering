@@ -1,28 +1,42 @@
 {
-	"number-of-particles-per-PE": 200,
-	"number-of-PEs": 16,
+	"number of time instants": 200,
+	"number of particles per PE": 200,
 	"PEs": [
+			{"number": 10,"mesh size": [2,5]},
 			{"number": 16,"mesh size": [4,4]},
 			{"number": 10,"mesh size": [2,5]}
 		],
-	"number-of-sensors": 16,
-	"sensor-radius": 5,
-	"number-of-time-instants": 200,
-	"bottom-left-corner-of-the-room": [-20,-10],
-	"top-right-corner-of-the-room": [20,10],
-	"prior-velocity-variance": 0.05,
-	"state-transition-velocity-variance": 0.1,
-	"state-transition-position-variance": 0.05,
-	"resampling-ratio": 0.9,
-	"sleep-time-between-plot-updates": 0.1,
-	"color-centralized-PF": "blue",
-	"color-distributed-PF": "green",
-	"DRNA-exchange-period": 5,
-	"DRNA-exchange-percentage": 0.1,
-	"DRNA-Aggregated-Weights-degeneration-c": 4.0,
-	"DRNA-Aggregated-Weights-degeneration-epsilon": 0.1,
-	"DRNA-normalization-period": 5,
-	"MSEvsTime-output-file": "MSEvsTime.eps",
-	"display-evolution": true,
-	"display-particles-evolution": false
+	"sensors": {
+		"number": 16,
+		"radius": 5
+		},
+	"room": {
+		"bottom left corner": [-20,-10],
+		"top right corner": [20,10]
+		},
+	"SMC": {
+		"resampling ratio": 0.9
+		},
+	"prior distribution": {
+		"velocity variance": 0.05
+		},
+	"state transition": {
+		"velocity variance": 0.01,
+		"position variance": 0.01
+		},
+	"painter": {
+		"sleep time between updates": 0.01,
+		"color for the centralized PF": "blue",
+		"color for the distributed PF": "green",
+		"output file name for the MSEvsTime plot": "MSEvsTime.eps",
+		"display evolution?": true,
+		"display particles evolution?": false
+		},
+	"DRNA": {
+		"exchange period": 5,
+		"exchanged particles percentage": 0.01,
+		"c": 1.0,
+		"epsilon": 0.1,
+		"normalization period": 5
+		}
 }

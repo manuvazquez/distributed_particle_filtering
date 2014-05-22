@@ -240,19 +240,20 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 				PE.scaleWeights(1.0/aggregatedWeightsSum)
 			
 		# if the weights degenerate so that they don't satisfy the corresponding assumption...
-		if self.degeneratedAggregatedWeights():
+		if self.degeneratedAggregatedWeights() and not (self._n % self._exchangePeriod == 0):
 			
-			print('aggregated weights degenerated...')
+			print('aggregated weights degenerated (upper bound = ' + repr(self._aggregatedWeightsUpperBound) + ' )...')
 			print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
 			
 			# a few particles are exchanged
 			self.exchangeParticles()
-			
-			print('still degenerated: ',self.degeneratedAggregatedWeights())
-			print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
+
+			if self.degeneratedAggregatedWeights():
+				print('still degenerated => assumption 4 is not being satisfied!!')
+				print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
 		
 	def exchangeParticles(self):
-		
+
 		# first, we compile all the particles that are going to be exchanged in an auxiliar variable
 		aux = []
 		for exchangeTuple in self._exchangeMap:
@@ -291,8 +292,5 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		
 		# the aggregated weights are not necessarily normalized
 		normalizedAggregatedWeights = self.getAggregatedWeights()/self.getAggregatedWeights().sum()
-		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
 		
 		return np.multiply(np.hstack([PE.computeMean() for PE in self._PEs]),normalizedAggregatedWeights).sum(axis=1)[np.newaxis].T

@@ -82,7 +82,7 @@ def plotAggregatedWeightsSupremumVsTime(aggregatedWeights,upperBound,outputFile=
 	maxAggregatedWeightVsTimeAxes.set_xbound(upper=len(maxWeights)-1)
 	
 	# the y-axis goes up to 1
-	maxAggregatedWeightVsTimeAxes.set_ybound(upper=1)
+	maxAggregatedWeightVsTimeAxes.set_ybound(upper=upperBound*4,lower=0)
 	
 	# the upper bound is plotted
 	maxAggregatedWeightVsTimeAxes.axhline(y=upperBound,linewidth=2, color='red',linestyle='dashed',label='$c/M^{1-{\\varepsilon}}$')

@@ -22,88 +22,60 @@ with open('parameters.json') as jsonData:
 	parameters = json.load(jsonData)
 
 # number of particles per processing element (PE)
-K = parameters["number-of-particles-per-PE"]
+K = parameters["number of particles per PE"]
 
 # different setups for the PEs
 PEs = parameters["PEs"]
 
-# number of sensors
-nSensors = parameters["number-of-sensors"]
-
-# radius over which a sensor is able to detect the target
-sensorRadius = parameters["sensor-radius"]
+# number of sensors, radius...
+sensorsSettings = parameters["sensors"]
 
 # number of time instants
-nTimeInstants = parameters["number-of-time-instants"]
+nTimeInstants = parameters["number of time instants"]
 
-# arrays containing the coordinates that define the bounds of the room
-roomBottomLeftCorner = np.array(parameters["bottom-left-corner-of-the-room"])
-roomTopRightCorner = np.array(parameters["top-right-corner-of-the-room"])
+# room dimensions
+room = parameters["room"]
 
-# the variance of the prior density for the velocity
-priorVelocityVariance = parameters["prior-velocity-variance"]
+# parameters for the distribution of the initial state
+priorDistribution = parameters["prior distribution"]
 
-# the variance of the noise that rules the evolution of the velocity vector
-stateTransitionVelocityVariance = parameters["state-transition-velocity-variance"]
-
-# the variance of the noise that rules the evolution of the position
-stateTransitionPositionVariance = parameters["state-transition-position-variance"]
+# state transition kernel parameters
+stateTransition = parameters["state transition"]
 
 # for the particle filters
-resamplingRatio = parameters["resampling-ratio"]
+SMCsettings = parameters["SMC"]
 
-# sleep time between updates when plotting the target and particles
-sleepTime = parameters["sleep-time-between-plot-updates"]
-
-# colors
-centralizedPFcolor = parameters["color-centralized-PF"]
-distributedPFcolor = parameters["color-distributed-PF"]
+# parameters related to plotting
+painterSettings = parameters["painter"]
 
 # DRNA related
-drnaExchangePeriod = parameters["DRNA-exchange-period"]
-drnaExchangePercentage = parameters["DRNA-exchange-percentage"]
-drnaAggregatedWeights_c = parameters["DRNA-Aggregated-Weights-degeneration-c"]
-drnaAggregatedWeights_epsilon = parameters["DRNA-Aggregated-Weights-degeneration-epsilon"]
-drnaNormalizationPeriod = parameters["DRNA-normalization-period"]
-
-# name of the output file for the MSE vs time plot
-MSEvsTimeOutputFile = parameters["MSEvsTime-output-file"]
-
-# a flag indicating whether target and particles evolution should be displayed
-displayEvolution = parameters["display-evolution"]
-displayParticlesEvolution = parameters["display-particles-evolution"]
+DRNAsettings = parameters["DRNA"]
 
 # ---------------------------------------------
 
-# number of PEs
-M = PEs[0]['number']
-
-# size of the grid when the network of PEs is a mesh
-PEsnetworkMeshSize = PEs[0]['mesh size']
+# we rather have the coordinates of the corners stored as numpy arrays...
+room["bottom left corner"] = np.array(room["bottom left corner"])
+room["top right corner"] = np.array(room["top right corner"])
 
 # it gives the width and height
-roomDiagonalVector = roomTopRightCorner - roomBottomLeftCorner
+roomDiagonalVector = room["top right corner"] - room["bottom left corner"]
 
 #np.random.seed(9554)
 np.random.seed(283627627)
-
-#import pdb
-#pdb.set_trace()
-
-#import code
-#code.interact(local=dict(globals(), **locals()))
 
 # ----------------------------------------------------------- Processing Elements (PEs) ------------------------------------------------------------------
 
 # a PEs network is created and used to get the exchange tuples
 
-#drnaExchangeTuples = PEsNetwork.Customized(M,K,drnaExchangePercentage,[
+#drnaExchangeTuples = PEsNetwork.Customized(PEs[0]['number'],K,DRNAsettings["exchanged particles percentage"],[
 	#[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]
 	#]).getExchangeTuples()
 
-#drnaExchangeTuples = PEsNetwork.Ring(M,K,drnaExchangePercentage).getExchangeTuples()
+#drnaExchangeTuples = PEsNetwork.Ring(PEs[0]['number'],K,DRNAsettings["exchanged particles percentage"]).getExchangeTuples()
 
-drnaExchangeTuples = PEsNetwork.Mesh(M,K,drnaExchangePercentage,*PEsnetworkMeshSize).getExchangeTuples()
+drnaExchangeTuples = PEsNetwork.Mesh(PEs[0]['number'],K,DRNAsettings["exchanged particles percentage"],*PEs[0]['mesh size']).getExchangeTuples()
+
+#drnaExchangeTuples = PEsNetwork.FullyConnected(PEs[0]['number'],K,DRNAsettings["exchanged particles percentage"]).getExchangeTuples()
 
 print('drnaExchangeTuples')
 print(drnaExchangeTuples)
@@ -111,21 +83,21 @@ print(drnaExchangeTuples)
 # ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
 
 # an object for computing the positions of the sensors is created and used
-sensorsPositions = Sensor.EquispacedOnRectangleSensorLayer(roomBottomLeftCorner,roomTopRightCorner).getPositions(nSensors)
+sensorsPositions = Sensor.EquispacedOnRectangleSensorLayer(room["bottom left corner"],room["top right corner"]).getPositions(sensorsSettings["number"])
 
 # the actual number of sensor might not be equal to that requested
-nSensors = sensorsPositions.shape[1]
+sensorsSettings["number"] = sensorsPositions.shape[1]
 
 # we build the array of sensors
-sensors = [Sensor.Sensor(sensorsPositions[:,i:i+1],sensorRadius) for i in range(nSensors)]
+sensors = [Sensor.Sensor(sensorsPositions[:,i:i+1],sensorsSettings["radius"]) for i in range(sensorsSettings["number"])]
 
 # ----------------------------------------------------------------- dynamic model ------------------------------------------------------------------------
 
 # a object that represents the prior distribution...
-prior = State.UniformBoundedPositionGaussianVelocityPrior(roomBottomLeftCorner,roomTopRightCorner,velocityVariance=priorVelocityVariance)
+prior = State.UniformBoundedPositionGaussianVelocityPrior(room["bottom left corner"],room["top right corner"],velocityVariance=priorDistribution["velocity variance"])
 
 # ...and a different one for the transition kernel
-transitionKernel = State.BouncingWithinRectangleTransitionKernel(roomBottomLeftCorner,roomTopRightCorner,velocityVariance=stateTransitionVelocityVariance,noiseVariance=stateTransitionPositionVariance)
+transitionKernel = State.BouncingWithinRectangleTransitionKernel(room["bottom left corner"],room["top right corner"],velocityVariance=stateTransition["velocity variance"],noiseVariance=stateTransition["position variance"])
 
 # ------------------------------------------------------------------- SMC stuff --------------------------------------------------------------------------
 
@@ -133,15 +105,15 @@ transitionKernel = State.BouncingWithinRectangleTransitionKernel(roomBottomLeftC
 resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm()
 
 # ...and a resampling criterion are needed for the particle filters
-#resamplingCriterion = Resampling.EffectiveSampleSizeBasedResamplingCriterion(resamplingRatio)
+#resamplingCriterion = Resampling.EffectiveSampleSizeBasedResamplingCriterion(SMCsettings["resampling ratio"])
 resamplingCriterion = Resampling.AlwaysResamplingCriterion()
 
 # plain non-parallelized particle filter
-pf = ParticleFilter.CentralizedTargetTrackingParticleFilter(K*M,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
+pf = ParticleFilter.CentralizedTargetTrackingParticleFilter(K*PEs[0]['number'],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
 # distributed particle filter
 distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(
-	M,drnaExchangePeriod,drnaExchangeTuples,drnaAggregatedWeights_c,drnaAggregatedWeights_epsilon,K,drnaNormalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
+	PEs[0]['number'],DRNAsettings["exchange period"],drnaExchangeTuples,DRNAsettings["c"],DRNAsettings["epsilon"],K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
 	)
 
 #----------------------------------------------------------------- initialization ------------------------------------------------------------------------
@@ -160,10 +132,10 @@ distributedPf.initialize()
 
 #-------------------------------------------------------------- plots initialization ---------------------------------------------------------------------
 
-if displayEvolution:
+if painterSettings["display evolution?"]:
 
 	# this object will handle graphics
-	painter = Painter.WithBorder(Painter.RoomPainter(sensorsPositions,sleepTime=sleepTime),roomBottomLeftCorner,roomTopRightCorner)
+	painter = Painter.WithBorder(Painter.RoomPainter(sensorsPositions,sleepTime=painterSettings["sleep time between updates"]),room["bottom left corner"],room["top right corner"])
 
 	# we tell it to draw the sensors
 	painter.setupSensors()
@@ -172,14 +144,14 @@ if displayEvolution:
 	painter.updateTargetPosition(target.pos())
 	
 	# ...along with those estimated by the PFs (they should around the middle of the room...)
-	painter.updateEstimatedPosition(State.position(pf.computeMean()),identifier='centralized',color=centralizedPFcolor)
-	painter.updateEstimatedPosition(State.position(distributedPf.computeMean()),identifier='distributed',color=distributedPFcolor)
+	painter.updateEstimatedPosition(State.position(pf.computeMean()),identifier='centralized',color=painterSettings["color for the centralized PF"])
+	painter.updateEstimatedPosition(State.position(distributedPf.computeMean()),identifier='distributed',color=painterSettings["color for the distributed PF"])
 
-	if displayParticlesEvolution:
+	if painterSettings["display particles evolution?"]:
 
 		# particles are plotted
-		painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=centralizedPFcolor)
-		painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=distributedPFcolor)
+		painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=painterSettings["color for the centralized PF"])
+		painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=painterSettings["color for the distributed PF"])
 
 #------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
 
@@ -187,7 +159,7 @@ if displayEvolution:
 centralizedPF_MSE,distributedPF_MSE = np.empty(nTimeInstants),np.empty(nTimeInstants)
 
 # ...and the aggregated weights
-distributedPFaggregatedWeights = np.empty((nTimeInstants,M))
+distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs[0]['number']))
 
 #-------------------------------------------------------------------- main loop --------------------------------------------------------------------------
 
@@ -222,23 +194,23 @@ for iTime in range(nTimeInstants):
 	print('centralized PF\n',centralizedPF_mean)
 	print('distributed PF\n',distributedPF_mean)
 	
-	if displayEvolution:
+	if painterSettings["display evolution?"]:
 
 		# the plot is updated with the position of the target...
 		painter.updateTargetPosition(target.pos())
 		
 		# ...those estimated by the PFs
-		painter.updateEstimatedPosition(State.position(centralizedPF_mean),identifier='centralized',color=centralizedPFcolor)
-		painter.updateEstimatedPosition(State.position(distributedPF_mean),identifier='distributed',color=distributedPFcolor)
+		painter.updateEstimatedPosition(State.position(centralizedPF_mean),identifier='centralized',color=painterSettings["color for the centralized PF"])
+		painter.updateEstimatedPosition(State.position(distributedPF_mean),identifier='distributed',color=painterSettings["color for the distributed PF"])
 
-		if displayParticlesEvolution:
+		if painterSettings["display particles evolution?"]:
 
 			# ...and those of the particles...
-			painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=centralizedPFcolor)
-			painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=distributedPFcolor)
+			painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=painterSettings["color for the centralized PF"])
+			painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=painterSettings["color for the distributed PF"])
 
 # MSE vs time
-Painter.plotMSEvsTime(centralizedPF_MSE,distributedPF_MSE,centralizedPFcolor,distributedPFcolor,'+','o',MSEvsTimeOutputFile)
+Painter.plotMSEvsTime(centralizedPF_MSE,distributedPF_MSE,painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],'+','o',painterSettings["output file name for the MSEvsTime plot"])
 
 ## aggregated weights vs time in a stackbar diagram
 #Painter.plotAggregatedWeightsDistributionVsTime(distributedPFaggregatedWeights)
@@ -246,7 +218,7 @@ Painter.plotMSEvsTime(centralizedPF_MSE,distributedPF_MSE,centralizedPFcolor,dis
 # evolution of the largest aggregated weight over time
 Painter.plotAggregatedWeightsSupremumVsTime(distributedPFaggregatedWeights,distributedPf.getAggregatedWeightsUpperBound())
 
-if displayEvolution:
+if painterSettings["display evolution?"]:
 	painter.save()
 
 import code

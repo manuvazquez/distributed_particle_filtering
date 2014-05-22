@@ -123,7 +123,6 @@ class BouncingWithinRectangleTransitionKernel(TransitionKernel):
 		
 		# step to be taken is obtained from the velocity and a noise component
 		step = velocity*self._stepDuration + numpy.random.normal(0,math.sqrt(self._noiseVariance/2),(2,1))
-		#step = velocity*self._stepDuration
 		
 		# this may be updated in the while loop when bouncing off several walls
 		previousPos = state[0:2].copy()
