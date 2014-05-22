@@ -76,7 +76,7 @@ class Ring(PEsNetwork):
 
 class Mesh(PEsNetwork):
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,nRows,nCols):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,potentialNeighboursRelativePosition,nRows,nCols):
 		
 		super().__init__(nPEs,nParticlesPerPE,exchangePercentage)
 		
@@ -84,10 +84,6 @@ class Mesh(PEsNetwork):
 		
 		# for the sake of clarity, and in order to avoid some computations...
 		arrayedPEs = np.arange(nPEs).reshape((nRows,nCols),order='F')
-		
-		# relative position of the potential neighbours of a certain PE
-		potentialNeighboursRelativePosition = [[-1,0],[1,0],[0,1],[0,-1]]
-		#potentialNeighboursRelativePosition = [[-1,0],[1,0],[0,1],[0,-1],[-1,1],[1,1],[-1,-1],[1,-1]]
 		
 		self._neighbours = []
 		

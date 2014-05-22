@@ -1,11 +1,15 @@
 {
-	"number of time instants": 200,
-	"number of particles per PE": 200,
-	"PEs": [
+	"number of time instants": 100,
+	"number of particles per PE": 100,
+	"PEs": {
+		"setups": [
+			{"number": 9,"mesh size": [3,3]},
 			{"number": 10,"mesh size": [2,5]},
-			{"number": 16,"mesh size": [4,4]},
-			{"number": 10,"mesh size": [2,5]}
+			{"number": 16,"mesh size": [4,4]}
 		],
+		"neighbours in mesh configuration": [[-1,0],[1,0],[0,1],[0,-1]],
+		"neighbours in mesh configuration alt": [[-1,0],[1,0],[0,1],[0,-1],[-1,1],[1,1],[-1,-1],[1,-1]]
+		},
 	"sensors": {
 		"number": 16,
 		"radius": 5
@@ -33,10 +37,10 @@
 		"display particles evolution?": false
 		},
 	"DRNA": {
-		"exchange period": 5,
-		"exchanged particles percentage": 0.01,
+		"exchange period": 3,
+		"exchanged particles percentage": 0.05,
 		"c": 1.0,
-		"epsilon": 0.1,
+		"epsilon": 0.2,
 		"normalization period": 5
 		}
 }

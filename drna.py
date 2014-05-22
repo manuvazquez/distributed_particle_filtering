@@ -67,15 +67,15 @@ np.random.seed(283627627)
 
 # a PEs network is created and used to get the exchange tuples
 
-#drnaExchangeTuples = PEsNetwork.Customized(PEs[0]['number'],K,DRNAsettings["exchanged particles percentage"],[
+#drnaExchangeTuples = PEsNetwork.Customized(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles percentage"],[
 	#[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]
 	#]).getExchangeTuples()
 
-#drnaExchangeTuples = PEsNetwork.Ring(PEs[0]['number'],K,DRNAsettings["exchanged particles percentage"]).getExchangeTuples()
+#drnaExchangeTuples = PEsNetwork.Ring(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles percentage"]).getExchangeTuples()
 
-drnaExchangeTuples = PEsNetwork.Mesh(PEs[0]['number'],K,DRNAsettings["exchanged particles percentage"],*PEs[0]['mesh size']).getExchangeTuples()
+drnaExchangeTuples = PEsNetwork.Mesh(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles percentage"],PEs["neighbours in mesh configuration"],*PEs["setups"][0]["mesh size"]).getExchangeTuples()
 
-#drnaExchangeTuples = PEsNetwork.FullyConnected(PEs[0]['number'],K,DRNAsettings["exchanged particles percentage"]).getExchangeTuples()
+#drnaExchangeTuples = PEsNetwork.FullyConnected(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles percentage"]).getExchangeTuples()
 
 print('drnaExchangeTuples')
 print(drnaExchangeTuples)
@@ -109,11 +109,11 @@ resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm()
 resamplingCriterion = Resampling.AlwaysResamplingCriterion()
 
 # plain non-parallelized particle filter
-pf = ParticleFilter.CentralizedTargetTrackingParticleFilter(K*PEs[0]['number'],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
+pf = ParticleFilter.CentralizedTargetTrackingParticleFilter(K*PEs["setups"][0]["number"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
 # distributed particle filter
 distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(
-	PEs[0]['number'],DRNAsettings["exchange period"],drnaExchangeTuples,DRNAsettings["c"],DRNAsettings["epsilon"],K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
+	PEs["setups"][0]["number"],DRNAsettings["exchange period"],drnaExchangeTuples,DRNAsettings["c"],DRNAsettings["epsilon"],K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
 	)
 
 #----------------------------------------------------------------- initialization ------------------------------------------------------------------------
@@ -159,7 +159,7 @@ if painterSettings["display evolution?"]:
 centralizedPF_MSE,distributedPF_MSE = np.empty(nTimeInstants),np.empty(nTimeInstants)
 
 # ...and the aggregated weights
-distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs[0]['number']))
+distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs["setups"][0]["number"]))
 
 #-------------------------------------------------------------------- main loop --------------------------------------------------------------------------
 

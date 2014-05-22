@@ -233,7 +233,7 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 				PE.updateAggregatedWeight()
 			
 			if self.degeneratedAggregatedWeights():
-				print('after exchanging step, aggregated weights are still degenerated => assumption 4 is not being satisfied!!')
+				print('after exchanging, aggregated weights are still degenerated => assumption 4 is not being satisfied!!')
 				print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
 
 		# in order to peform some checks...
