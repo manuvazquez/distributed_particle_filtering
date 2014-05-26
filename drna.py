@@ -67,18 +67,19 @@ np.random.seed(283627627)
 
 # a PEs network is created and used to get the exchange tuples
 
-#drnaExchangeTuples = PEsNetwork.Customized(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles percentage"],[
+#drnaExchangeTuples = PEsNetwork.Customized(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"],[
 	#[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]
 	#]).getExchangeTuples()
 
-#drnaExchangeTuples = PEsNetwork.Ring(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles percentage"]).getExchangeTuples()
+#drnaExchangeTuples = PEsNetwork.Ring(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"]).getExchangeTuples()
 
-drnaExchangeTuples = PEsNetwork.Mesh(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles percentage"],PEs["neighbours in mesh configuration"],*PEs["setups"][0]["mesh size"]).getExchangeTuples()
+drnaExchangeTuples = PEsNetwork.Mesh(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"],PEs["neighbours in mesh configuration"],*PEs["setups"][0]["mesh size"]).getExchangeTuples()
 
-#drnaExchangeTuples = PEsNetwork.FullyConnected(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles percentage"]).getExchangeTuples()
+#drnaExchangeTuples = PEsNetwork.FullyConnected(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"]).getExchangeTuples()
 
-print('drnaExchangeTuples')
-print(drnaExchangeTuples)
+#drnaExchangeTuples = PEsNetwork.FullyConnectedWithRandomLinksRemoved(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"],20).getExchangeTuples()
+
+#print('drnaExchangeTuples\n',drnaExchangeTuples)
 
 # ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
 

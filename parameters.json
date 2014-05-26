@@ -1,8 +1,9 @@
 {
-	"number of time instants": 100,
-	"number of particles per PE": 100,
+	"number of time instants": 300,
+	"number of particles per PE": 200,
 	"PEs": {
 		"setups": [
+			{"number": 16,"mesh size": [4,4]},
 			{"number": 9,"mesh size": [3,3]},
 			{"number": 10,"mesh size": [2,5]},
 			{"number": 16,"mesh size": [4,4]}
@@ -37,10 +38,10 @@
 		"display particles evolution?": false
 		},
 	"DRNA": {
-		"exchange period": 3,
-		"exchanged particles percentage": 0.05,
-		"c": 1.0,
-		"epsilon": 0.2,
+		"exchange period": 5,
+		"exchanged particles maximum percentage": 0.5,
+		"c": 4.0,
+		"epsilon": 0.1,
 		"normalization period": 5
 		}
 }
