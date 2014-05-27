@@ -1,5 +1,5 @@
 {
-	"number of time instants": 300,
+	"number of time instants": 100,
 	"number of particles per PE": 200,
 	"PEs": {
 		"setups": [

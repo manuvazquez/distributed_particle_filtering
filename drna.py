@@ -67,19 +67,17 @@ np.random.seed(283627627)
 
 # a PEs network is created and used to get the exchange tuples
 
-#drnaExchangeTuples = PEsNetwork.Customized(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"],[
+#PEsNetwork = PEsNetwork.Customized(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"],[
 	#[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]
-	#]).getExchangeTuples()
+	#])
 
-#drnaExchangeTuples = PEsNetwork.Ring(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"]).getExchangeTuples()
+#PEsNetwork = PEsNetwork.Ring(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"])
 
-drnaExchangeTuples = PEsNetwork.Mesh(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"],PEs["neighbours in mesh configuration"],*PEs["setups"][0]["mesh size"]).getExchangeTuples()
+PEsNetwork = PEsNetwork.Mesh(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"],PEs["neighbours in mesh configuration"],*PEs["setups"][0]["mesh size"])
 
-#drnaExchangeTuples = PEsNetwork.FullyConnected(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"]).getExchangeTuples()
+#PEsNetwork = PEsNetwork.FullyConnected(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"])
 
-#drnaExchangeTuples = PEsNetwork.FullyConnectedWithRandomLinksRemoved(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"],20).getExchangeTuples()
-
-#print('drnaExchangeTuples\n',drnaExchangeTuples)
+#PEsNetwork = PEsNetwork.FullyConnectedWithRandomLinksRemoved(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"],20)
 
 # ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
 
@@ -114,7 +112,7 @@ pf = ParticleFilter.CentralizedTargetTrackingParticleFilter(K*PEs["setups"][0]["
 
 # distributed particle filter
 distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(
-	PEs["setups"][0]["number"],DRNAsettings["exchange period"],drnaExchangeTuples,DRNAsettings["c"],DRNAsettings["epsilon"],K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
+	PEs["setups"][0]["number"],DRNAsettings["exchange period"],PEsNetwork,DRNAsettings["c"],DRNAsettings["epsilon"],K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
 	)
 
 #----------------------------------------------------------------- initialization ------------------------------------------------------------------------
