@@ -25,7 +25,7 @@ with open('parameters.json') as jsonData:
 K = parameters["number of particles per PE"]
 
 # different setups for the PEs
-PEs = parameters["PEs"]
+PEs = parameters["PEs Network"]
 
 # number of sensors, radius...
 sensorsSettings = parameters["sensors"]
@@ -67,17 +67,17 @@ np.random.seed(283627627)
 
 # a PEs network is created and used to get the exchange tuples
 
-#PEsNetwork = PEsNetwork.Customized(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"],[
+#PEsNetwork = PEsNetwork.Customized(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],[
 	#[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]
 	#])
 
-#PEsNetwork = PEsNetwork.Ring(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"])
+#PEsNetwork = PEsNetwork.Ring(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"])
 
-PEsNetwork = PEsNetwork.Mesh(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"],PEs["neighbours in mesh configuration"],*PEs["setups"][0]["mesh size"])
+PEsNetwork = PEsNetwork.Mesh(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["Mesh"]["neighbours"],*PEs["Mesh"]["geometry"][0])
 
-#PEsNetwork = PEsNetwork.FullyConnected(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"])
+#PEsNetwork = PEsNetwork.FullyConnected(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"])
 
-#PEsNetwork = PEsNetwork.FullyConnectedWithRandomLinksRemoved(PEs["setups"][0]["number"],K,DRNAsettings["exchanged particles maximum percentage"],20)
+#PEsNetwork = PEsNetwork.FullyConnectedWithRandomLinksRemoved(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["FullyConnectedWithRandomLinksRemoved"]["number of links to be removed"])
 
 # ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
 
@@ -108,11 +108,11 @@ resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm()
 resamplingCriterion = Resampling.AlwaysResamplingCriterion()
 
 # plain non-parallelized particle filter
-pf = ParticleFilter.CentralizedTargetTrackingParticleFilter(K*PEs["setups"][0]["number"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
+pf = ParticleFilter.CentralizedTargetTrackingParticleFilter(K*PEs["number of PEs"][0],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
 # distributed particle filter
 distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(
-	PEs["setups"][0]["number"],DRNAsettings["exchange period"],PEsNetwork,DRNAsettings["c"],DRNAsettings["epsilon"],K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
+	PEs["number of PEs"][0],DRNAsettings["exchange period"],PEsNetwork,DRNAsettings["c"],DRNAsettings["epsilon"],K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
 	)
 
 #----------------------------------------------------------------- initialization ------------------------------------------------------------------------
@@ -158,7 +158,7 @@ if painterSettings["display evolution?"]:
 centralizedPF_MSE,distributedPF_MSE = np.empty(nTimeInstants),np.empty(nTimeInstants)
 
 # ...and the aggregated weights
-distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs["setups"][0]["number"]))
+distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs["number of PEs"][0]))
 
 #-------------------------------------------------------------------- main loop --------------------------------------------------------------------------
 

@@ -1,34 +1,35 @@
 {
-	"number of time instants": 100,
+	"number of time instants": 1000,
 	"number of particles per PE": 200,
-	"PEs": {
-		"setups": [
-			{"number": 16,"mesh size": [4,4]},
-			{"number": 9,"mesh size": [3,3]},
-			{"number": 10,"mesh size": [2,5]},
-			{"number": 16,"mesh size": [4,4]}
-		],
-		"neighbours in mesh configuration": [[-1,0],[1,0],[0,1],[0,-1]],
-		"neighbours in mesh configuration alt": [[-1,0],[1,0],[0,1],[0,-1],[-1,1],[1,1],[-1,-1],[1,-1]]
+	"PEs Network": {
+		"number of PEs": [16,9,10,16],
+		"Mesh": {
+			"geometry": [ [4,4], [3,3], [2,5], [4,4] ],
+			"neighbours": [[-1,0],[1,0],[0,1],[0,-1],[-1,1],[1,1],[-1,-1],[1,-1]],
+			"neighbours alternative": [[-1,0],[1,0],[0,1],[0,-1]]
 		},
+		"FullyConnectedWithRandomLinksRemoved": {
+			"number of links to be removed": 30
+		}
+	},
 	"sensors": {
 		"number": 16,
 		"radius": 5
-		},
+	},
 	"room": {
 		"bottom left corner": [-20,-10],
 		"top right corner": [20,10]
-		},
+	},
 	"SMC": {
 		"resampling ratio": 0.9
-		},
+	},
 	"prior distribution": {
 		"velocity variance": 0.05
-		},
+	},
 	"state transition": {
 		"velocity variance": 0.01,
 		"position variance": 0.01
-		},
+	},
 	"painter": {
 		"sleep time between updates": 0.01,
 		"color for the centralized PF": "blue",
@@ -36,12 +37,12 @@
 		"output file name for the MSEvsTime plot": "MSEvsTime.eps",
 		"display evolution?": true,
 		"display particles evolution?": false
-		},
+	},
 	"DRNA": {
 		"exchange period": 5,
-		"exchanged particles maximum percentage": 0.5,
+		"exchanged particles maximum percentage": 0.8,
 		"c": 4.0,
 		"epsilon": 0.1,
 		"normalization period": 5
-		}
+	}
 }
