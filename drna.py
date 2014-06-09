@@ -129,7 +129,7 @@ distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(
 	PEs["number of PEs"][0],DRNAsettings["exchange period"],PEsNetwork,DRNAsettings["c"],DRNAsettings["epsilon"],K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
 	)
 
-#----------------------------------------------------------------- initialization ------------------------------------------------------------------------
+#------------------------------------------------------------- trajectory simulation ---------------------------------------------------------------------
 
 initialState = prior.sample()
 
@@ -139,11 +139,37 @@ target = Target.Target(transitionKernel,State.position(initialState),State.veloc
 print('initial position:\n',target.pos())
 print('initial velocity:\n',target.velocity())
 
+targetPosition,targetVelocity = np.empty((2,nTimeInstants)),np.empty((2,nTimeInstants))
+observations = [None]*nTimeInstants
+
+# the trajectory is simulated, and the corresponding observations are obtained
+for iTime in range(nTimeInstants):
+	
+	# the target moves...
+	target.step()
+	
+	# ..and its new position and velocity are stored
+	targetPosition[:,iTime:iTime+1],targetVelocity[:,iTime:iTime+1] = target.pos(),target.velocity()
+	
+	
+	# the observations (one per sensor) are computed
+	observations[iTime] = np.array(
+			[float(sensor.detect(target.pos())) for sensor in sensors]
+			)
+
+#------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
+
+# we store the computed mean square errors...
+centralizedPF_MSE,distributedPF_MSE = np.empty(nTimeInstants),np.empty(nTimeInstants)
+
+# ...and the aggregated weights
+distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs["number of PEs"][0]))
+
+#------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
+
 # initialization of the particle filters
 pf.initialize()
 distributedPf.initialize()
-
-#-------------------------------------------------------------- plots initialization ---------------------------------------------------------------------
 
 if painterSettings["display evolution?"]:
 
@@ -153,9 +179,9 @@ if painterSettings["display evolution?"]:
 	# we tell it to draw the sensors
 	painter.setupSensors()
 	
-	# the initial position is painted
+	# the initial position is painted...
 	painter.updateTargetPosition(target.pos())
-	
+
 	# ...along with those estimated by the PFs (they should around the middle of the room...)
 	painter.updateEstimatedPosition(State.position(pf.computeMean()),identifier='centralized',color=painterSettings["color for the centralized PF"])
 	painter.updateEstimatedPosition(State.position(distributedPf.computeMean()),identifier='distributed',color=painterSettings["color for the distributed PF"])
@@ -166,40 +192,22 @@ if painterSettings["display evolution?"]:
 		painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=painterSettings["color for the centralized PF"])
 		painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=painterSettings["color for the distributed PF"])
 
-#------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
-
-# we store the computed mean square errors...
-centralizedPF_MSE,distributedPF_MSE = np.empty(nTimeInstants),np.empty(nTimeInstants)
-
-# ...and the aggregated weights
-distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs["number of PEs"][0]))
-
-#-------------------------------------------------------------------- main loop --------------------------------------------------------------------------
-
 for iTime in range(nTimeInstants):
 
 	print('---------- iTime = ' + repr(iTime) + ' ---------------')
 
-	# the target moves
-	target.step()
-
-	print('position:\n',target.pos())
-	print('velocity:\n',target.velocity())
-	
-	# the observations (one per sensor) are computed
-	observations = np.array(
-			[float(sensor.detect(target.pos())) for sensor in sensors]
-			)
+	print('position:\n',targetPosition[:,iTime:iTime+1])
+	print('velocity:\n',targetVelocity[:,iTime:iTime+1])
 	
 	# particle filters are updated
-	pf.step(observations)
-	distributedPf.step(observations)
+	pf.step(observations[iTime])
+	distributedPf.step(observations[iTime])
 	
 	# the mean computed by the centralized and distributed PFs
 	centralizedPF_mean,distributedPF_mean = pf.computeMean(),distributedPf.computeMean()
 	
 	# MSE for both the centralized and distributed particle filters is computed
-	centralizedPF_MSE[iTime],distributedPF_MSE[iTime] = ((State.position(centralizedPF_mean)-target.pos())**2).mean(),((State.position(distributedPF_mean)-target.pos())**2).mean()
+	centralizedPF_MSE[iTime],distributedPF_MSE[iTime] = ((State.position(centralizedPF_mean)-targetPosition[:,iTime:iTime+1])**2).mean(),((State.position(distributedPF_mean)-targetPosition[:,iTime:iTime+1])**2).mean()
 	
 	# the aggregated weights of the different PEs in the distributed PF are stored
 	distributedPFaggregatedWeights[iTime,:] = distributedPf.getAggregatedWeights()
@@ -210,7 +218,7 @@ for iTime in range(nTimeInstants):
 	if painterSettings["display evolution?"]:
 
 		# the plot is updated with the position of the target...
-		painter.updateTargetPosition(target.pos())
+		painter.updateTargetPosition(targetPosition[:,iTime:iTime+1])
 		
 		# ...those estimated by the PFs
 		painter.updateEstimatedPosition(State.position(centralizedPF_mean),identifier='centralized',color=painterSettings["color for the centralized PF"])
