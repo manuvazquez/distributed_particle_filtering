@@ -2,6 +2,7 @@
 	"number of time instants": 1000,
 	"number of particles per PE": 200,
 	"PEs Network": {
+		"topology": "Mesh",
 		"number of PEs": [16,9,10,16],
 		"Mesh": {
 			"geometry": [ [4,4], [3,3], [2,5], [4,4] ],
@@ -44,5 +45,7 @@
 		"c": 4.0,
 		"epsilon": 0.1,
 		"normalization period": 5
-	}
+	},
+	"ramdon seed?": false,
+	"seed": 111627627
 }

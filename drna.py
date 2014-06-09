@@ -60,24 +60,38 @@ room["top right corner"] = np.array(room["top right corner"])
 # it gives the width and height
 roomDiagonalVector = room["top right corner"] - room["bottom left corner"]
 
-#np.random.seed(9554)
-np.random.seed(283627627)
+if not parameters["ramdon seed?"]:
+	#np.random.seed(9554)
+	#np.random.seed(283627627)
+	np.random.seed(parameters["seed"])
 
 # ----------------------------------------------------------- Processing Elements (PEs) ------------------------------------------------------------------
 
-# a PEs network is created and used to get the exchange tuples
+# a PEs network is created...used later to get the exchange tuples
 
-#PEsNetwork = PEsNetwork.Customized(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],[
-	#[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]
-	#])
+if PEs["topology"]=="Customized":
+	
+	PEsNetwork = PEsNetwork.Customized(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],[[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]])
+	
+elif PEs["topology"]=="Ring":
+	
+	PEsNetwork = PEsNetwork.Ring(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"])
+	
+elif PEs["topology"]=="Mesh":
+	
+	PEsNetwork = PEsNetwork.Mesh(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["Mesh"]["neighbours"],*PEs["Mesh"]["geometry"][0])
+	
+elif PEs["topology"]=="FullyConnected":
+	
+	PEsNetwork = PEsNetwork.FullyConnected(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"])
+	
+elif PEs["topology"]=="FullyConnectedWithRandomLinksRemoved":
 
-#PEsNetwork = PEsNetwork.Ring(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"])
-
-PEsNetwork = PEsNetwork.Mesh(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["Mesh"]["neighbours"],*PEs["Mesh"]["geometry"][0])
-
-#PEsNetwork = PEsNetwork.FullyConnected(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"])
-
-#PEsNetwork = PEsNetwork.FullyConnectedWithRandomLinksRemoved(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["FullyConnectedWithRandomLinksRemoved"]["number of links to be removed"])
+	PEsNetwork = PEsNetwork.FullyConnectedWithRandomLinksRemoved(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["FullyConnectedWithRandomLinksRemoved"]["number of links to be removed"])
+	
+else:
+	print('PEs network topology not supported...')
+	raise SystemExit(0)
 
 # ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
 

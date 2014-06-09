@@ -83,11 +83,20 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		# if required (depending on the algorithm), the weights are normalized...
 		self.normalizeWeightsIfRequired()
 		
-		# ...though the normalized weights are computed anyway if needed/possible (if all the weights are zero normalization makes no sense)
+		# resampling is carried out...ONLY if the resampling criterion is satisfied
+		self.resample()
+
+	def getState(self):
+		
+		return self._state
+
+	def resample(self):
+		
+		# the normalized weights are computed if possible (if all the weights are zero normalization makes no sense)
 		if self._aggregatedWeight!=0:
 			normalizedWeights = self._weights / self._aggregatedWeight
 		
-		# ...in order to perform resampling if needed
+		# we check whether a resampling step is actually needed or not
 		if self._resamplingCriterion.isResamplingNeeded(normalizedWeights):
 			
 			try:
@@ -96,24 +105,16 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 				
 			except ValueError:
 				
-				print("CentralizedTargetTrackingParticleFilter:step: this shouldn't have happened...")
+				print("CentralizedTargetTrackingParticleFilter:resample: this shouldn't have happened...")
 				
 				import code
 				code.interact(local=dict(globals(), **locals()))
 			
-			# actual resampling
-			self.resample(iParticlesToBeKept)
-
-	def getState(self):
-		
-		return self._state
-
-	def resample(self,indexes):
-		
-		self._state = self._state[:,indexes]
-		
-		# note that if the weights have been normalized, then "self._aggregatedWeight" is already equal to 1
-		self._weights.fill(self._aggregatedWeight/self._nParticles)
+			# the above indexes are used to update the state
+			self._state = self._state[:,iParticlesToBeKept]
+			
+			# note that if the weights have been normalized ("standard" centralized particle filter), then "self._aggregatedWeight" is equal to 1
+			self._weights.fill(self._aggregatedWeight/self._nParticles)
 		
 	def getParticle(self,index):
 		
@@ -234,6 +235,8 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 			for PE in self._PEs:
 				
 				PE.updateAggregatedWeight()
+				
+				#PE.resample()
 			
 			if self.degeneratedAggregatedWeights():
 				print('after exchanging, aggregated weights are still degenerated => assumption 4 is not being satisfied!!')
