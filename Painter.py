@@ -60,7 +60,7 @@ def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggreg
 
 	plt.savefig(outputFile)
 
-def plotAggregatedWeightsSupremumVsTime(aggregatedWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',xticksStep=10):
+def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',xticksStep=10):
 	
 	# interactive mode on
 	plt.ion()
@@ -68,12 +68,6 @@ def plotAggregatedWeightsSupremumVsTime(aggregatedWeights,upperBound,outputFile=
 	# a new figure is created to plot the MSE vs time
 	maxAggregatedWeightVsTimeFigure = plt.figure('Aggregated Weights Supremum Vs Time')
 	maxAggregatedWeightVsTimeAxes = plt.axes()
-	
-	# the aggregated weights are  normalized...
-	normalizedAggregatedWeights = np.divide(aggregatedWeights,aggregatedWeights.sum(axis=1)[np.newaxis].T)
-	
-	# ...and the maximum weight at every time instant obtained
-	maxWeights = normalizedAggregatedWeights.max(axis=1)
 
 	# this is plotted along time
 	maxAggregatedWeightVsTimeAxes.plot(maxWeights,label='Supremum')
@@ -194,6 +188,10 @@ class RoomPainter:
 		#self._ax.set_ybound(lower=-8)
 		
 		plt.savefig(self._outputFile)
+		
+	def close(self):
+		
+		plt.close(self._figure)
 
 class RoomPainterDecorator(RoomPainter):
 	
@@ -227,6 +225,10 @@ class RoomPainterDecorator(RoomPainter):
 		#self._decorated._ax.set_ybound(upper=self._roomTopRightCorner[1]-5)
 		
 		self._decorated.save()
+		
+	def close(self):
+		
+		self._decorated.close()
 		
 class WithBorder(RoomPainterDecorator):
 	

@@ -1,5 +1,6 @@
 {
-	"number of time instants": 1000,
+	"number of frames": 2,
+	"number of time instants": 300,
 	"number of particles per PE": 200,
 	"PEs Network": {
 		"topology": "Mesh",

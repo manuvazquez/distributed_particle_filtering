@@ -160,84 +160,97 @@ for iTime in range(nTimeInstants):
 #------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
 
 # we store the computed mean square errors...
-centralizedPF_MSE,distributedPF_MSE = np.empty(nTimeInstants),np.empty(nTimeInstants)
+centralizedPF_MSE,distributedPF_MSE = np.empty((nTimeInstants,parameters["number of frames"])),np.empty((nTimeInstants,parameters["number of frames"]))
 
 # ...and the aggregated weights
-distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs["number of PEs"][0]))
+distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs["number of PEs"][0],parameters["number of frames"]))
+
 
 #------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
 
-# initialization of the particle filters
-pf.initialize()
-distributedPf.initialize()
+for iFrame in range(parameters["number of frames"]):
 
-if painterSettings["display evolution?"]:
+	# initialization of the particle filters
+	pf.initialize()
+	distributedPf.initialize()
 
-	# this object will handle graphics
-	painter = Painter.WithBorder(Painter.RoomPainter(sensorsPositions,sleepTime=painterSettings["sleep time between updates"]),room["bottom left corner"],room["top right corner"])
-
-	# we tell it to draw the sensors
-	painter.setupSensors()
-	
-	# the initial position is painted...
-	painter.updateTargetPosition(target.pos())
-
-	# ...along with those estimated by the PFs (they should around the middle of the room...)
-	painter.updateEstimatedPosition(State.position(pf.computeMean()),identifier='centralized',color=painterSettings["color for the centralized PF"])
-	painter.updateEstimatedPosition(State.position(distributedPf.computeMean()),identifier='distributed',color=painterSettings["color for the distributed PF"])
-
-	if painterSettings["display particles evolution?"]:
-
-		# particles are plotted
-		painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=painterSettings["color for the centralized PF"])
-		painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=painterSettings["color for the distributed PF"])
-
-for iTime in range(nTimeInstants):
-
-	print('---------- iTime = ' + repr(iTime) + ' ---------------')
-
-	print('position:\n',targetPosition[:,iTime:iTime+1])
-	print('velocity:\n',targetVelocity[:,iTime:iTime+1])
-	
-	# particle filters are updated
-	pf.step(observations[iTime])
-	distributedPf.step(observations[iTime])
-	
-	# the mean computed by the centralized and distributed PFs
-	centralizedPF_mean,distributedPF_mean = pf.computeMean(),distributedPf.computeMean()
-	
-	# MSE for both the centralized and distributed particle filters is computed
-	centralizedPF_MSE[iTime],distributedPF_MSE[iTime] = ((State.position(centralizedPF_mean)-targetPosition[:,iTime:iTime+1])**2).mean(),((State.position(distributedPF_mean)-targetPosition[:,iTime:iTime+1])**2).mean()
-	
-	# the aggregated weights of the different PEs in the distributed PF are stored
-	distributedPFaggregatedWeights[iTime,:] = distributedPf.getAggregatedWeights()
-	
-	print('centralized PF\n',centralizedPF_mean)
-	print('distributed PF\n',distributedPF_mean)
-	
 	if painterSettings["display evolution?"]:
-
-		# the plot is updated with the position of the target...
-		painter.updateTargetPosition(targetPosition[:,iTime:iTime+1])
 		
-		# ...those estimated by the PFs
-		painter.updateEstimatedPosition(State.position(centralizedPF_mean),identifier='centralized',color=painterSettings["color for the centralized PF"])
-		painter.updateEstimatedPosition(State.position(distributedPF_mean),identifier='distributed',color=painterSettings["color for the distributed PF"])
+		# if this is the first iteration...
+		if "painter" in locals():
+			
+			# ...then, the previous figure is closed
+			painter.close()
+
+		# this object will handle graphics
+		painter = Painter.WithBorder(Painter.RoomPainter(sensorsPositions,sleepTime=painterSettings["sleep time between updates"]),room["bottom left corner"],room["top right corner"])
+
+		# we tell it to draw the sensors
+		painter.setupSensors()
+		
+		# the initial position is painted...
+		painter.updateTargetPosition(target.pos())
+
+		# ...along with those estimated by the PFs (they should around the middle of the room...)
+		painter.updateEstimatedPosition(State.position(pf.computeMean()),identifier='centralized',color=painterSettings["color for the centralized PF"])
+		painter.updateEstimatedPosition(State.position(distributedPf.computeMean()),identifier='distributed',color=painterSettings["color for the distributed PF"])
 
 		if painterSettings["display particles evolution?"]:
 
-			# ...and those of the particles...
+			# particles are plotted
 			painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=painterSettings["color for the centralized PF"])
 			painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=painterSettings["color for the distributed PF"])
 
-# MSE vs time
-Painter.plotMSEvsTime(centralizedPF_MSE,distributedPF_MSE,painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],'+','o',painterSettings["output file name for the MSEvsTime plot"])
+	for iTime in range(nTimeInstants):
 
-## aggregated weights vs time in a stackbar diagram
-#Painter.plotAggregatedWeightsDistributionVsTime(distributedPFaggregatedWeights)
+		print('---------- iTime = ' + repr(iTime) + ' ---------------')
+
+		print('position:\n',targetPosition[:,iTime:iTime+1])
+		print('velocity:\n',targetVelocity[:,iTime:iTime+1])
+		
+		# particle filters are updated
+		pf.step(observations[iTime])
+		distributedPf.step(observations[iTime])
+		
+		# the mean computed by the centralized and distributed PFs
+		centralizedPF_mean,distributedPF_mean = pf.computeMean(),distributedPf.computeMean()
+		
+		# MSE for both the centralized and distributed particle filters is computed
+		centralizedPF_MSE[iTime,iFrame],distributedPF_MSE[iTime,iFrame] = ((State.position(centralizedPF_mean)-targetPosition[:,iTime:iTime+1])**2).mean(),((State.position(distributedPF_mean)-targetPosition[:,iTime:iTime+1])**2).mean()
+		
+		# the aggregated weights of the different PEs in the distributed PF are stored
+		distributedPFaggregatedWeights[iTime,:,iFrame] = distributedPf.getAggregatedWeights()
+		
+		print('centralized PF\n',centralizedPF_mean)
+		print('distributed PF\n',distributedPF_mean)
+		
+		if painterSettings["display evolution?"]:
+
+			# the plot is updated with the position of the target...
+			painter.updateTargetPosition(targetPosition[:,iTime:iTime+1])
+			
+			# ...those estimated by the PFs
+			painter.updateEstimatedPosition(State.position(centralizedPF_mean),identifier='centralized',color=painterSettings["color for the centralized PF"])
+			painter.updateEstimatedPosition(State.position(distributedPF_mean),identifier='distributed',color=painterSettings["color for the distributed PF"])
+
+			if painterSettings["display particles evolution?"]:
+
+				# ...and those of the particles...
+				painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=painterSettings["color for the centralized PF"])
+				painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=painterSettings["color for the distributed PF"])
+
+# MSE vs time
+Painter.plotMSEvsTime(centralizedPF_MSE.mean(axis=1),distributedPF_MSE.mean(axis=1),
+					painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],'+','o',painterSettings["output file name for the MSEvsTime plot"])
+
+# the aggregated weights are  normalized at ALL TIMES and for EVERY frame
+normalizedAggregatedWeights = np.rollaxis(np.divide(np.rollaxis(distributedPFaggregatedWeights,2,1),distributedPFaggregatedWeights.sum(axis=1)[:,:,np.newaxis]),2,1)
+
+# ...and the maximum weight, also at ALL TIMES and for EVERY frame, is obtained
+maxWeights = normalizedAggregatedWeights.max(axis=1).mean(axis=1)
 
 # evolution of the largest aggregated weight over time
-Painter.plotAggregatedWeightsSupremumVsTime(distributedPFaggregatedWeights,distributedPf.getAggregatedWeightsUpperBound())
+Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound())
 
 if painterSettings["display evolution?"]:
 	painter.save()
