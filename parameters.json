@@ -37,7 +37,7 @@
 		"color for the centralized PF": "blue",
 		"color for the distributed PF": "green",
 		"output file name for the MSEvsTime plot": "MSEvsTime.eps",
-		"display evolution?": true,
+		"display evolution?": false,
 		"display particles evolution?": false
 	},
 	"DRNA": {
@@ -47,6 +47,6 @@
 		"epsilon": 0.1,
 		"normalization period": 5
 	},
-	"ramdon seed?": false,
+	"ramdon seed?": true,
 	"seed": 111627627
 }

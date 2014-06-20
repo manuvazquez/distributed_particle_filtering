@@ -5,6 +5,14 @@ import numpy as np
 import json
 import time
 import sys
+import os
+
+# if the DISPLAY variable is not present, then the program is running without a display server...
+if 'DISPLAY' not in os.environ:
+	# ...and needs to be aware of it
+	import matplotlib
+	matplotlib.use('agg')
+
 import matplotlib.pyplot as plt
 
 import Target
@@ -247,7 +255,8 @@ Painter.plotMSEvsTime(centralizedPF_MSE.mean(axis=1),distributedPF_MSE.mean(axis
 normalizedAggregatedWeights = np.rollaxis(np.divide(np.rollaxis(distributedPFaggregatedWeights,2,1),distributedPFaggregatedWeights.sum(axis=1)[:,:,np.newaxis]),2,1)
 
 # ...and the maximum weight, also at ALL TIMES and for EVERY frame, is obtained
-maxWeights = normalizedAggregatedWeights.max(axis=1).mean(axis=1)
+#maxWeights = normalizedAggregatedWeights.max(axis=1).mean(axis=1)
+maxWeights = (normalizedAggregatedWeights.max(axis=1)**4).mean(axis=1)**(1/4)
 
 # evolution of the largest aggregated weight over time
 Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound())
