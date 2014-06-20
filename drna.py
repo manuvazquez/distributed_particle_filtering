@@ -7,22 +7,6 @@ import time
 import sys
 import os
 
-# if the DISPLAY variable is not present, then the program is running without a display server...
-if 'DISPLAY' not in os.environ:
-	# ...and needs to be aware of it
-	import matplotlib
-	matplotlib.use('agg')
-
-import matplotlib.pyplot as plt
-
-import Target
-import State
-import Sensor
-import Painter
-from smc import ParticleFilter
-from smc import Resampling
-import PEsNetwork
-
 np.set_printoptions(precision=3,linewidth=100)
 
 # the parameters file is read to memory
@@ -58,6 +42,24 @@ painterSettings = parameters["painter"]
 
 # DRNA related
 DRNAsettings = parameters["DRNA"]
+
+# if the DISPLAY variable is not present, then the program is running without a display server...
+if ('DISPLAY' not in os.environ) or (not painterSettings["use display server if available?"]):
+	# ...and needs to be aware of it
+	import matplotlib
+	matplotlib.use('agg')
+	print('wap')
+
+import matplotlib.pyplot as plt
+
+# some of this modules also import matplotlib.pyplot, and because this should be done AFTER calling "matplotlib.use", they have been imported here and not at the very beginning
+import Target
+import State
+import Sensor
+import Painter
+from smc import ParticleFilter
+from smc import Resampling
+import PEsNetwork
 
 # ---------------------------------------------
 

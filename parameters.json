@@ -38,7 +38,8 @@
 		"color for the distributed PF": "green",
 		"output file name for the MSEvsTime plot": "MSEvsTime.eps",
 		"display evolution?": false,
-		"display particles evolution?": false
+		"display particles evolution?": false,
+		"use display server if available?": true
 	},
 	"DRNA": {
 		"exchange period": 5,
