@@ -1,5 +1,5 @@
 {
-	"number of frames": 2,
+	"number of frames": 10,
 	"number of time instants": 300,
 	"number of particles per PE": 200,
 	"PEs Network": {
@@ -42,7 +42,7 @@
 	},
 	"DRNA": {
 		"exchange period": 5,
-		"exchanged particles maximum percentage": 0.8,
+		"exchanged particles maximum percentage": 0.15,
 		"c": 4.0,
 		"epsilon": 0.1,
 		"normalization period": 5

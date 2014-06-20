@@ -203,7 +203,7 @@ for iFrame in range(parameters["number of frames"]):
 
 	for iTime in range(nTimeInstants):
 
-		print('---------- iTime = ' + repr(iTime) + ' ---------------')
+		print('---------- iFrame = {}, iTime = {}'.format(repr(iFrame),repr(iTime)))
 
 		print('position:\n',targetPosition[:,iTime:iTime+1])
 		print('velocity:\n',targetVelocity[:,iTime:iTime+1])
