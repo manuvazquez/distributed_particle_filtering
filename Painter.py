@@ -9,6 +9,11 @@ def plotMSEvsTime(centralizedPF_MSE,distributedPF_MSE,centralizedPFcolor,distrib
 
 	# a new figure is created to plot the MSE vs time
 	mseVsTimeFigure = plt.figure('MSE vs Time')
+	
+	# ...cleared (this method can be called multiple times)
+	plt.clf()
+	
+	# ...and the corresponding axes created
 	mseVsTimeAxes = plt.axes()
 
 	mseVsTimeAxes.plot(centralizedPF_MSE,color=centralizedPFcolor,marker=centralizedPFmarker,label='Centralized PF')
@@ -27,8 +32,9 @@ def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggreg
 	# interactive mode on
 	plt.ion()
 
-	# a new figure is created to plot the MSE vs time
+	# a new figure is created to plot the aggregated weights fmp vs time
 	aggregatedWeightsVsTimeFigure = plt.figure('Aggregated Weights Evolution')
+	plt.clf()
 	aggregatedWeightsVsTimeAxes = plt.axes()
 	
 	# the shape of the array with the aggregated weights is used to figure out the number of PEs and time instants
@@ -65,8 +71,13 @@ def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAgg
 	# interactive mode on
 	plt.ion()
 
-	# a new figure is created to plot the MSE vs time
+	# a new figure is created to plot the aggregated weights' supremum vs time...
 	maxAggregatedWeightVsTimeFigure = plt.figure('Aggregated Weights Supremum Vs Time')
+	
+	# ...cleared (this method can be called multiple times)
+	plt.clf()
+	
+	# ...and the corresponding axes created
 	maxAggregatedWeightVsTimeAxes = plt.axes()
 
 	# this is plotted along time

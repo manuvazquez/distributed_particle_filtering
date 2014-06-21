@@ -77,7 +77,7 @@ roomDiagonalVector = room["top right corner"] - room["bottom left corner"]
 if not parameters["ramdon seed?"]:
 	np.random.seed(parameters["seed"])
 
-# ---------------------------------------------------------------- Ctrl-C handling -----------------------------------------------------------------------
+# ---------------------------------------------------------------- signals handling ----------------------------------------------------------------------
 
 # within the handler, once Ctrl-C is pressed once, the default behaviour is restored
 original_sigint_handler = signal.getsignal(signal.SIGINT)
@@ -99,6 +99,32 @@ ctrlCpressed = False
 
 # the above custom handler is installed for SIGINT
 signal.signal(signal.SIGINT, sigint_handler)
+
+
+def sigusr1_handler(signum, frame):
+	
+	global iFrame
+	
+	tmp_centralizedPF_MSE,tmp_distributedPF_MSE = centralizedPF_MSE[:,:iFrame],distributedPF_MSE[:,:iFrame]
+	tmp_distributedPFaggregatedWeights = distributedPFaggregatedWeights[:,:,:iFrame]
+	
+	# MSE vs time
+	Painter.plotMSEvsTime(tmp_centralizedPF_MSE.mean(axis=1),tmp_distributedPF_MSE.mean(axis=1),
+						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],'+','o',painterSettings["output file name for the MSEvsTime plot"])
+
+	# the aggregated weights are  normalized at ALL TIMES and for EVERY frame
+	normalizedAggregatedWeights = np.rollaxis(np.divide(np.rollaxis(tmp_distributedPFaggregatedWeights,2,1),tmp_distributedPFaggregatedWeights.sum(axis=1)[:,:,np.newaxis]),2,1)
+
+	# ...and the maximum weight, also at ALL TIMES and for EVERY frame, is obtained
+	maxWeights = (normalizedAggregatedWeights.max(axis=1)**4).mean(axis=1)**(1/4)
+
+	# evolution of the largest aggregated weight over time
+	Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound())
+
+# used later but defined here so that any knob can send the SIGUSR1 signal when no frame has been processed
+iFrame = 0
+
+signal.signal(signal.SIGUSR1, sigusr1_handler)
 
 # ----------------------------------------------------------- Processing Elements (PEs) ------------------------------------------------------------------
 
@@ -202,8 +228,6 @@ distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs["number of PEs"][0]
 
 
 #------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
-
-iFrame = 0
 
 while iFrame < parameters["number of frames"] and not ctrlCpressed:
 
