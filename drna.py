@@ -43,12 +43,12 @@ painterSettings = parameters["painter"]
 # DRNA related
 DRNAsettings = parameters["DRNA"]
 
-# if the DISPLAY variable is not present, then the program is running without a display server...
-if ('DISPLAY' not in os.environ) or (not painterSettings["use display server if available?"]):
-	# ...and needs to be aware of it
+# we use the "agg" backend if the DISPLAY variable is not present (the program is running without a display server) or the parameters file says so
+useAgg = ('DISPLAY' not in os.environ) or (not painterSettings["use display server if available?"])
+
+if useAgg:
 	import matplotlib
 	matplotlib.use('agg')
-	print('wap')
 
 import matplotlib.pyplot as plt
 
@@ -266,5 +266,11 @@ Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregat
 if painterSettings["display evolution?"]:
 	painter.save()
 
-import code
-code.interact(local=dict(globals(), **locals()))
+# data is saved
+aggregatedWeightsUpperBound = distributedPf.getAggregatedWeightsUpperBound()
+np.savez('data',normalizedAggregatedWeights=normalizedAggregatedWeights,aggregatedWeightsUpperBound=aggregatedWeightsUpperBound)
+
+# if using the agg backend (no pictures shown), there is no point in bringing up the interactive prompt before exitingls
+if not useAgg:
+	import code
+	code.interact(local=dict(globals(), **locals()))
