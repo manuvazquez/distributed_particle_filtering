@@ -6,8 +6,12 @@ import json
 import time
 import sys
 import os
+import signal
 
 np.set_printoptions(precision=3,linewidth=100)
+
+# in order to clock the execution time...
+startTime = time.time()
 
 # the parameters file is read to memory
 with open('parameters.json') as jsonData:
@@ -63,17 +67,38 @@ import PEsNetwork
 
 # ---------------------------------------------
 
-# we rather have the coordinates of the corners stored as numpy arrays...
+# we'd rather have the coordinates of the corners stored as numpy arrays...
 room["bottom left corner"] = np.array(room["bottom left corner"])
 room["top right corner"] = np.array(room["top right corner"])
 
-# it gives the width and height
+# it amounts to the width and height
 roomDiagonalVector = room["top right corner"] - room["bottom left corner"]
 
 if not parameters["ramdon seed?"]:
-	#np.random.seed(9554)
-	#np.random.seed(283627627)
 	np.random.seed(parameters["seed"])
+
+# ---------------------------------------------------------------- Ctrl-C handling -----------------------------------------------------------------------
+
+# within the handler, once Ctrl-C is pressed once, the default behaviour is restored
+original_sigint_handler = signal.getsignal(signal.SIGINT)
+
+# the interrupt signal (ctrl-c) is handled by this function
+def sigint_handler(signum, frame):
+	
+	global ctrlCpressed
+	
+	if not ctrlCpressed:
+		
+		print('Ctrl-C pressed...one more to exit the program right now...')
+		ctrlCpressed = True
+		
+		# the default behaviour is restored
+		signal.signal(signal.SIGINT, original_sigint_handler)
+
+ctrlCpressed = False
+
+# the above custom handler is installed for SIGINT
+signal.signal(signal.SIGINT, sigint_handler)
 
 # ----------------------------------------------------------- Processing Elements (PEs) ------------------------------------------------------------------
 
@@ -178,7 +203,9 @@ distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs["number of PEs"][0]
 
 #------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
 
-for iFrame in range(parameters["number of frames"]):
+iFrame = 0
+
+while iFrame < parameters["number of frames"] and not ctrlCpressed:
 
 	# initialization of the particle filters
 	pf.initialize()
@@ -249,6 +276,12 @@ for iFrame in range(parameters["number of frames"]):
 				painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=painterSettings["color for the centralized PF"])
 				painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=painterSettings["color for the distributed PF"])
 
+	iFrame += 1
+
+# if may be the case that less than parameters["number of frames"] were simulated if Ctrl-C was pressed...
+centralizedPF_MSE,distributedPF_MSE = centralizedPF_MSE[:,:iFrame],distributedPF_MSE[:,:iFrame]
+distributedPFaggregatedWeights = distributedPFaggregatedWeights[:,:,:iFrame]
+
 # MSE vs time
 Painter.plotMSEvsTime(centralizedPF_MSE.mean(axis=1),distributedPF_MSE.mean(axis=1),
 					painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],'+','o',painterSettings["output file name for the MSEvsTime plot"])
@@ -269,6 +302,21 @@ if painterSettings["display evolution?"]:
 # data is saved
 aggregatedWeightsUpperBound = distributedPf.getAggregatedWeightsUpperBound()
 np.savez('data',normalizedAggregatedWeights=normalizedAggregatedWeights,aggregatedWeightsUpperBound=aggregatedWeightsUpperBound)
+
+# ------------------------------------------------------------------ benchmarking  -----------------------------------------------------------------------
+
+# for benchmarking purposes, it is assumed that the execution ends here
+endTime = time.time()
+
+# the elapsed time in seconds
+elapsedTime = endTime-startTime
+
+if elapsedTime>60:
+	print('Execution time: {} minutes'.format(repr(elapsedTime/60)))
+else:
+	print('Execution time: {} seconds'.format(repr(elapsedTime)))
+
+# --------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # if using the agg backend (no pictures shown), there is no point in bringing up the interactive prompt before exitingls
 if not useAgg:
