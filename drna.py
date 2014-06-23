@@ -7,8 +7,7 @@ import time
 import sys
 import os
 import signal
-
-np.set_printoptions(precision=3,linewidth=100)
+import socket
 
 # in order to clock the execution time...
 startTime = time.time()
@@ -65,6 +64,18 @@ from smc import ParticleFilter
 from smc import Resampling
 import PEsNetwork
 
+# the name of the machine running the program (supposedly, using the socket module gives rise to portable code)
+hostname = socket.gethostname()
+
+# date and time
+date = time.strftime("%a_%d_%H:%M:%S")
+
+# output data file
+outputFile = hostname+'_'+date+'_nFrames={}.eps'
+
+# how numpy arrays are printed on screen is specified here
+np.set_printoptions(precision=3,linewidth=100)
+
 # ---------------------------------------------
 
 # we'd rather have the coordinates of the corners stored as numpy arrays...
@@ -95,35 +106,34 @@ def sigint_handler(signum, frame):
 		# the default behaviour is restored
 		signal.signal(signal.SIGINT, original_sigint_handler)
 
-ctrlCpressed = False
-
-# the above custom handler is installed for SIGINT
-signal.signal(signal.SIGINT, sigint_handler)
-
-
 def sigusr1_handler(signum, frame):
+	
+	if 'iFrame' not in globals():
+		print('nothing done yet...')
+		return
 	
 	global iFrame
 	
-	tmp_centralizedPF_MSE,tmp_distributedPF_MSE = centralizedPF_MSE[:,:iFrame],distributedPF_MSE[:,:iFrame]
-	tmp_distributedPFaggregatedWeights = distributedPFaggregatedWeights[:,:,:iFrame]
-	
 	# MSE vs time
-	Painter.plotMSEvsTime(tmp_centralizedPF_MSE.mean(axis=1),tmp_distributedPF_MSE.mean(axis=1),
-						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],'+','o',painterSettings["output file name for the MSEvsTime plot"])
+	Painter.plotMSEvsTime(centralizedPF_MSE[:,:iFrame].mean(axis=1),distributedPF_MSE[:,:iFrame].mean(axis=1),
+						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],'+','o',painterSettings["file name prefix for the MSE vs time plot"] + '_' + outputFile.format(repr(iFrame)))
 
 	# the aggregated weights are  normalized at ALL TIMES and for EVERY frame
-	normalizedAggregatedWeights = np.rollaxis(np.divide(np.rollaxis(tmp_distributedPFaggregatedWeights,2,1),tmp_distributedPFaggregatedWeights.sum(axis=1)[:,:,np.newaxis]),2,1)
+	normalizedAggregatedWeights = np.rollaxis(np.divide(np.rollaxis(distributedPFaggregatedWeights[:,:,:iFrame],2,1),distributedPFaggregatedWeights[:,:,:iFrame].sum(axis=1)[:,:,np.newaxis]),2,1)
 
 	# ...and the maximum weight, also at ALL TIMES and for EVERY frame, is obtained
 	maxWeights = (normalizedAggregatedWeights.max(axis=1)**4).mean(axis=1)**(1/4)
 
 	# evolution of the largest aggregated weight over time
-	Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound())
+	Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound(),painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile.format(repr(iFrame)))
 
-# used later but defined here so that any knob can send the SIGUSR1 signal when no frame has been processed
-iFrame = 0
+# Ctrl-C has not been pressed yet...well, if it has, then the program has not even reached here
+ctrlCpressed = False
 
+# handler for SIGINT is installed
+signal.signal(signal.SIGINT, sigint_handler)
+
+# handler for SIGUSR1 is installed
 signal.signal(signal.SIGUSR1, sigusr1_handler)
 
 # ----------------------------------------------------------- Processing Elements (PEs) ------------------------------------------------------------------
@@ -229,16 +239,18 @@ distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs["number of PEs"][0]
 
 #------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
 
-while iFrame < parameters["number of frames"] and not ctrlCpressed:
+iFrame = 0
+
+while iFrame < parameters['number of frames'] and not ctrlCpressed:
 
 	# initialization of the particle filters
 	pf.initialize()
 	distributedPf.initialize()
 
-	if painterSettings["display evolution?"]:
+	if painterSettings['display evolution?']:
 		
 		# if this is the first iteration...
-		if "painter" in locals():
+		if 'painter' in locals():
 			
 			# ...then, the previous figure is closed
 			painter.close()
@@ -256,7 +268,7 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 		painter.updateEstimatedPosition(State.position(pf.computeMean()),identifier='centralized',color=painterSettings["color for the centralized PF"])
 		painter.updateEstimatedPosition(State.position(distributedPf.computeMean()),identifier='distributed',color=painterSettings["color for the distributed PF"])
 
-		if painterSettings["display particles evolution?"]:
+		if painterSettings['display particles evolution?']:
 
 			# particles are plotted
 			painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=painterSettings["color for the centralized PF"])
@@ -308,7 +320,7 @@ distributedPFaggregatedWeights = distributedPFaggregatedWeights[:,:,:iFrame]
 
 # MSE vs time
 Painter.plotMSEvsTime(centralizedPF_MSE.mean(axis=1),distributedPF_MSE.mean(axis=1),
-					painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],'+','o',painterSettings["output file name for the MSEvsTime plot"])
+					painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],'+','o',painterSettings["file name prefix for the MSE vs time plot"] + '_' + outputFile.format(repr(iFrame)))
 
 # the aggregated weights are  normalized at ALL TIMES and for EVERY frame
 normalizedAggregatedWeights = np.rollaxis(np.divide(np.rollaxis(distributedPFaggregatedWeights,2,1),distributedPFaggregatedWeights.sum(axis=1)[:,:,np.newaxis]),2,1)
@@ -318,14 +330,13 @@ normalizedAggregatedWeights = np.rollaxis(np.divide(np.rollaxis(distributedPFagg
 maxWeights = (normalizedAggregatedWeights.max(axis=1)**4).mean(axis=1)**(1/4)
 
 # evolution of the largest aggregated weight over time
-Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound())
+Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound(),painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile.format(repr(iFrame)))
 
 if painterSettings["display evolution?"]:
 	painter.save()
 
 # data is saved
-aggregatedWeightsUpperBound = distributedPf.getAggregatedWeightsUpperBound()
-np.savez('data',normalizedAggregatedWeights=normalizedAggregatedWeights,aggregatedWeightsUpperBound=aggregatedWeightsUpperBound)
+np.savez('res_' + outputFile.format(repr(iFrame)),normalizedAggregatedWeights=normalizedAggregatedWeights,aggregatedWeightsUpperBound=distributedPf.getAggregatedWeightsUpperBound())
 
 # ------------------------------------------------------------------ benchmarking  -----------------------------------------------------------------------
 
