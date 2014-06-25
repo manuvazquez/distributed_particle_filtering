@@ -222,12 +222,8 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		# a new time instant has elapsed
 		self._n += 1
 		
-		# if it is exchanging particles time, or the aggregated weights are degenerated
-		if (self._n % self._exchangePeriod == 0) or self.degeneratedAggregatedWeights():
-			
-			if self.degeneratedAggregatedWeights():
-				print('aggregated weights degenerated (upper bound = ' + repr(self._aggregatedWeightsUpperBound) + ' )...')
-				print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
+		# if it is exchanging particles time
+		if (self._n % self._exchangePeriod == 0):
 			
 			self.exchangeParticles()
 			

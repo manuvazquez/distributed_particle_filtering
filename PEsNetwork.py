@@ -92,13 +92,14 @@ class Mesh(PEsNetwork):
 				for neighbourRelativePosition in potentialNeighboursRelativePosition:
 					
 					# we compute its position
-					iNeighbour,jNeighbour = i+neighbourRelativePosition[0],j+neighbourRelativePosition[1]
+					#iNeighbour,jNeighbour = i+neighbourRelativePosition[0],j+neighbourRelativePosition[1]
+					iNeighbour,jNeighbour = (i+neighbourRelativePosition[0])%nRows,(j+neighbourRelativePosition[1])%nCols
 					
-					# if the position corresponds to that of a PE (i.e., it is within the PEs array)
-					if (0 <= iNeighbour < nRows) and (0 <= jNeighbour < nCols):
+					## if the position corresponds to that of a PE (i.e., it is within the PEs array)
+					#if (0 <= iNeighbour < nRows) and (0 <= jNeighbour < nCols):
 						
-						# we add this neighbour to the list
-						currentPEneighbours.append(arrayedPEs[iNeighbour,jNeighbour])
+					# we add this neighbour to the list
+					currentPEneighbours.append(arrayedPEs[iNeighbour,jNeighbour])
 				
 				# the list of neighbours of this PE is added to the list of lists of neighbours
 				self._neighbours.append(currentPEneighbours)

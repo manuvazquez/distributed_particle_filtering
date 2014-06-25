@@ -10,7 +10,7 @@ def plotMSEvsTime(centralizedPF_MSE,distributedPF_MSE,centralizedPFcolor,distrib
 	# a new figure is created to plot the MSE vs time
 	mseVsTimeFigure = plt.figure('MSE vs Time')
 	
-	# ...cleared (this method can be called multiple times)
+	# ...cleared (just in case this method is called several times)
 	plt.clf()
 	
 	# ...and the corresponding axes created
@@ -34,7 +34,11 @@ def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggreg
 
 	# a new figure is created to plot the aggregated weights fmp vs time
 	aggregatedWeightsVsTimeFigure = plt.figure('Aggregated Weights Evolution')
+	
+	# ...cleared (just in case this method is called several times)
 	plt.clf()
+	
+	# ...and the corresponding axes created
 	aggregatedWeightsVsTimeAxes = plt.axes()
 	
 	# the shape of the array with the aggregated weights is used to figure out the number of PEs and time instants
@@ -66,25 +70,27 @@ def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggreg
 
 	plt.savefig(outputFile)
 
-def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',xticksStep=10):
+def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',samplingPeriod=1):
+	
+	nTimeInstants = len(maxWeights)
 	
 	# interactive mode on
 	plt.ion()
 
 	# a new figure is created to plot the aggregated weights' supremum vs time...
 	maxAggregatedWeightVsTimeFigure = plt.figure('Aggregated Weights Supremum Vs Time')
-	
-	# ...cleared (this method can be called multiple times)
+
+	# ...cleared (just in case this method is called several times)
 	plt.clf()
 	
 	# ...and the corresponding axes created
 	maxAggregatedWeightVsTimeAxes = plt.axes()
 
 	# this is plotted along time
-	maxAggregatedWeightVsTimeAxes.plot(maxWeights,label='Supremum')
+	maxAggregatedWeightVsTimeAxes.plot(np.arange(samplingPeriod-1,nTimeInstants,samplingPeriod),maxWeights[samplingPeriod-1::samplingPeriod],label='Supremum')
 	
 	# the x-axis is adjusted so that it ends exactly at the last time instant
-	maxAggregatedWeightVsTimeAxes.set_xbound(upper=len(maxWeights)-1)
+	maxAggregatedWeightVsTimeAxes.set_xbound(lower=samplingPeriod-1,upper=nTimeInstants-1)
 	
 	# the y-axis goes up to 1
 	maxAggregatedWeightVsTimeAxes.set_ybound(upper=upperBound*4,lower=0)

@@ -326,11 +326,11 @@ Painter.plotMSEvsTime(centralizedPF_MSE.mean(axis=1),distributedPF_MSE.mean(axis
 normalizedAggregatedWeights = np.rollaxis(np.divide(np.rollaxis(distributedPFaggregatedWeights,2,1),distributedPFaggregatedWeights.sum(axis=1)[:,:,np.newaxis]),2,1)
 
 # ...and the maximum weight, also at ALL TIMES and for EVERY frame, is obtained
-#maxWeights = normalizedAggregatedWeights.max(axis=1).mean(axis=1)
 maxWeights = (normalizedAggregatedWeights.max(axis=1)**4).mean(axis=1)**(1/4)
 
 # evolution of the largest aggregated weight over time
-Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound(),painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile.format(repr(iFrame)))
+Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound(),
+											painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile.format(repr(iFrame)),DRNAsettings["exchange period"])
 
 if painterSettings["display evolution?"]:
 	painter.save()

@@ -37,7 +37,7 @@
 		"color for the centralized PF": "blue",
 		"color for the distributed PF": "green",
 		"file name prefix for the MSE vs time plot": "MSEvsTime",
-		"file name prefix for the aggregated weights supremum vs time plot": "SupremumVsTime",
+		"file name prefix for the aggregated weights supremum vs time plot": "supremumVsTime",
 		"display evolution?": false,
 		"display particles evolution?": false,
 		"use display server if available?": true
