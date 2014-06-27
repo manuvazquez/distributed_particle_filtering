@@ -112,8 +112,6 @@ def sigusr1_handler(signum, frame):
 		print('nothing done yet...')
 		return
 	
-	global iFrame
-	
 	# MSE vs time
 	Painter.plotMSEvsTime(centralizedPF_MSE[:,:iFrame].mean(axis=1),distributedPF_MSE[:,:iFrame].mean(axis=1),
 						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],'+','o',painterSettings["file name prefix for the MSE vs time plot"] + '_' + outputFile.format(repr(iFrame)))
@@ -126,6 +124,10 @@ def sigusr1_handler(signum, frame):
 
 	# evolution of the largest aggregated weight over time
 	Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound(),painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile.format(repr(iFrame)))
+
+	# the same sampled at the time instants in which a step exchange occurs	
+	Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound(),
+											painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_sampled_' + outputFile.format(repr(iFrame)),DRNAsettings["exchange period"])
 
 # Ctrl-C has not been pressed yet...well, if it has, then the program has not even reached here
 ctrlCpressed = False
@@ -329,14 +331,20 @@ normalizedAggregatedWeights = np.rollaxis(np.divide(np.rollaxis(distributedPFagg
 maxWeights = (normalizedAggregatedWeights.max(axis=1)**4).mean(axis=1)**(1/4)
 
 # evolution of the largest aggregated weight over time
+Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound(),painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile.format(repr(iFrame)))
+
+# the same sampled at the time instants in which a step exchange occurs
 Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound(),
-											painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile.format(repr(iFrame)),DRNAsettings["exchange period"])
+											painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_sampled_' + outputFile.format(repr(iFrame)),DRNAsettings["exchange period"])
 
 if painterSettings["display evolution?"]:
 	painter.save()
 
 # data is saved
-np.savez('res_' + outputFile.format(repr(iFrame)),normalizedAggregatedWeights=normalizedAggregatedWeights,aggregatedWeightsUpperBound=distributedPf.getAggregatedWeightsUpperBound())
+np.savez('res_' + outputFile.format(repr(iFrame)),
+		 normalizedAggregatedWeights=normalizedAggregatedWeights,
+		 aggregatedWeightsUpperBound=distributedPf.getAggregatedWeightsUpperBound(),
+		 distributedPFaggregatedWeights=distributedPFaggregatedWeights)
 
 # ------------------------------------------------------------------ benchmarking  -----------------------------------------------------------------------
 

@@ -7,8 +7,8 @@
 		"number of PEs": [16,9,10,16],
 		"Mesh": {
 			"geometry": [ [4,4], [3,3], [2,5], [4,4] ],
-			"neighbours": [[-1,0],[1,0],[0,1],[0,-1],[-1,1],[1,1],[-1,-1],[1,-1]],
-			"neighbours alternative": [[-1,0],[1,0],[0,1],[0,-1]]
+			"neighbours alternative": [[-1,0],[1,0],[0,1],[0,-1],[-1,1],[1,1],[-1,-1],[1,-1]],
+			"neighbours": [[-1,0],[1,0],[0,1],[0,-1]]
 		},
 		"FullyConnectedWithRandomLinksRemoved": {
 			"number of links to be removed": 30
@@ -40,7 +40,7 @@
 		"file name prefix for the aggregated weights supremum vs time plot": "supremumVsTime",
 		"display evolution?": false,
 		"display particles evolution?": false,
-		"use display server if available?": true
+		"use display server if available?": false
 	},
 	"DRNA": {
 		"exchange period": 5,
