@@ -40,7 +40,7 @@ class Prior:
 
 class UniformBoundedPositionGaussianVelocityPrior(Prior):
 	
-	def __init__(self,bottomLeftCorner,topRightCorner,velocityMean=0,velocityVariance=0.25):
+	def __init__(self,bottomLeftCorner,topRightCorner,velocityMean=0,velocityVariance=0.25,PRNG=np.random.RandomState()):
 		
 		self._bottomLeftCorner = bottomLeftCorner
 		self._topRightCorner = topRightCorner
@@ -48,14 +48,16 @@ class UniformBoundedPositionGaussianVelocityPrior(Prior):
 		self._velocityMean = velocityMean
 		self._velocityVariance = velocityVariance
 		
+		self._PRNG = PRNG
+		
 	def sample(self,nSamples=1):
 		
 		# position
 		position = np.empty((2,nSamples))
-		position[0,:],position[1,:] = numpy.random.uniform(self._bottomLeftCorner[0],self._topRightCorner[0],nSamples),numpy.random.uniform(self._bottomLeftCorner[1],self._topRightCorner[1],nSamples)
+		position[0,:],position[1,:] = self._PRNG.uniform(self._bottomLeftCorner[0],self._topRightCorner[0],nSamples),self._PRNG.uniform(self._bottomLeftCorner[1],self._topRightCorner[1],nSamples)
 		
 		# velocity
-		velocity = numpy.random.normal(self._velocityMean,math.sqrt(self._velocityVariance/2),(2,nSamples))
+		velocity = self._PRNG.normal(self._velocityMean,math.sqrt(self._velocityVariance/2),(2,nSamples))
 		
 		return np.vstack((position,velocity))
 
@@ -92,7 +94,7 @@ class StraightTransitionKernel(TransitionKernel):
 
 class BouncingWithinRectangleTransitionKernel(TransitionKernel):
 	
-	def __init__(self,bottomLeftCorner,topRightCorner,velocityVariance=0.5,noiseVariance=0.1,stepDuration=1):
+	def __init__(self,bottomLeftCorner,topRightCorner,velocityVariance=0.5,noiseVariance=0.1,stepDuration=1,PRNG=np.random.RandomState()):
 		
 		# the parent's constructor is called
 		super().__init__(stepDuration)
@@ -105,6 +107,9 @@ class BouncingWithinRectangleTransitionKernel(TransitionKernel):
 		
 		# variance of the noise affecting the position
 		self._noiseVariance = noiseVariance
+		
+		# the pseudo random numbers generator
+		self._PRNG = PRNG
 		
 		# canonical vectors used in computations
 		self._iVector = np.array([[1.0],[0.0]])
@@ -119,10 +124,10 @@ class BouncingWithinRectangleTransitionKernel(TransitionKernel):
 		velocity = state[2:4]
 
 		# the velocity changes BEFORE moving...
-		velocity += numpy.random.normal(0,math.sqrt(self._velocityVariance/2),(2,1))
+		velocity += self._PRNG.normal(0,math.sqrt(self._velocityVariance/2),(2,1))
 		
 		# step to be taken is obtained from the velocity and a noise component
-		step = velocity*self._stepDuration + numpy.random.normal(0,math.sqrt(self._noiseVariance/2),(2,1))
+		step = velocity*self._stepDuration + self._PRNG.normal(0,math.sqrt(self._noiseVariance/2),(2,1))
 		
 		# this may be updated in the while loop when bouncing off several walls
 		previousPos = state[0:2].copy()

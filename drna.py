@@ -8,6 +8,7 @@ import sys
 import os
 import signal
 import socket
+import pickle
 
 # in order to clock the execution time...
 startTime = time.time()
@@ -85,8 +86,31 @@ room["top right corner"] = np.array(room["top right corner"])
 # it amounts to the width and height
 roomDiagonalVector = room["top right corner"] - room["bottom left corner"]
 
+# ------------------------------------------------------------------ random numbers ----------------------------------------------------------------------
+
+# if loading a previous pseudo random numbers generator is requested...
 if not parameters["ramdon seed?"]:
-	np.random.seed(parameters["seed"])
+	
+	#np.random.seed(parameters["seed"])
+	
+	print('loading RandomState object...')
+	
+	with open(parameters["RandomState object file"],"rb") as f:
+		
+		# the previously "pickled" RandomState object is loaded
+		PRNG = pickle.load(f)
+		
+# otherwise, if a random seed is requested...
+else:
+	
+	# the corresponding pseudo random numbers generator object is created...
+	PRNG = np.random.RandomState()
+
+	# ...and saved
+	with open(parameters["RandomState object file"],mode='wb') as f:
+		
+		# the above created PRNG object is saved pickled into a file
+		pickle.dump(PRNG,f)
 
 # ---------------------------------------------------------------- signals handling ----------------------------------------------------------------------
 
@@ -144,23 +168,23 @@ signal.signal(signal.SIGUSR1, sigusr1_handler)
 
 if PEs["topology"]=="Customized":
 	
-	PEsNetwork = PEsNetwork.Customized(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],[[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]])
+	PEsNetwork = PEsNetwork.Customized(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],[[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]],PRNG)
 	
 elif PEs["topology"]=="Ring":
 	
-	PEsNetwork = PEsNetwork.Ring(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"])
+	PEsNetwork = PEsNetwork.Ring(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PRNG)
 	
 elif PEs["topology"]=="Mesh":
 	
-	PEsNetwork = PEsNetwork.Mesh(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["Mesh"]["neighbours"],*PEs["Mesh"]["geometry"][0])
+	PEsNetwork = PEsNetwork.Mesh(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["Mesh"]["neighbours"],*PEs["Mesh"]["geometry"][0],PRNG=PRNG)
 	
 elif PEs["topology"]=="FullyConnected":
 	
-	PEsNetwork = PEsNetwork.FullyConnected(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"])
+	PEsNetwork = PEsNetwork.FullyConnected(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PRNG)
 	
 elif PEs["topology"]=="FullyConnectedWithRandomLinksRemoved":
 
-	PEsNetwork = PEsNetwork.FullyConnectedWithRandomLinksRemoved(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["FullyConnectedWithRandomLinksRemoved"]["number of links to be removed"])
+	PEsNetwork = PEsNetwork.FullyConnectedWithRandomLinksRemoved(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["FullyConnectedWithRandomLinksRemoved"]["number of links to be removed"],PRNG)
 	
 else:
 	print('PEs network topology not supported...')
@@ -175,20 +199,20 @@ sensorsPositions = Sensor.EquispacedOnRectangleSensorLayer(room["bottom left cor
 sensorsSettings["number"] = sensorsPositions.shape[1]
 
 # we build the array of sensors
-sensors = [Sensor.Sensor(sensorsPositions[:,i:i+1],sensorsSettings["radius"]) for i in range(sensorsSettings["number"])]
+sensors = [Sensor.Sensor(sensorsPositions[:,i:i+1],sensorsSettings["radius"],PRNG=PRNG) for i in range(sensorsSettings["number"])]
 
 # ----------------------------------------------------------------- dynamic model ------------------------------------------------------------------------
 
 # a object that represents the prior distribution...
-prior = State.UniformBoundedPositionGaussianVelocityPrior(room["bottom left corner"],room["top right corner"],velocityVariance=priorDistribution["velocity variance"])
+prior = State.UniformBoundedPositionGaussianVelocityPrior(room["bottom left corner"],room["top right corner"],velocityVariance=priorDistribution["velocity variance"],PRNG=PRNG)
 
 # ...and a different one for the transition kernel
-transitionKernel = State.BouncingWithinRectangleTransitionKernel(room["bottom left corner"],room["top right corner"],velocityVariance=stateTransition["velocity variance"],noiseVariance=stateTransition["position variance"])
+transitionKernel = State.BouncingWithinRectangleTransitionKernel(room["bottom left corner"],room["top right corner"],velocityVariance=stateTransition["velocity variance"],noiseVariance=stateTransition["position variance"],PRNG=PRNG)
 
 # ------------------------------------------------------------------- SMC stuff --------------------------------------------------------------------------
 
 # a resampling algorithm...
-resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm()
+resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm(PRNG)
 
 # ...and a resampling criterion are needed for the particle filters
 #resamplingCriterion = Resampling.EffectiveSampleSizeBasedResamplingCriterion(SMCsettings["resampling ratio"])

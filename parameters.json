@@ -50,5 +50,6 @@
 		"normalization period": 5
 	},
 	"ramdon seed?": true,
-	"seed": 111627627
+	"seed": 111627627,
+	"RandomState object file": "RandomState"
 }

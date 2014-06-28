@@ -3,7 +3,7 @@ import numpy.random
 import math
 
 class Sensor:
-	def __init__(self,position,threshold,probDetection=0.9,probFalseAlarm=0.01):
+	def __init__(self,position,threshold,probDetection=0.9,probFalseAlarm=0.01,PRNG=numpy.random.RandomState()):
 		
 		# position is saved for later use
 		self._position = position
@@ -17,6 +17,9 @@ class Sensor:
 		# the probability of false alarm
 		self._probFalseAlarm = probFalseAlarm
 		
+		# pseudo random numbers generator
+		self._PRNG = PRNG
+		
 		# for the sake of convenience when computing the likelihood: we keep an array with the probability mass funciton of the observations conditional on the target being close enough (it depends on the threshold)...
 		# self._pmfObservationsWhenClose[x] = p(observation=x | |<target position> - <sensor position>| < threshold)
 		self._pmfObservationsWhenClose = np.array([1-probDetection,probDetection])
@@ -29,9 +32,9 @@ class Sensor:
 		distance = np.linalg.norm((self._position - targetPos))
 		
 		if distance<self._threshold:
-			return numpy.random.random()<self._probDetection
+			return self._PRNG.rand()<self._probDetection
 		else:
-			return numpy.random.random()<self._probFalseAlarm
+			return self._PRNG.rand()<self._probFalseAlarm
 
 	def likelihood(self,observation,positions):
 		

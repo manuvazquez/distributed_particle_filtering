@@ -3,24 +3,20 @@ import numpy.random
 
 class PEsNetwork:
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage):
-		
-		# NOTE: the subclasses call this constructor AFTER running the code inside their own constructor
-		
-		if not hasattr(self,'_neighbours'):
-			print('It seems "'+ type(self).__name__ + '" class is not defining the neighbours of each PE.')
-			raise SystemExit(0)
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,PRNG=numpy.random.RandomState()):
 		
 		self._nPEs = nPEs
 		self._nParticlesPerPE = nParticlesPerPE
+		self._exchangePercentage = exchangePercentage
+		self._PRNG = PRNG
 		
 		# indexes of the particles...just for the sake of efficiency (this array will be used many times)
 		self._iParticles = np.arange(nParticlesPerPE)
+
+	def getExchangeTuples(self):
 		
 		# accounting for the maximum number of neighbours a given PE can have, we compute...
-		self._nParticlesToBeExchangeBetweenTwoNeighbours = (nParticlesPerPE*exchangePercentage)//max([len(neighbourhood) for neighbourhood in self._neighbours])
-		
-	def getExchangeTuples(self):
+		nParticlesToBeExchangeBetweenTwoNeighbours = (self._nParticlesPerPE*self._exchangePercentage)//max([len(neighbourhood) for neighbourhood in self._neighbours])
 		
 		# an array to keep tabs of pairs of PEs already processed
 		alreadyProcessedPEs = np.zeros((self._nPEs,self._nPEs),dtype=bool)
@@ -37,10 +33,10 @@ class PEsNetwork:
 				if not alreadyProcessedPEs[iPE,iNeighbour]:
 
 					# the particles to be exchanged are chosen randomly (with no replacement) for both, the considered PE...
-					iParticlesToExchangeWithinPE = numpy.random.choice(self._iParticles[iNotSwappedYetParticles[iPE,:]],size=self._nParticlesToBeExchangeBetweenTwoNeighbours,replace=False)
+					iParticlesToExchangeWithinPE = self._PRNG.choice(self._iParticles[iNotSwappedYetParticles[iPE,:]],size=nParticlesToBeExchangeBetweenTwoNeighbours,replace=False)
 					
 					# ...and the corresponding neighbour
-					iParticlesToExchangeWithinNeighbour = numpy.random.choice(self._iParticles[iNotSwappedYetParticles[iNeighbour,:]],size=self._nParticlesToBeExchangeBetweenTwoNeighbours,replace=False)
+					iParticlesToExchangeWithinNeighbour = self._PRNG.choice(self._iParticles[iNotSwappedYetParticles[iNeighbour,:]],size=nParticlesToBeExchangeBetweenTwoNeighbours,replace=False)
 
 					# new "exchange tuple"s are generated
 					exchangeTuples.extend([[iPE,iParticleWithinPE,iNeighbour,iParticleWithinNeighbour] for iParticleWithinPE,iParticleWithinNeighbour in zip(iParticlesToExchangeWithinPE,iParticlesToExchangeWithinNeighbour)])
@@ -56,24 +52,26 @@ class PEsNetwork:
 
 class Customized(PEsNetwork):
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,neighbours):
-			
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,neighbours,PRNG=numpy.random.RandomState()):
+		
+		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,PRNG=PRNG)
+		
 		# each element in the list is another list specifying the neighbours of the corresponding PE
 		self._neighbours = neighbours
 		
-		super().__init__(nPEs,nParticlesPerPE,exchangePercentage)
-		
 class Ring(PEsNetwork):
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,PRNG=numpy.random.RandomState()):
+		
+		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,PRNG=PRNG)
 		
 		self._neighbours = [[(i-1) % nPEs,(i+1) % nPEs] for i in range(nPEs)]
-		
-		super().__init__(nPEs,nParticlesPerPE,exchangePercentage)
 
 class Mesh(PEsNetwork):
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,potentialNeighboursRelativePosition,nRows,nCols):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,potentialNeighboursRelativePosition,nRows,nCols,PRNG=numpy.random.RandomState()):
+		
+		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,PRNG=PRNG)
 		
 		assert nRows*nCols == nPEs
 		
@@ -103,12 +101,12 @@ class Mesh(PEsNetwork):
 				
 				# the list of neighbours of this PE is added to the list of lists of neighbours
 				self._neighbours.append(currentPEneighbours)
-				
-		super().__init__(nPEs,nParticlesPerPE,exchangePercentage)
 
 class FullyConnected(PEsNetwork):
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,PRNG=numpy.random.RandomState()):
+		
+		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,PRNG=PRNG)
 		
 		self._neighbours = [list(range(nPEs)) for i in range(nPEs)]
 		
@@ -116,20 +114,18 @@ class FullyConnected(PEsNetwork):
 			
 			del self._neighbours[i][i]
 			
-		super().__init__(nPEs,nParticlesPerPE,exchangePercentage)
-			
 class FullyConnectedWithRandomLinksRemoved(FullyConnected):
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,nLinksToBeRemoved):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,nLinksToBeRemoved,PRNG=numpy.random.RandomState()):
 		
-		super().__init__(nPEs,nParticlesPerPE,exchangePercentage)
+		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,PRNG=PRNG)
 		
-		selectedPEs = numpy.random.choice(nPEs,size=nLinksToBeRemoved)
+		selectedPEs = PRNG.choice(nPEs,size=nLinksToBeRemoved)
 		
 		for PE in selectedPEs:
 			
 			# the link with this neighbour will be deleted
-			neighbour = numpy.random.choice(self._neighbours[PE])
+			neighbour = PRNG.choice(self._neighbours[PE])
 			
 			# this PE is no longer a neighbour of the one selected above...
 			self._neighbours[PE].remove(neighbour)

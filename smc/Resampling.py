@@ -15,13 +15,15 @@ class ResamplingAlgorithm:
 	
 class MultinomialResamplingAlgorithm(ResamplingAlgorithm):
 	
-	def __init__(self):
+	def __init__(self,PRNG=np.random.RandomState()):
 		
 		super().__init__()
 		
+		self._PRNG = PRNG
+		
 	def getIndexes(self,weights):
 		
-		return np.random.choice(range(weights.size), weights.size, p=weights)
+		return self._PRNG.choice(range(weights.size), weights.size, p=weights)
 
 class ResamplingCriterion:
 	
