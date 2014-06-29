@@ -1,6 +1,5 @@
 import math
 import numpy as np
-import numpy.random
 
 # a state vector has the structure:
 #	[ pos_x ]

@@ -2,16 +2,19 @@ import State
 
 class Target:
 	
-	def __init__(self, transitionKernel, initialPosition, initialVelocity, txPower=15):
-
-		# initialization of the position if received as argument...
-		self._pos = initialPosition
+	def __init__(self, prior, transitionKernel, txPower=15):
 		
-		# ...the same for the transmission power...
-		self._txPower = txPower
+		# initial state is obtained by means of the prior...
+		initialState = prior.sample()
+
+		# ...and used to initialize the position...
+		self._pos = State.position(initialState)
 		
 		# ...and the speed
-		self._velocity = initialVelocity
+		self._velocity = State.velocity(initialState)
+		
+		# the power with which the target is transmitting
+		self._txPower = txPower
 
 		# the transition kernel determines the movement of the target
 		self._transitionKernel = transitionKernel

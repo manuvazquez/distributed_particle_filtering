@@ -1,9 +1,8 @@
 import numpy as np
-import numpy.random
 
 class PEsNetwork:
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,PRNG=numpy.random.RandomState()):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,PRNG=np.random.RandomState()):
 		
 		self._nPEs = nPEs
 		self._nParticlesPerPE = nParticlesPerPE
@@ -52,7 +51,7 @@ class PEsNetwork:
 
 class Customized(PEsNetwork):
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,neighbours,PRNG=numpy.random.RandomState()):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,neighbours,PRNG=np.random.RandomState()):
 		
 		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,PRNG=PRNG)
 		
@@ -61,7 +60,7 @@ class Customized(PEsNetwork):
 		
 class Ring(PEsNetwork):
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,PRNG=numpy.random.RandomState()):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,PRNG=np.random.RandomState()):
 		
 		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,PRNG=PRNG)
 		
@@ -69,7 +68,7 @@ class Ring(PEsNetwork):
 
 class Mesh(PEsNetwork):
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,potentialNeighboursRelativePosition,nRows,nCols,PRNG=numpy.random.RandomState()):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,potentialNeighboursRelativePosition,nRows,nCols,PRNG=np.random.RandomState()):
 		
 		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,PRNG=PRNG)
 		
@@ -104,7 +103,7 @@ class Mesh(PEsNetwork):
 
 class FullyConnected(PEsNetwork):
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,PRNG=numpy.random.RandomState()):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,PRNG=np.random.RandomState()):
 		
 		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,PRNG=PRNG)
 		
@@ -116,7 +115,7 @@ class FullyConnected(PEsNetwork):
 			
 class FullyConnectedWithRandomLinksRemoved(FullyConnected):
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,nLinksToBeRemoved,PRNG=numpy.random.RandomState()):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,nLinksToBeRemoved,PRNG=np.random.RandomState()):
 		
 		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,PRNG=PRNG)
 		

@@ -228,10 +228,8 @@ distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(
 
 #------------------------------------------------------------- trajectory simulation ---------------------------------------------------------------------
 
-initialState = prior.sample()
-
 # the target is created...
-target = Target.Target(transitionKernel,State.position(initialState),State.velocity(initialState))
+target = Target.Target(prior,transitionKernel)
 
 print('initial position:\n',target.pos())
 print('initial velocity:\n',target.velocity())
