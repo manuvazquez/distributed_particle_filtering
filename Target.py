@@ -2,10 +2,12 @@ import State
 
 class Target:
 	
-	def __init__(self, prior, transitionKernel, txPower=15):
+	def __init__(self, prior, transitionKernel, txPower=15, PRNG=None):
+		
+		self._PRNG = PRNG
 		
 		# initial state is obtained by means of the prior...
-		initialState = prior.sample()
+		initialState = prior.sample(PRNG=self._PRNG)
 
 		# ...and used to initialize the position...
 		self._pos = State.position(initialState)
@@ -30,7 +32,7 @@ class Target:
 	def step(self):
 		
 		# the new state is first computed...
-		newState = self._transitionKernel.nextState(State.buildState(self._pos,self._velocity))
+		newState = self._transitionKernel.nextState(State.buildState(self._pos,self._velocity),PRNG=self._PRNG)
 		
 		# ...and the position and velocity are obtained thereof
 		self._pos,self._velocity = State.position(newState),State.velocity(newState)

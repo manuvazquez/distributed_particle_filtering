@@ -88,29 +88,34 @@ roomDiagonalVector = room["top right corner"] - room["bottom left corner"]
 
 # ------------------------------------------------------------------ random numbers ----------------------------------------------------------------------
 
-# if loading a previous pseudo random numbers generator is requested...
-if not parameters["ramdon seed?"]:
-	
-	#np.random.seed(parameters["seed"])
-	
-	print('loading RandomState object...')
-	
-	with open(parameters["RandomState object file"],"rb") as f:
-		
-		# the previously "pickled" RandomState object is loaded
-		PRNG = pickle.load(f)
-		
-# otherwise, if a random seed is requested...
-else:
-	
-	# the corresponding pseudo random numbers generator object is created...
-	PRNG = np.random.RandomState()
+# a map with several "RandomState" (pseudo random number generator) objects
+PRNGs = {}
 
-	# ...and saved
-	with open(parameters["RandomState object file"],mode='wb') as f:
+for withinParametersFileQuestion,key in zip(["load sensors and Monte Carlo pseudo random numbers generator?","load trajectory and PEs network pseudo random numbers generator?"],
+							["Sensors and Monte Carlo pseudo random numbers generator","Trajectory and PEs network pseudo random numbers generator"]):
+	
+	# if loading the corresponding previous pseudo random numbers generator is requested...
+	if parameters[withinParametersFileQuestion]:
 		
-		# the above created PRNG object is saved pickled into a file
-		pickle.dump(PRNG,f)
+		print('loading "{}"...'.format(key))
+		
+		with open(parameters[key],"rb") as f:
+			
+			# the previously "pickled" RandomState object is loaded
+			PRNGs[key] = pickle.load(f)
+			
+	# otherwise, if a random seed is requested...
+	else:
+		
+		# a new pseudo random numbers generator object is created...
+		PRNGs[key] = np.random.RandomState()
+
+		# ...and saved
+		with open(parameters[key],mode='wb') as f:
+			
+			# the above created PRNG object is saved pickled into a file
+			pickle.dump(PRNGs[key],f)
+	
 
 # ---------------------------------------------------------------- signals handling ----------------------------------------------------------------------
 
@@ -168,23 +173,26 @@ signal.signal(signal.SIGUSR1, sigusr1_handler)
 
 if PEs["topology"]=="Customized":
 	
-	PEsNetwork = PEsNetwork.Customized(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],[[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]],PRNG)
+	PEsNetwork = PEsNetwork.Customized(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],[[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]],
+									PRNGs["Trajectory and PEs network pseudo random numbers generator"])
 	
 elif PEs["topology"]=="Ring":
 	
-	PEsNetwork = PEsNetwork.Ring(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PRNG)
+	PEsNetwork = PEsNetwork.Ring(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PRNGs["Trajectory and PEs network pseudo random numbers generator"])
 	
 elif PEs["topology"]=="Mesh":
 	
-	PEsNetwork = PEsNetwork.Mesh(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["Mesh"]["neighbours"],*PEs["Mesh"]["geometry"][0],PRNG=PRNG)
+	PEsNetwork = PEsNetwork.Mesh(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["Mesh"]["neighbours"],*PEs["Mesh"]["geometry"][0],
+							  PRNG=PRNGs["Trajectory and PEs network pseudo random numbers generator"])
 	
 elif PEs["topology"]=="FullyConnected":
 	
-	PEsNetwork = PEsNetwork.FullyConnected(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PRNG)
+	PEsNetwork = PEsNetwork.FullyConnected(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PRNGs["Trajectory and PEs network pseudo random numbers generator"])
 	
 elif PEs["topology"]=="FullyConnectedWithRandomLinksRemoved":
 
-	PEsNetwork = PEsNetwork.FullyConnectedWithRandomLinksRemoved(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["FullyConnectedWithRandomLinksRemoved"]["number of links to be removed"],PRNG)
+	PEsNetwork = PEsNetwork.FullyConnectedWithRandomLinksRemoved(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["FullyConnectedWithRandomLinksRemoved"]["number of links to be removed"],
+															  PRNGs["Trajectory and PEs network pseudo random numbers generator"])
 	
 else:
 	print('PEs network topology not supported...')
@@ -199,20 +207,20 @@ sensorsPositions = Sensor.EquispacedOnRectangleSensorLayer(room["bottom left cor
 sensorsSettings["number"] = sensorsPositions.shape[1]
 
 # we build the array of sensors
-sensors = [Sensor.Sensor(sensorsPositions[:,i:i+1],sensorsSettings["radius"],PRNG=PRNG) for i in range(sensorsSettings["number"])]
+sensors = [Sensor.Sensor(sensorsPositions[:,i:i+1],sensorsSettings["radius"],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]) for i in range(sensorsSettings["number"])]
 
 # ----------------------------------------------------------------- dynamic model ------------------------------------------------------------------------
 
 # a object that represents the prior distribution...
-prior = State.UniformBoundedPositionGaussianVelocityPrior(room["bottom left corner"],room["top right corner"],velocityVariance=priorDistribution["velocity variance"],PRNG=PRNG)
+prior = State.UniformBoundedPositionGaussianVelocityPrior(room["bottom left corner"],room["top right corner"],velocityVariance=priorDistribution["velocity variance"],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ...and a different one for the transition kernel
-transitionKernel = State.BouncingWithinRectangleTransitionKernel(room["bottom left corner"],room["top right corner"],velocityVariance=stateTransition["velocity variance"],noiseVariance=stateTransition["position variance"],PRNG=PRNG)
+transitionKernel = State.BouncingWithinRectangleTransitionKernel(room["bottom left corner"],room["top right corner"],velocityVariance=stateTransition["velocity variance"],noiseVariance=stateTransition["position variance"],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ------------------------------------------------------------------- SMC stuff --------------------------------------------------------------------------
 
 # a resampling algorithm...
-resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm(PRNG)
+resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm(PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ...and a resampling criterion are needed for the particle filters
 #resamplingCriterion = Resampling.EffectiveSampleSizeBasedResamplingCriterion(SMCsettings["resampling ratio"])
@@ -229,7 +237,7 @@ distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(
 #------------------------------------------------------------- trajectory simulation ---------------------------------------------------------------------
 
 # the target is created...
-target = Target.Target(prior,transitionKernel)
+target = Target.Target(prior,transitionKernel,PRNG=PRNGs["Trajectory and PEs network pseudo random numbers generator"])
 
 print('initial position:\n',target.pos())
 print('initial velocity:\n',target.velocity())

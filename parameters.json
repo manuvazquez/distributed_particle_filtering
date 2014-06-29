@@ -49,7 +49,8 @@
 		"epsilon": 0.1,
 		"normalization period": 5
 	},
-	"ramdon seed?": true,
-	"seed": 111627627,
-	"RandomState object file": "RandomState"
+	"load sensors and Monte Carlo pseudo random numbers generator?": true,
+	"Sensors and Monte Carlo pseudo random numbers generator": "SensorsAndMonteCarloRandomState",
+	"load trajectory and PEs network pseudo random numbers generator?": false,
+	"Trajectory and PEs network pseudo random numbers generator": "TrajectoryAndPEsNetworkState"
 }
