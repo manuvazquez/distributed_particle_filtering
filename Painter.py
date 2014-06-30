@@ -108,11 +108,10 @@ def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAgg
 
 class RoomPainter:
 	
-	def __init__(self,sensorsPositions,sleepTime=0.5,outputFile='trajectory.eps'):
+	def __init__(self,sensorsPositions,sleepTime=0.5):
 		
 		self._sensorsPositions = sensorsPositions
 		self._sleepTime = sleepTime
-		self._outputFile = outputFile
 		
 		self._figure = plt.figure('Room')
 		self._ax = plt.axes()
@@ -197,7 +196,7 @@ class RoomPainter:
 		# plot now...
 		plt.draw()
 		
-	def save(self):
+	def save(self,outputFile='trajectory.eps'):
 		
 		# just in case...the current figure is set to the proper value
 		plt.figure(self._figure.number)
@@ -207,7 +206,7 @@ class RoomPainter:
 		
 		#self._ax.set_ybound(lower=-8)
 		
-		plt.savefig(self._outputFile)
+		plt.savefig(outputFile)
 		
 	def close(self):
 		
@@ -239,12 +238,12 @@ class RoomPainterDecorator(RoomPainter):
 		
 		self._decorated.updateEstimatedPosition(position,identifier=identifier,color=color)
 		
-	def save(self):
+	def save(self,outputFile='trajectory.eps'):
 		
 		#self._decorated._ax.set_ybound(lower=self._roomBottomLeftCorner[1]+5)
 		#self._decorated._ax.set_ybound(upper=self._roomTopRightCorner[1]-5)
 		
-		self._decorated.save()
+		self._decorated.save(outputFile=outputFile)
 		
 	def close(self):
 		
