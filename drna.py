@@ -56,7 +56,7 @@ if useAgg:
 
 import matplotlib.pyplot as plt
 
-# some of this modules also import matplotlib.pyplot, and because this should be done AFTER calling "matplotlib.use", they have been imported here and not at the very beginning
+# some of this modules also import matplotlib.pyplot, and since this should be done AFTER calling "matplotlib.use", they have been imported here and not at the very beginning
 import Target
 import State
 import Sensor
@@ -87,8 +87,14 @@ def saveData():
 		return
 	
 	# MSE vs time
-	Painter.plotMSEvsTime(centralizedPF_MSE[:,:iFrame].mean(axis=1),distributedPF_MSE[:,:iFrame].mean(axis=1),
-						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],'+','o',painterSettings["file name prefix for the MSE vs time plot"] + '_' + outputFile.format(repr(iFrame)))
+	Painter.plotDistributedAgainstCentralizedVsTime(centralizedPF_MSE[:,:iFrame].mean(axis=1),distributedPF_MSE[:,:iFrame].mean(axis=1),
+						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],painterSettings["marker for the centralized PF"],painterSettings["marker for the distributed PF"],
+						'MSE vs Time',painterSettings["file name prefix for the MSE vs time plot"] + '_' + outputFile.format(repr(iFrame)))
+
+	# distance vs time
+	Painter.plotDistributedAgainstCentralizedVsTime(np.sqrt(2*centralizedPF_MSE[:,:iFrame]).mean(axis=1),np.sqrt(2*distributedPF_MSE[:,:iFrame]).mean(axis=1),
+						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],painterSettings["marker for the centralized PF"],painterSettings["marker for the distributed PF"],
+						'Euclidean distance vs Time',painterSettings["file name prefix for the euclidean distance vs time plot"] + '_' + outputFile.format(repr(iFrame)))
 
 	# the aggregated weights are  normalized at ALL TIMES and for EVERY frame
 	normalizedAggregatedWeights = np.rollaxis(np.divide(np.rollaxis(distributedPFaggregatedWeights[:,:,:iFrame],2,1),distributedPFaggregatedWeights[:,:,:iFrame].sum(axis=1)[:,:,np.newaxis]),2,1)
@@ -377,14 +383,18 @@ endTime = time.time()
 # the elapsed time in seconds
 elapsedTime = endTime-startTime
 
-if elapsedTime>60:
+if elapsedTime>60*60*24:
+	print('Execution time: {} days'.format(repr(elapsedTime/(60*60*24))))
+elif elapsedTime>60*60:
+	print('Execution time: {} hours'.format(repr(elapsedTime/(60*60))))
+elif elapsedTime>60:
 	print('Execution time: {} minutes'.format(repr(elapsedTime/60)))
 else:
 	print('Execution time: {} seconds'.format(repr(elapsedTime)))
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------
 
-# if using the agg backend (no pictures shown), there is no point in bringing up the interactive prompt before exitingls
+# if using the agg backend (no pictures shown), there is no point in bringing up the interactive prompt before exiting
 if not useAgg:
 	import code
 	code.interact(local=dict(globals(), **locals()))

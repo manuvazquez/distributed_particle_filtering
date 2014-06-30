@@ -2,13 +2,13 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
-def plotMSEvsTime(centralizedPF_MSE,distributedPF_MSE,centralizedPFcolor,distributedPFcolor,centralizedPFmarker,distributedPFmarker,outputFile):
+def plotDistributedAgainstCentralizedVsTime(centralizedPF,distributedPF,centralizedPFcolor,distributedPFcolor,centralizedPFmarker,distributedPFmarker,title,outputFile):
 
 	# interactive mode on
 	plt.ion()
 
 	# a new figure is created to plot the MSE vs time
-	mseVsTimeFigure = plt.figure('MSE vs Time')
+	vsTimeFigure = plt.figure(title)
 	
 	# ...cleared (just in case this method is called several times)
 	plt.clf()
@@ -16,11 +16,11 @@ def plotMSEvsTime(centralizedPF_MSE,distributedPF_MSE,centralizedPFcolor,distrib
 	# ...and the corresponding axes created
 	mseVsTimeAxes = plt.axes()
 
-	mseVsTimeAxes.plot(centralizedPF_MSE,color=centralizedPFcolor,marker=centralizedPFmarker,label='Centralized PF')
+	mseVsTimeAxes.plot(centralizedPF,color=centralizedPFcolor,marker=centralizedPFmarker,label='Centralized PF')
 
 	mseVsTimeAxes.hold(True)
 
-	mseVsTimeAxes.plot(distributedPF_MSE,color=distributedPFcolor,marker=distributedPFmarker,label='Distributed PF')
+	mseVsTimeAxes.plot(distributedPF,color=distributedPFcolor,marker=distributedPFmarker,label='Distributed PF')
 
 	# the labes are shown
 	mseVsTimeAxes.legend()

@@ -35,8 +35,11 @@
 	"painter": {
 		"sleep time between updates": 0.01,
 		"color for the centralized PF": "blue",
+		"marker for the centralized PF": "+",
 		"color for the distributed PF": "green",
+		"marker for the distributed PF": "o",
 		"file name prefix for the MSE vs time plot": "MSEvsTime",
+		"file name prefix for the euclidean distance vs time plot": "ErrorVsTime",
 		"file name prefix for the aggregated weights supremum vs time plot": "supremumVsTime",
 		"display evolution?": false,
 		"display particles evolution?": false,
