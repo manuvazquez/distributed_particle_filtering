@@ -70,7 +70,7 @@ def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggreg
 
 	plt.savefig(outputFile)
 
-def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',samplingPeriod=1):
+def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',stepExchangePeriod=1,addMarksOnStepExchangeInstants=False):
 	
 	nTimeInstants = len(maxWeights)
 	
@@ -86,11 +86,27 @@ def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAgg
 	# ...and the corresponding axes created
 	maxAggregatedWeightVsTimeAxes = plt.axes()
 	
-	# for the x-axis
-	t = np.arange(samplingPeriod-1,nTimeInstants,samplingPeriod)
+	if addMarksOnStepExchangeInstants:
+		
+		# for the x-axis
+		t = np.arange(nTimeInstants)
+		
+		# this is plotted along time
+		maxAggregatedWeightVsTimeAxes.plot(t,maxWeights[t],label='Supremum',linestyle=':')
+		
+		# the time instants at which step exchanges occur...
+		tExchangeSteps = np.arange(stepExchangePeriod-1,nTimeInstants,stepExchangePeriod)
+		
+		# ...are plotted with different markers
+		maxAggregatedWeightVsTimeAxes.plot(tExchangeSteps,maxWeights[tExchangeSteps],label='Exchange steps',linestyle='.',marker='D',color='black')
+		
+	else:
+	
+		# for the x-axis
+		t = np.arange(stepExchangePeriod-1,nTimeInstants,stepExchangePeriod)
 
-	# this is plotted along time
-	maxAggregatedWeightVsTimeAxes.plot(np.arange(samplingPeriod-1,nTimeInstants,samplingPeriod),maxWeights[samplingPeriod-1::samplingPeriod],label='Supremum')
+		# this is plotted along time
+		maxAggregatedWeightVsTimeAxes.plot(t,maxWeights[t],label='Supremum')
 	
 	# the x-axis is adjusted so that it ends exactly at the last time instant
 	maxAggregatedWeightVsTimeAxes.set_xbound(lower=t[0],upper=t[-1])

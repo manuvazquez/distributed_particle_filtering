@@ -83,7 +83,7 @@ np.set_printoptions(precision=3,linewidth=100)
 def saveData():
 	
 	if 'iFrame' not in globals() or iFrame==0:
-		print('saveData: nothing done...skipping')
+		print('saveData: nothing to save...skipping')
 		return
 	
 	# MSE vs time
@@ -103,12 +103,9 @@ def saveData():
 	maxWeights = (normalizedAggregatedWeights.max(axis=1)**4).mean(axis=1)**(1/4)
 
 	# evolution of the largest aggregated weight over time
-	Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound(),painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile.format(repr(iFrame)))
-
-	# the same sampled at the time instants in which a step exchange occurs	
 	Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound(),
-											painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_sampled_' + outputFile.format(repr(iFrame)),DRNAsettings["exchange period"])
-	
+											 painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile.format(repr(iFrame)),DRNAsettings["exchange period"],True)
+
 	# if requested, save the trajectory
 	if painterSettings["display evolution?"]:
 		if 'iTime' in globals() and iTime>0:
@@ -117,8 +114,8 @@ def saveData():
 	# data is saved
 	np.savez('res_' + outputFile.format(repr(iFrame)),
 			normalizedAggregatedWeights=normalizedAggregatedWeights,
-			aggregatedWeightsUpperBound=distributedPf.getAggregatedWeightsUpperBound(),
-			distributedPFaggregatedWeights=distributedPFaggregatedWeights)
+			#distributedPFaggregatedWeights=distributedPFaggregatedWeights[:,:,:iFrame],
+			aggregatedWeightsUpperBound=distributedPf.getAggregatedWeightsUpperBound())
 
 # ---------------------------------------------
 
@@ -168,24 +165,16 @@ original_sigint_handler = signal.getsignal(signal.SIGINT)
 # the interrupt signal (ctrl-c) is handled by this function
 def sigint_handler(signum, frame):
 	
-	# we may need to modify this global variable
-	global ctrlCpressed
-	
-	if not ctrlCpressed:
-		
-		print('Ctrl-C pressed...one more to exit the program right now...')
-		ctrlCpressed = True
-		
-		# the default behaviour is restored
-		signal.signal(signal.SIGINT, original_sigint_handler)
+	# plots and data are saved
+	saveData()
 
+	# it exits the program
+	raise SystemExit(0)
+	
 def sigusr1_handler(signum, frame):
 	
 	# plots and data are saved
 	saveData()
-
-# Ctrl-C has not been pressed yet...well, if it has, then the program has not even reached here
-ctrlCpressed = False
 
 # handler for SIGINT is installed
 signal.signal(signal.SIGINT, sigint_handler)
@@ -294,12 +283,9 @@ centralizedPF_MSE,distributedPF_MSE = np.empty((nTimeInstants,parameters["number
 # ...and the aggregated weights
 distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs["number of PEs"][0],parameters["number of frames"]))
 
-
 #------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
 
-iFrame = 0
-
-while iFrame < parameters['number of frames'] and not ctrlCpressed:
+for iFrame in range(parameters['number of frames']):
 
 	# initialization of the particle filters
 	pf.initialize()
@@ -369,8 +355,6 @@ while iFrame < parameters['number of frames'] and not ctrlCpressed:
 				# ...and those of the particles...
 				painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=painterSettings["color for the centralized PF"])
 				painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=painterSettings["color for the distributed PF"])
-
-	iFrame += 1
 
 # plots and data are saved
 saveData()
