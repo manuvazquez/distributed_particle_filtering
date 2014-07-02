@@ -115,7 +115,12 @@ def saveData():
 	np.savez('res_' + outputFile.format(repr(iFrame),'npz'),
 			normalizedAggregatedWeights=normalizedAggregatedWeights,
 			#distributedPFaggregatedWeights=distributedPFaggregatedWeights[:,:,:iFrame],
-			aggregatedWeightsUpperBound=distributedPf.getAggregatedWeightsUpperBound())
+			aggregatedWeightsUpperBound=distributedPf.getAggregatedWeightsUpperBound(),
+			targetInitialPosition=targetInitialPosition,
+			targetInitialVelocity=targetInitialVelocity,
+			targetPosition=targetPosition,
+			targetVelocity=targetVelocity
+			)
 	
 	# in a separate file with the same name but different extension, parameters are also saved...
 	with open('res_' + outputFile.format(repr(iFrame),'parameters'),mode='wb') as f:
@@ -171,18 +176,26 @@ original_sigint_handler = signal.getsignal(signal.SIGINT)
 # the interrupt signal (ctrl-c) is handled by this function
 def sigint_handler(signum, frame):
 	
-	print('\nsaving data...')
+	print('wap')
 	
-	# plots and data are saved
-	saveData()
+	# we may need to modify this global variable
+	global ctrlCpressed
 
-	# it exits the program
-	raise SystemExit(0)
+	if not ctrlCpressed:
+			
+		print('\nCtrl-C pressed...one more to exit the program right now...')
+		ctrlCpressed = True
+
+		# the default behaviour is restored
+		signal.signal(signal.SIGINT, original_sigint_handler)
 	
 def sigusr1_handler(signum, frame):
 	
 	# plots and data are saved
 	saveData()
+
+# Ctrl-C has not been pressed yet...well, if it has, then the program has not even reached here
+ctrlCpressed = False
 
 # handler for SIGINT is installed
 signal.signal(signal.SIGINT, sigint_handler)
@@ -262,13 +275,16 @@ distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(
 # the target is created...
 target = Target.Target(prior,transitionKernel,PRNG=PRNGs["Trajectory pseudo random numbers generator"])
 
-print('initial position:\n',target.pos())
-print('initial velocity:\n',target.velocity())
+# initial position and velocity of the target are kept
+targetInitialPosition,targetInitialVelocity = target.pos(),target.velocity()
+
+print('initial position:\n',targetInitialPosition)
+print('initial velocity:\n',targetInitialVelocity)
 
 targetPosition,targetVelocity = np.empty((2,nTimeInstants)),np.empty((2,nTimeInstants))
 observations = [None]*nTimeInstants
 
-# the trajectory is simulated, and the corresponding observations are obtained
+# the trajectory is simulated, and the corresponding observations are obtained (notice that there is no observation for initial position)
 for iTime in range(nTimeInstants):
 	
 	# the target moves...
@@ -298,7 +314,7 @@ distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs["number of PEs"][0]
 
 iFrame = 0
 
-while iFrame < parameters["number of frames"]:
+while iFrame < parameters["number of frames"] and not ctrlCpressed:
 	
 	# initialization of the particle filters
 	pf.initialize()
@@ -312,14 +328,14 @@ while iFrame < parameters["number of frames"]:
 			# ...then, the previous figure is closed
 			painter.close()
 
-		# this object will handle graphics
+		# this object will handle graphics...
 		painter = Painter.WithBorder(Painter.RoomPainter(sensorsPositions,sleepTime=painterSettings["sleep time between updates"]),room["bottom left corner"],room["top right corner"])
 
-		# we tell it to draw the sensors
+		# ...e.g., draw the sensors
 		painter.setupSensors()
 		
 		# the initial position is painted...
-		painter.updateTargetPosition(target.pos())
+		painter.updateTargetPosition(targetInitialPosition)
 
 		# ...along with those estimated by the PFs (they should around the middle of the room...)
 		painter.updateEstimatedPosition(State.position(pf.computeMean()),identifier='centralized',color=painterSettings["color for the centralized PF"])
