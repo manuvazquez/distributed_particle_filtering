@@ -134,11 +134,11 @@ roomDiagonalVector = room["top right corner"] - room["bottom left corner"]
 
 # ------------------------------------------------------------------ random numbers ----------------------------------------------------------------------
 
-# a map with several "RandomState" (pseudo random number generator) objects
+# a dictionary with several "RandomState" (pseudo random number generator) objects
 PRNGs = {}
 
-for withinParametersFileQuestion,key in zip(["load sensors and Monte Carlo pseudo random numbers generator?","load trajectory and PEs network pseudo random numbers generator?"],
-							["Sensors and Monte Carlo pseudo random numbers generator","Trajectory and PEs network pseudo random numbers generator"]):
+for withinParametersFileQuestion,key in zip(["load sensors and Monte Carlo pseudo random numbers generator?","load trajectory pseudo random numbers generator?","load PEs network pseudo random numbers generator?"],
+							["Sensors and Monte Carlo pseudo random numbers generator","Trajectory pseudo random numbers generator","PEs network pseudo random numbers generator"]):
 	
 	# if loading the corresponding previous pseudo random numbers generator is requested...
 	if parameters[withinParametersFileQuestion]:
@@ -197,25 +197,25 @@ signal.signal(signal.SIGUSR1, sigusr1_handler)
 if PEs["topology"]=="Customized":
 	
 	PEsNetwork = PEsNetwork.Customized(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],[[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]],
-									PRNGs["Trajectory and PEs network pseudo random numbers generator"])
+									PRNGs["PEs network pseudo random numbers generator"])
 	
 elif PEs["topology"]=="Ring":
 	
-	PEsNetwork = PEsNetwork.Ring(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PRNGs["Trajectory and PEs network pseudo random numbers generator"])
+	PEsNetwork = PEsNetwork.Ring(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PRNGs["PEs network pseudo random numbers generator"])
 	
 elif PEs["topology"]=="Mesh":
 	
 	PEsNetwork = PEsNetwork.Mesh(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["Mesh"]["neighbours"],*PEs["Mesh"]["geometry"][0],
-							  PRNG=PRNGs["Trajectory and PEs network pseudo random numbers generator"])
+							  PRNG=PRNGs["PEs network pseudo random numbers generator"])
 	
 elif PEs["topology"]=="FullyConnected":
 	
-	PEsNetwork = PEsNetwork.FullyConnected(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PRNGs["Trajectory and PEs network pseudo random numbers generator"])
+	PEsNetwork = PEsNetwork.FullyConnected(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PRNGs["PEs network pseudo random numbers generator"])
 	
 elif PEs["topology"]=="FullyConnectedWithRandomLinksRemoved":
 
 	PEsNetwork = PEsNetwork.FullyConnectedWithRandomLinksRemoved(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["FullyConnectedWithRandomLinksRemoved"]["number of links to be removed"],
-															  PRNGs["Trajectory and PEs network pseudo random numbers generator"])
+															  PRNGs["PEs network pseudo random numbers generator"])
 	
 else:
 	print('PEs network topology not supported...')
@@ -260,7 +260,7 @@ distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(
 #------------------------------------------------------------- trajectory simulation ---------------------------------------------------------------------
 
 # the target is created...
-target = Target.Target(prior,transitionKernel,PRNG=PRNGs["Trajectory and PEs network pseudo random numbers generator"])
+target = Target.Target(prior,transitionKernel,PRNG=PRNGs["Trajectory pseudo random numbers generator"])
 
 print('initial position:\n',target.pos())
 print('initial velocity:\n',target.velocity())
@@ -293,8 +293,13 @@ distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs["number of PEs"][0]
 
 #------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
 
-for iFrame in range(parameters['number of frames']):
+# NOTE: a "while loop" is here more convenient than a "for loop" because having the "iFrame" variable defined at all times after the processing has started (including when finishted) 
+# allows to know hown many frames have actually been processed (if any)
 
+iFrame = 0
+
+while iFrame < parameters["number of frames"]:
+	
 	# initialization of the particle filters
 	pf.initialize()
 	distributedPf.initialize()
@@ -363,6 +368,8 @@ for iFrame in range(parameters['number of frames']):
 				# ...and those of the particles...
 				painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=painterSettings["color for the centralized PF"])
 				painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=painterSettings["color for the distributed PF"])
+				
+	iFrame += 1
 
 # plots and data are saved
 saveData()
