@@ -72,7 +72,7 @@ hostname = socket.gethostname()
 date = time.strftime("%a_%d_%H:%M:%S")
 
 # output data file
-outputFile = hostname +'_' + date + '_nFrames={}.{}'
+outputFile = hostname +'_' + date
 
 # how numpy arrays are printed on screen is specified here
 np.set_printoptions(precision=3,linewidth=100)
@@ -89,12 +89,12 @@ def saveData():
 	# MSE vs time
 	Painter.plotDistributedAgainstCentralizedVsTime(centralizedPF_MSE[:,:iFrame].mean(axis=1),distributedPF_MSE[:,:iFrame].mean(axis=1),
 						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],painterSettings["marker for the centralized PF"],painterSettings["marker for the distributed PF"],
-						'MSE vs Time',painterSettings["file name prefix for the MSE vs time plot"] + '_' + outputFile.format(repr(iFrame),'eps'))
+						'MSE vs Time',painterSettings["file name prefix for the MSE vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)))
 
 	# distance vs time
 	Painter.plotDistributedAgainstCentralizedVsTime(np.sqrt(2*centralizedPF_MSE[:,:iFrame]).mean(axis=1),np.sqrt(2*distributedPF_MSE[:,:iFrame]).mean(axis=1),
 						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],painterSettings["marker for the centralized PF"],painterSettings["marker for the distributed PF"],
-						'Euclidean distance vs Time',painterSettings["file name prefix for the euclidean distance vs time plot"] + '_' + outputFile.format(repr(iFrame),'eps'))
+						'Euclidean distance vs Time',painterSettings["file name prefix for the euclidean distance vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)))
 
 	# the aggregated weights are  normalized at ALL TIMES and for EVERY frame
 	normalizedAggregatedWeights = np.rollaxis(np.divide(np.rollaxis(distributedPFaggregatedWeights[:,:,:iFrame],2,1),distributedPFaggregatedWeights[:,:,:iFrame].sum(axis=1)[:,:,np.newaxis]),2,1)
@@ -104,7 +104,7 @@ def saveData():
 
 	# evolution of the largest aggregated weight over time
 	Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound(),
-											 painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile.format(repr(iFrame),'eps'),DRNAsettings["exchange period"],True)
+											 painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),DRNAsettings["exchange period"],True)
 
 	# if requested, save the trajectory
 	if painterSettings["display evolution?"]:
@@ -112,7 +112,7 @@ def saveData():
 			painter.save(('trajectory_up_to_iTime={}_' + hostname + '_' + date + '.eps').format(repr(iTime)))
 
 	# data is saved
-	np.savez('res_' + outputFile.format(repr(iFrame),'npz'),
+	np.savez('res_' + outputFile + '.npz',
 			normalizedAggregatedWeights=normalizedAggregatedWeights,
 			#distributedPFaggregatedWeights=distributedPFaggregatedWeights[:,:,:iFrame],
 			aggregatedWeightsUpperBound=distributedPf.getAggregatedWeightsUpperBound(),
@@ -121,13 +121,7 @@ def saveData():
 			targetPosition=targetPosition,
 			targetVelocity=targetVelocity
 			)
-	
-	# in a separate file with the same name but different extension, parameters are also saved...
-	with open('res_' + outputFile.format(repr(iFrame),'parameters'),mode='wb') as f:
 		
-		# ...pickled
-		pickle.dump(parameters,f)
-
 # ---------------------------------------------
 
 # we'd rather have the coordinates of the corners stored as numpy arrays...
@@ -166,7 +160,14 @@ for withinParametersFileQuestion,key in zip(["load sensors and Monte Carlo pseud
 			
 			# the above created PRNG object is saved pickled into a file
 			pickle.dump(PRNGs[key],f)
+
+# ---------------------------------------------------------------- parameters saving  --------------------------------------------------------------------
+
+# in a separate file with the same name as the data file but different extension...
+with open('res_' + outputFile + '.parameters',mode='wb') as f:
 	
+	#  ...parameters and pseudo random numbers generators are pickled
+	pickle.dump((parameters,PRNGs),f)
 
 # ---------------------------------------------------------------- signals handling ----------------------------------------------------------------------
 
