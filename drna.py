@@ -9,13 +9,41 @@ import os
 import signal
 import socket
 import pickle
+import argparse
+
+# keys used to identify the different pseudo random numbers generators (they must coincide with those in the parameters file...)
+PRNGsKeys = ["Sensors and Monte Carlo pseudo random numbers generator","Trajectory pseudo random numbers generator","PEs network pseudo random numbers generator"]
 
 # in order to clock the execution time...
 startTime = time.time()
 
-# the parameters file is read to memory
-with open('parameters.json') as jsonData:
-	parameters = json.load(jsonData)
+# ----------------------------------------------------------------- arguments parser ---------------------------------------------------------------------
+
+parser = argparse.ArgumentParser(description='Distributed Resampling with Non-proportional Allocation.')
+parser.add_argument('-r','--reproduce',type=argparse.FileType('r'),dest='parametersToBeReproducedFilename',help='repeat the simulation given by the parameters file')
+commandArguments = parser.parse_args(sys.argv[1:])
+
+# -----
+
+# if this is a re-run of a previous simulation...
+if commandArguments.parametersToBeReproducedFilename:
+	
+	# we open the file passed...
+	with open(commandArguments.parametersToBeReproducedFilename.name,"rb") as f:
+		
+		# ...to extract th parameters and random state from the previous simulation
+		parametersNrandomState = pickle.load(f)
+	
+	# parameters are restored
+	parameters = parametersNrandomState[0]
+
+# otherwise, we just read the parameters in the usual way
+else:
+	
+	with open('parameters.json') as jsonData:
+	
+		# the parameters file is read to memory
+		parameters = json.load(jsonData)
 
 # number of particles per processing element (PE)
 K = parameters["number of particles per PE"]
@@ -136,38 +164,49 @@ roomDiagonalVector = room["top right corner"] - room["bottom left corner"]
 # a dictionary with several "RandomState" (pseudo random number generator) objects
 PRNGs = {}
 
-for withinParametersFileQuestion,key in zip(["load sensors and Monte Carlo pseudo random numbers generator?","load trajectory pseudo random numbers generator?","load PEs network pseudo random numbers generator?"],
-							["Sensors and Monte Carlo pseudo random numbers generator","Trajectory pseudo random numbers generator","PEs network pseudo random numbers generator"]):
+# if this is a rerun of a previous simulation...
+if commandArguments.parametersToBeReproducedFilename:
 	
-	# if loading the corresponding previous pseudo random numbers generator is requested...
-	if parameters[withinParametersFileQuestion]:
+	# every pseudo random numbers generator...
+	for key in PRNGsKeys:
 		
-		print('loading "{}"...'.format(key))
-		
-		with open(parameters[key],"rb") as f:
-			
-			# the previously "pickled" RandomState object is loaded
-			PRNGs[key] = pickle.load(f)
-			
-	# otherwise, if a random seed is requested...
-	else:
-		
-		# a new pseudo random numbers generator object is created...
-		PRNGs[key] = np.random.RandomState()
+		# ...is restored via the key
+		PRNGs[key] = parametersNrandomState[1][key]
+	
+else:
 
-		# ...and saved
-		with open(parameters[key],mode='wb') as f:
+	for withinParametersFileQuestion,key in zip(["load sensors and Monte Carlo pseudo random numbers generator?","load trajectory pseudo random numbers generator?","load PEs network pseudo random numbers generator?"],
+								PRNGsKeys):
+		
+		# if loading the corresponding previous pseudo random numbers generator is requested...
+		if parameters[withinParametersFileQuestion]:
 			
-			# the above created PRNG object is saved pickled into a file
-			pickle.dump(PRNGs[key],f)
+			print('loading "{}"...'.format(key))
+			
+			with open(parameters[key],"rb") as f:
+				
+				# the previously "pickled" RandomState object is loaded
+				PRNGs[key] = pickle.load(f)
+				
+		# otherwise, if a random seed is requested...
+		else:
+			
+			# a new pseudo random numbers generator object is created...
+			PRNGs[key] = np.random.RandomState()
+
+			# ...and saved
+			with open(parameters[key],mode='wb') as f:
+				
+				# the above created PRNG object is saved pickled into a file
+				pickle.dump(PRNGs[key],f)
 
 # ---------------------------------------------------------------- parameters saving  --------------------------------------------------------------------
 
-# in a separate file with the same name as the data file but different extension...
-with open('res_' + outputFile + '.parameters',mode='wb') as f:
-	
-	#  ...parameters and pseudo random numbers generators are pickled
-	pickle.dump((parameters,PRNGs),f)
+	# in a separate file with the same name as the data file but different extension...
+	with open('res_' + outputFile + '.parameters',mode='wb') as f:
+		
+		#  ...parameters and pseudo random numbers generators are pickled
+		pickle.dump((parameters,PRNGs),f)
 
 # ---------------------------------------------------------------- signals handling ----------------------------------------------------------------------
 
