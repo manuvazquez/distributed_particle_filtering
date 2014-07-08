@@ -80,21 +80,14 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		# the aggregated weight is kept up to date at any time
 		self.updateAggregatedWeight()
 		
-		# if required (depending on the algorithm), the weights are normalized...
-		self.normalizeWeightsIfRequired()
-		
-		# resampling is carried out...ONLY if the resampling criterion is satisfied
-		self.resample()
+		# whatever is required (it depends on the algorithm) to avoid weights degeneracy...
+		self.avoidWeightDegeneracy()
 
 	def getState(self):
 		
 		return self._state
 
-	def resample(self):
-		
-		# the normalized weights are computed
-		# NOTE:  this assumes that self._aggregatedWeight is never zero!!
-		normalizedWeights = self._weights / self._aggregatedWeight
+	def resample(self,normalizedWeights):
 		
 		# we check whether a resampling step is actually needed or not
 		if self._resamplingCriterion.isResamplingNeeded(normalizedWeights):
@@ -139,30 +132,29 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 
 		# element-wise multiplication of the state vectors and their correspondent weights...followed by addition => weighted mean
 		return np.multiply(self._state,normalizedWeights).sum(axis=1)[np.newaxis].T
-		
-	def normalizeWeightsIfRequired(self):
+
+	# this methods encapsulates the parts within the code of "step" which are different in this class and its children
+	def avoidWeightDegeneracy(self):
 		
 		# if all the weights are zero...
 		if self._aggregatedWeight==0:
 			
 			# ...then normalization makes no sense and we just initialize the weights again
 			self._weights.fill(1.0/self._nParticles)
-			
+
 		else:
 		
 			self._weights /= self._aggregatedWeight
-		
+			
 		# we forced this above
 		self._aggregatedWeight = 1.0
-
+		
+		# the normalized weights are used to resample
+		self.resample(self._weights)
 # =========================================================================================================
 
 class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilter):
 	
-	def normalizeWeightsIfRequired(self):
-		
-		pass
-
 	def getAggregatedWeight(self):
 		
 		return self._aggregatedWeight
@@ -172,7 +164,7 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 		self._weights *= factor
 		self._aggregatedWeight *= factor
 
-	def resample(self):
+	def avoidWeightDegeneracy(self):
 		
 		# if all the weights are zero...
 		if self._aggregatedWeight==0:
@@ -180,12 +172,9 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 			# ...there is nothing we can do
 			return
 		
-		# if not all the weights are zero...
 		else:
-			
-			# ...we call the resample method from the super class knowing for certain that the weights can be normalized
-			super().resample()
-			
+			# the normalized weights are used to resample
+			self.resample(self._weights/self._aggregatedWeight)
 
 # =========================================================================================================
 
