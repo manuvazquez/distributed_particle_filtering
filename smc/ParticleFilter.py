@@ -92,9 +92,9 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 
 	def resample(self):
 		
-		# the normalized weights are computed if possible (if all the weights are zero normalization makes no sense)
-		if self._aggregatedWeight!=0:
-			normalizedWeights = self._weights / self._aggregatedWeight
+		# the normalized weights are computed
+		# NOTE:  this assumes that self._aggregatedWeight is never zero!!
+		normalizedWeights = self._weights / self._aggregatedWeight
 		
 		# we check whether a resampling step is actually needed or not
 		if self._resamplingCriterion.isResamplingNeeded(normalizedWeights):
@@ -142,7 +142,15 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		
 	def normalizeWeightsIfRequired(self):
 		
-		self._weights /= self._aggregatedWeight
+		# if all the weights are zero...
+		if self._aggregatedWeight==0:
+			
+			# ...then normalization makes no sense and we just initialize the weights again
+			self._weights.fill(1.0/self._nParticles)
+			
+		else:
+		
+			self._weights /= self._aggregatedWeight
 		
 		# we forced this above
 		self._aggregatedWeight = 1.0
@@ -163,6 +171,21 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 		
 		self._weights *= factor
 		self._aggregatedWeight *= factor
+
+	def resample(self):
+		
+		# if all the weights are zero...
+		if self._aggregatedWeight==0:
+			
+			# ...there is nothing we can do
+			return
+		
+		# if not all the weights are zero...
+		else:
+			
+			# ...we call the resample method from the super class knowing for certain that the weights can be normalized
+			super().resample()
+			
 
 # =========================================================================================================
 
