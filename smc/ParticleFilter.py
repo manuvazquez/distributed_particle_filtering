@@ -206,9 +206,6 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		# parameter for checking the aggregated weights degeneration
 		self._aggregatedWeightsUpperBound = c/math.pow(nPEs,1.0-epsilon)
 		
-		# because of the exchange and normalization periods, we must keep track of the elapsed (discreet) time instants
-		self._n = 0
-		
 	def getAggregatedWeightsUpperBound(self):
 		
 		return self._aggregatedWeightsUpperBound
@@ -221,7 +218,10 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		for PE in self._PEs:
 			
 			PE.initialize()
-			
+
+		# because of the exchange and normalization periods, we must keep track of the elapsed (discreet) time instants
+		self._n = 0
+
 	def step(self,observations):
 		
 		super().step(observations)
