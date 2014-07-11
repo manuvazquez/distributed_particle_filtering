@@ -139,16 +139,23 @@ def saveData():
 		if 'iTime' in globals() and iTime>0:
 			painter.save(('trajectory_up_to_iTime={}_' + hostname + '_' + date + '.eps').format(repr(iTime)))
 
+	# a dictionary encompassing all the data to be saved
+	dataToBeSaved = {
+			'normalizedAggregatedWeights': normalizedAggregatedWeights,
+			#'distributedPFaggregatedWeights': distributedPFaggregatedWeights[:,:,:iFrame],
+			'aggregatedWeightsUpperBound': distributedPf.getAggregatedWeightsUpperBound(),
+			'targetInitialPosition': targetInitialPosition,
+			'targetInitialVelocity': targetInitialVelocity,
+			'targetPosition': targetPosition,
+			'targetVelocity': targetVelocity,
+			#'centralizedPF_MSE': centralizedPF_MSE,
+			#'distributedPF_MSE': distributedPF_MSE,
+			'centralizedPF_pos': centralizedPF_pos,
+			'distributedPF_pos': distributedPF_pos
+		}
+	
 	# data is saved
-	np.savez('res_' + outputFile + '.npz',
-			normalizedAggregatedWeights=normalizedAggregatedWeights,
-			#distributedPFaggregatedWeights=distributedPFaggregatedWeights[:,:,:iFrame],
-			aggregatedWeightsUpperBound=distributedPf.getAggregatedWeightsUpperBound(),
-			targetInitialPosition=targetInitialPosition,
-			targetInitialVelocity=targetInitialVelocity,
-			targetPosition=targetPosition,
-			targetVelocity=targetVelocity
-			)
+	np.savez('res_' + outputFile + '.npz',**dataToBeSaved)
 		
 # ---------------------------------------------
 
@@ -344,8 +351,11 @@ for iTime in range(nTimeInstants):
 # we store the computed mean square errors...
 centralizedPF_MSE,distributedPF_MSE = np.empty((nTimeInstants,parameters["number of frames"])),np.empty((nTimeInstants,parameters["number of frames"]))
 
-# ...and the aggregated weights
+# ...the aggregated weights...
 distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs["number of PEs"][0],parameters["number of frames"]))
+
+# ...and the position estimates
+centralizedPF_pos,distributedPF_pos = np.empty((2,nTimeInstants,parameters["number of frames"])),np.empty((2,nTimeInstants,parameters["number of frames"]))
 
 #------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
 
@@ -401,8 +411,11 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 		# the mean computed by the centralized and distributed PFs
 		centralizedPF_mean,distributedPF_mean = pf.computeMean(),distributedPf.computeMean()
 		
+		centralizedPF_pos[:,iTime:iTime+1,iFrame],distributedPF_pos[:,iTime:iTime+1,iFrame] = State.position(centralizedPF_mean),State.position(distributedPF_mean)
+		
 		# MSE for both the centralized and distributed particle filters is computed
-		centralizedPF_MSE[iTime,iFrame],distributedPF_MSE[iTime,iFrame] = ((State.position(centralizedPF_mean)-targetPosition[:,iTime:iTime+1])**2).mean(),((State.position(distributedPF_mean)-targetPosition[:,iTime:iTime+1])**2).mean()
+		centralizedPF_MSE[iTime,iFrame] = ((centralizedPF_pos[:,iTime:iTime+1,iFrame]-targetPosition[:,iTime:iTime+1])**2).mean()
+		distributedPF_MSE[iTime,iFrame] = ((distributedPF_pos[:,iTime:iTime+1,iFrame]-targetPosition[:,iTime:iTime+1])**2).mean()
 		
 		# the aggregated weights of the different PEs in the distributed PF are stored
 		distributedPFaggregatedWeights[iTime,:,iFrame] = distributedPf.getAggregatedWeights()
@@ -416,8 +429,8 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 			painter.updateTargetPosition(targetPosition[:,iTime:iTime+1])
 			
 			# ...those estimated by the PFs
-			painter.updateEstimatedPosition(State.position(centralizedPF_mean),identifier='centralized',color=painterSettings["color for the centralized PF"])
-			painter.updateEstimatedPosition(State.position(distributedPF_mean),identifier='distributed',color=painterSettings["color for the distributed PF"])
+			painter.updateEstimatedPosition(centralizedPF_pos[:,iTime:iTime+1,iFrame],identifier='centralized',color=painterSettings["color for the centralized PF"])
+			painter.updateEstimatedPosition(distributedPF_pos[:,iTime:iTime+1,iFrame],identifier='distributed',color=painterSettings["color for the distributed PF"])
 
 			if painterSettings["display particles evolution?"]:
 
