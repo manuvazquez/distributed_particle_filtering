@@ -113,14 +113,22 @@ def saveData():
 	if 'iFrame' not in globals() or iFrame==0:
 		print('saveData: nothing to save...skipping')
 		return
+
+	# the mean of the MSE incurred by both PFs
+	centralizedPF_MSE = (np.subtract(centralizedPF_pos[:,:,:iFrame],targetPosition[:,:,np.newaxis])**2).mean(axis=0).mean(axis=1)
+	distributedPF_MSE = (np.subtract(distributedPF_pos[:,:,:iFrame],targetPosition[:,:,np.newaxis])**2).mean(axis=0).mean(axis=1)
 	
+	# ...the same for the error (euclidean distance)
+	centralizedPF_error = np.sqrt((np.subtract(centralizedPF_pos[:,:,:iFrame],targetPosition[:,:,np.newaxis])**2).sum(axis=0)).mean(axis=1)
+	distributedPF_error = np.sqrt((np.subtract(distributedPF_pos[:,:,:iFrame],targetPosition[:,:,np.newaxis])**2).sum(axis=0)).mean(axis=1)
+
 	# MSE vs time
-	Painter.plotDistributedAgainstCentralizedVsTime(centralizedPF_MSE[:,:iFrame].mean(axis=1),distributedPF_MSE[:,:iFrame].mean(axis=1),
+	Painter.plotDistributedAgainstCentralizedVsTime(centralizedPF_MSE,distributedPF_MSE,
 						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],painterSettings["marker for the centralized PF"],painterSettings["marker for the distributed PF"],
 						'MSE vs Time',painterSettings["file name prefix for the MSE vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)))
 
 	# distance vs time
-	Painter.plotDistributedAgainstCentralizedVsTime(np.sqrt(2*centralizedPF_MSE[:,:iFrame]).mean(axis=1),np.sqrt(2*distributedPF_MSE[:,:iFrame]).mean(axis=1),
+	Painter.plotDistributedAgainstCentralizedVsTime(centralizedPF_error,distributedPF_error,
 						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],painterSettings["marker for the centralized PF"],painterSettings["marker for the distributed PF"],
 						'Euclidean distance vs Time',painterSettings["file name prefix for the euclidean distance vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)))
 
@@ -148,8 +156,6 @@ def saveData():
 			'targetInitialVelocity': targetInitialVelocity,
 			'targetPosition': targetPosition,
 			'targetVelocity': targetVelocity,
-			#'centralizedPF_MSE': centralizedPF_MSE,
-			#'distributedPF_MSE': distributedPF_MSE,
 			'centralizedPF_pos': centralizedPF_pos,
 			'distributedPF_pos': distributedPF_pos
 		}
@@ -348,10 +354,7 @@ for iTime in range(nTimeInstants):
 
 #------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
 
-# we store the computed mean square errors...
-centralizedPF_MSE,distributedPF_MSE = np.empty((nTimeInstants,parameters["number of frames"])),np.empty((nTimeInstants,parameters["number of frames"]))
-
-# ...the aggregated weights...
+# we store the aggregated weights...
 distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs["number of PEs"][0],parameters["number of frames"]))
 
 # ...and the position estimates
@@ -413,10 +416,6 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 		
 		centralizedPF_pos[:,iTime:iTime+1,iFrame],distributedPF_pos[:,iTime:iTime+1,iFrame] = State.position(centralizedPF_mean),State.position(distributedPF_mean)
 		
-		# MSE for both the centralized and distributed particle filters is computed
-		centralizedPF_MSE[iTime,iFrame] = ((centralizedPF_pos[:,iTime:iTime+1,iFrame]-targetPosition[:,iTime:iTime+1])**2).mean()
-		distributedPF_MSE[iTime,iFrame] = ((distributedPF_pos[:,iTime:iTime+1,iFrame]-targetPosition[:,iTime:iTime+1])**2).mean()
-		
 		# the aggregated weights of the different PEs in the distributed PF are stored
 		distributedPFaggregatedWeights[iTime,:,iFrame] = distributedPf.getAggregatedWeights()
 		
@@ -429,15 +428,15 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 			painter.updateTargetPosition(targetPosition[:,iTime:iTime+1])
 			
 			# ...those estimated by the PFs
-			painter.updateEstimatedPosition(centralizedPF_pos[:,iTime:iTime+1,iFrame],identifier='centralized',color=painterSettings["color for the centralized PF"])
-			painter.updateEstimatedPosition(distributedPF_pos[:,iTime:iTime+1,iFrame],identifier='distributed',color=painterSettings["color for the distributed PF"])
+			painter.updateEstimatedPosition(State.position(centralizedPF_mean),identifier='centralized',color=painterSettings["color for the centralized PF"])
+			painter.updateEstimatedPosition(State.position(distributedPF_mean),identifier='distributed',color=painterSettings["color for the distributed PF"])
 
 			if painterSettings["display particles evolution?"]:
 
 				# ...and those of the particles...
 				painter.updateParticlesPositions(State.position(pf.getState()),identifier='centralized',color=painterSettings["color for the centralized PF"])
 				painter.updateParticlesPositions(State.position(distributedPf.getState()),identifier='distributed',color=painterSettings["color for the distributed PF"])
-				
+	
 	iFrame += 1
 
 # plots and data are saved
