@@ -107,7 +107,8 @@ np.set_printoptions(precision=3,linewidth=100)
 
 # ---------------------------------------------
 
-# NOTE: this function accesses global variable, though it doesn't modify them...
+# NOTE: most functions access global variables, though they don't modify them (except one of the handlers)
+
 def saveData():
 	
 	if 'iFrame' not in globals() or iFrame==0:
@@ -162,7 +163,15 @@ def saveData():
 	
 	# data is saved
 	np.savez('res_' + outputFile + '.npz',**dataToBeSaved)
+
+def saveParameters():
+	
+	# in a separate file with the same name as the data file but different extension...
+	with open('res_' + outputFile + '.parameters',mode='wb') as f:
 		
+		#  ...parameters and pseudo random numbers generators are pickled
+		pickle.dump((parameters,PRNGs),f)
+
 # ---------------------------------------------
 
 # we'd rather have the coordinates of the corners stored as numpy arrays...
@@ -213,13 +222,7 @@ else:
 				# the above created PRNG object is saved pickled into a file
 				pickle.dump(PRNGs[key],f)
 
-# ---------------------------------------------------------------- parameters saving  --------------------------------------------------------------------
-
-	# in a separate file with the same name as the data file but different extension...
-	with open('res_' + outputFile + '.parameters',mode='wb') as f:
-		
-		#  ...parameters and pseudo random numbers generators are pickled
-		pickle.dump((parameters,PRNGs),f)
+	saveParameters()
 
 # ---------------------------------------------------------------- signals handling ----------------------------------------------------------------------
 
@@ -244,8 +247,11 @@ def sigint_handler(signum, frame):
 	
 def sigusr1_handler(signum, frame):
 	
-	# plots and data are saved
+	# plots and data are saved...
 	saveData()
+	
+	# ...and the parameters as well
+	saveParameters()
 
 # Ctrl-C has not been pressed yet...well, if it has, then the program has not even reached here
 ctrlCpressed = False
@@ -439,8 +445,11 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 	
 	iFrame += 1
 
-# plots and data are saved
+# plots and data are saved...
 saveData()
+
+# ...and the parameters too
+saveParameters()
 
 # ------------------------------------------------------------------ benchmarking  -----------------------------------------------------------------------
 
