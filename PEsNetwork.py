@@ -2,12 +2,14 @@ import numpy as np
 
 class PEsNetwork:
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,PRNG=np.random.RandomState()):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=np.random.RandomState()):
 		
 		self._nPEs = nPEs
 		self._nParticlesPerPE = nParticlesPerPE
 		self._exchangePercentage = exchangePercentage
 		self._PRNG = PRNG
+		
+		self._topologySpecificParameters = topologySpecificParameters
 		
 		# indexes of the particles...just for the sake of efficiency (this array will be used many times)
 		self._iParticles = np.arange(nParticlesPerPE)
@@ -51,26 +53,29 @@ class PEsNetwork:
 
 class Customized(PEsNetwork):
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,neighbours,PRNG=np.random.RandomState()):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=np.random.RandomState()):
 		
-		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,PRNG=PRNG)
+		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=PRNG)
 		
 		# each element in the list is another list specifying the neighbours of the corresponding PE
-		self._neighbours = neighbours
+		self._neighbours = self._topologySpecificParameters["neighbourhoods"]
 		
 class Ring(PEsNetwork):
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,PRNG=np.random.RandomState()):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=np.random.RandomState()):
 		
-		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,PRNG=PRNG)
+		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=PRNG)
 		
 		self._neighbours = [[(i-1) % nPEs,(i+1) % nPEs] for i in range(nPEs)]
 
 class Mesh(PEsNetwork):
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,potentialNeighboursRelativePosition,nRows,nCols,PRNG=np.random.RandomState()):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=np.random.RandomState()):
 		
-		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,PRNG=PRNG)
+		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=PRNG)
+		
+		potentialNeighboursRelativePosition = self._topologySpecificParameters["neighbours"]
+		nRows,nCols = self._topologySpecificParameters["geometry"][0]
 		
 		assert nRows*nCols == nPEs
 		
@@ -103,9 +108,9 @@ class Mesh(PEsNetwork):
 
 class FullyConnected(PEsNetwork):
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,PRNG=np.random.RandomState()):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=np.random.RandomState()):
 		
-		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,PRNG=PRNG)
+		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=PRNG)
 		
 		self._neighbours = [list(range(nPEs)) for i in range(nPEs)]
 		
@@ -115,11 +120,11 @@ class FullyConnected(PEsNetwork):
 			
 class FullyConnectedWithRandomLinksRemoved(FullyConnected):
 	
-	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,nLinksToBeRemoved,PRNG=np.random.RandomState()):
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=np.random.RandomState()):
 		
-		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,PRNG=PRNG)
+		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=PRNG)
 		
-		selectedPEs = PRNG.choice(nPEs,size=nLinksToBeRemoved)
+		selectedPEs = PRNG.choice(nPEs,size=self._topologySpecificParameters["number of links to be removed"])
 		
 		for PE in selectedPEs:
 			

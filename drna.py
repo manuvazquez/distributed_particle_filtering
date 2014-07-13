@@ -264,32 +264,29 @@ signal.signal(signal.SIGUSR1, sigusr1_handler)
 
 # ----------------------------------------------------------- Processing Elements (PEs) ------------------------------------------------------------------
 
-# a PEs network is created...used later to get the exchange tuples
+def allSubclasses(cls):
+    return [c.__name__ for c in cls.__subclasses__()] + [g for s in cls.__subclasses__() for g in allSubclasses(s)]
 
-if PEs["topology"]=="Customized":
-	
-	PEsNetwork = PEsNetwork.Customized(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],[[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]],
-									PRNGs["PEs network pseudo random numbers generator"])
-	
-elif PEs["topology"]=="Ring":
-	
-	PEsNetwork = PEsNetwork.Ring(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PRNGs["PEs network pseudo random numbers generator"])
-	
-elif PEs["topology"]=="Mesh":
-	
-	PEsNetwork = PEsNetwork.Mesh(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["Mesh"]["neighbours"],*PEs["Mesh"]["geometry"][0],
-							  PRNG=PRNGs["PEs network pseudo random numbers generator"])
-	
-elif PEs["topology"]=="FullyConnected":
-	
-	PEsNetwork = PEsNetwork.FullyConnected(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PRNGs["PEs network pseudo random numbers generator"])
-	
-elif PEs["topology"]=="FullyConnectedWithRandomLinksRemoved":
+# names of the classes implementing network topologies
+availableTopologies = allSubclasses(PEsNetwork.PEsNetwork)
 
-	PEsNetwork = PEsNetwork.FullyConnectedWithRandomLinksRemoved(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs["FullyConnectedWithRandomLinksRemoved"]["number of links to be removed"],
-															  PRNGs["PEs network pseudo random numbers generator"])
-	
+# if there is an implementation for the selected topology...
+if PEs["topology"] in availableTopologies:
+
+	# if this topology doesn't have any specific parameters...
+	if PEs["topology"] not in PEs:
+		
+		# ...the appropriate class is instantiated passing "None" as the parameters
+		PEsNetwork = getattr(PEsNetwork,PEs["topology"])(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],None,PRNG=PRNGs["PEs network pseudo random numbers generator"])
+		
+	# otherwise...
+	else
+	:
+		# ...the appropriate class is instantiated with the found parameters
+		PEsNetwork = getattr(PEsNetwork,PEs["topology"])(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs[PEs["topology"]],PRNG=PRNGs["PEs network pseudo random numbers generator"])
+
 else:
+	
 	print('PEs network topology not supported...')
 	raise SystemExit(0)
 
