@@ -151,14 +151,13 @@ def saveData():
 	# a dictionary encompassing all the data to be saved
 	dataToBeSaved = {
 			'normalizedAggregatedWeights': normalizedAggregatedWeights,
-			#'distributedPFaggregatedWeights': distributedPFaggregatedWeights[:,:,:iFrame],
 			'aggregatedWeightsUpperBound': distributedPf.getAggregatedWeightsUpperBound(),
 			'targetInitialPosition': targetInitialPosition,
 			'targetInitialVelocity': targetInitialVelocity,
 			'targetPosition': targetPosition,
 			'targetVelocity': targetVelocity,
-			'centralizedPF_pos': centralizedPF_pos,
-			'distributedPF_pos': distributedPF_pos
+			'centralizedPF_pos': centralizedPF_pos[:,:,:iFrame],
+			'distributedPF_pos': distributedPF_pos[:,:,:iFrame]
 		}
 	
 	# data is saved
@@ -280,8 +279,7 @@ if PEs["topology"] in availableTopologies:
 		PEsNetwork = getattr(PEsNetwork,PEs["topology"])(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],None,PRNG=PRNGs["PEs network pseudo random numbers generator"])
 		
 	# otherwise...
-	else
-	:
+	else:
 		# ...the appropriate class is instantiated with the found parameters
 		PEsNetwork = getattr(PEsNetwork,PEs["topology"])(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs[PEs["topology"]],PRNG=PRNGs["PEs network pseudo random numbers generator"])
 

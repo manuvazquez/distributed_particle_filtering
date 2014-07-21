@@ -70,7 +70,7 @@ def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggreg
 
 	plt.savefig(outputFile)
 
-def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',stepExchangePeriod=1,addMarksOnStepExchangeInstants=False):
+def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',stepExchangePeriod=1,addMarksOnStepExchangeInstants=False,ylabel='$c/M^{1-{\\varepsilon}}$'):
 	
 	nTimeInstants = len(maxWeights)
 	
@@ -115,7 +115,7 @@ def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAgg
 	maxAggregatedWeightVsTimeAxes.set_ybound(upper=upperBound*4,lower=0)
 	
 	# the upper bound is plotted
-	maxAggregatedWeightVsTimeAxes.axhline(y=upperBound,linewidth=2, color='red',linestyle='dashed',label='$c/M^{1-{\\varepsilon}}$')
+	maxAggregatedWeightVsTimeAxes.axhline(y=upperBound,linewidth=2, color='red',linestyle='dashed',label=ylabel)
 	
 	# in order to show the legend
 	maxAggregatedWeightVsTimeAxes.legend(loc='upper right')
