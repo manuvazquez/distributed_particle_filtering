@@ -228,60 +228,23 @@ class RoomPainter:
 		
 		plt.close(self._figure)
 
-class RoomPainterDecorator(RoomPainter):
+class RectangularRoomPainter(RoomPainter):
 	
-	def __init__(self,decorated):
-
-		# the superclass constructor is not called so that we don't duplicate attributes
+	def __init__(self,roomBottomLeftCorner,roomTopRightCorner,sensorsPositions,sleepTime=0.5):
 		
-		# we keep a reference to the object being decorated
-		self._decorated = decorated
-
-	# let the decorated class do its stuff when the methods are not redefined in subclasses:
-	def setupSensors(self):
-
-		self._decorated.setupSensors()
-
-	def updateTargetPosition(self,position):
-		
-		self._decorated.updateTargetPosition(position)
-
-	def updateParticlesPositions(self,positions,identifier='unnamed',color='blue'):
-		
-		self._decorated.updateParticlesPositions(positions,identifier=identifier,color=color)
-		
-	def updateEstimatedPosition(self,position,identifier='unnamed',color='blue'):
-		
-		self._decorated.updateEstimatedPosition(position,identifier=identifier,color=color)
-		
-	def save(self,outputFile='trajectory.eps'):
-		
-		#self._decorated._ax.set_ybound(lower=self._roomBottomLeftCorner[1]+5)
-		#self._decorated._ax.set_ybound(upper=self._roomTopRightCorner[1]-5)
-		
-		self._decorated.save(outputFile=outputFile)
-		
-	def close(self):
-		
-		self._decorated.close()
-		
-class WithBorder(RoomPainterDecorator):
-	
-	def __init__(self,decorated,roomBottomLeftCorner,roomTopRightCorner):
-		
-		super().__init__(decorated)
+		super().__init__(sensorsPositions,sleepTime=sleepTime)
 		
 		self._roomBottomLeftCorner = roomBottomLeftCorner
 		self._roomTopRightCorner = roomTopRightCorner
 		self._roomDiagonalVector = self._roomTopRightCorner - self._roomBottomLeftCorner
-		
+
 	def setupSensors(self):
 		
-		# let the decorated class do its thing
-		self._decorated.setupSensors()
+		# let the parent class do its thing
+		super().setupSensors()
 		
 		# we define a rectangular patch...
 		roomEdge = matplotlib.patches.Rectangle((self._roomBottomLeftCorner[0],self._roomBottomLeftCorner[1]), self._roomDiagonalVector[0], self._roomDiagonalVector[1], fill=False, color='blue')
 		
 		# ...and added to the axes
-		self._decorated._ax.add_patch(roomEdge)
+		self._ax.add_patch(roomEdge)

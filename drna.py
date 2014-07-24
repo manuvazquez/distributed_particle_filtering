@@ -383,7 +383,7 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 			painter.close()
 
 		# this object will handle graphics...
-		painter = Painter.WithBorder(Painter.RoomPainter(sensorsPositions,sleepTime=painterSettings["sleep time between updates"]),room["bottom left corner"],room["top right corner"])
+		painter = Painter.RectangularRoomPainter(room["bottom left corner"],room["top right corner"],sensorsPositions,sleepTime=painterSettings["sleep time between updates"])
 
 		# ...e.g., draw the sensors
 		painter.setupSensors()
