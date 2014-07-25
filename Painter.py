@@ -139,19 +139,24 @@ def plotTrajectory(filename,nTimeInstants=-1):
 		# ...is loaded
 		parameters = pickle.load(f)[0]
 	
+	# the positions of the sensors are computed
 	sensorsPositions = Sensor.EquispacedOnRectangleSensorLayer(parameters["room"]["bottom left corner"],parameters["room"]["top right corner"]).getPositions(parameters["sensors"]["number"])
 	
-	painter = BorderlessRectangularRoomPainter(parameters["room"]["bottom left corner"],parameters["room"]["top right corner"],sensorsPositions)
+	# a Painter object is created to do the dirty work
+	painter = TightRectangularRoomPainter(parameters["room"]["bottom left corner"],parameters["room"]["top right corner"],sensorsPositions)
 	
 	painter.setup()
 	
+	# if the number of time instants to be plotted received is not within the proper limits...
 	if not (0<nTimeInstants<=position.shape[1]):
 		
+		# ...the entire trajectory is plotted
 		nTimeInstants = position.shape[1]
+		
+		print('plotTrajectory: the number of time instants to be plotted is not within the limits...plotting the entire sequence...')
 	
 	for i in range(nTimeInstants):
 		
-		print('i = ',i)
 		painter.updateTargetPosition(position[:,i])
 	
 	painter.save()
@@ -181,9 +186,11 @@ class RoomPainter:
 		# so that the program doesn't wait for the open windows to be closed in order to continue
 		plt.ion()
 		
-	def setup(self):
+	def setup(self,sensorsLineProperties = {'marker':'+','color':'red'}):
 		
-		self._ax.plot(self._sensorsPositions[0,:], self._sensorsPositions[1,:],color='red',marker='+',linewidth=0)
+		# linewidth=0 so that the points are not joined...
+		self._ax.plot(self._sensorsPositions[0,:], self._sensorsPositions[1,:],linewidth=0,**sensorsLineProperties)
+
 		self._ax.set_aspect('equal', 'datalim')
 		
 		# plot now...
@@ -272,18 +279,18 @@ class RectangularRoomPainter(RoomPainter):
 		self._roomTopRightCorner = roomTopRightCorner
 		self._roomDiagonalVector = self._roomTopRightCorner - self._roomBottomLeftCorner
 
-	def setup(self):
+	def setup(self,borderLinePropertis={'color':'blue'},sensorsLineProperties = {'marker':'+','color':'red'}):
 		
 		# let the parent class do its thing
-		super().setup()
+		super().setup(sensorsLineProperties=sensorsLineProperties)
 		
 		# we define a rectangular patch...
-		roomEdge = matplotlib.patches.Rectangle((self._roomBottomLeftCorner[0],self._roomBottomLeftCorner[1]), self._roomDiagonalVector[0], self._roomDiagonalVector[1], fill=False, color='blue')
+		roomEdge = matplotlib.patches.Rectangle((self._roomBottomLeftCorner[0],self._roomBottomLeftCorner[1]), self._roomDiagonalVector[0], self._roomDiagonalVector[1], fill=False,**borderLinePropertis)
 
 		# ...and added to the axes
 		self._ax.add_patch(roomEdge)
 
-class BorderlessRectangularRoomPainter(RectangularRoomPainter):
+class TightRectangularRoomPainter(RectangularRoomPainter):
 	
 	def __init__(self,roomBottomLeftCorner,roomTopRightCorner,sensorsPositions,sleepTime=0.1):
 		
@@ -295,10 +302,10 @@ class BorderlessRectangularRoomPainter(RectangularRoomPainter):
 		self._figure = plt.figure('Room',figsize=tuple(self._roomDiagonalVector//4))
 		self._ax = self._figure.add_axes((0,0,1,1))
 		
-	def setup(self):
+	def setup(self,borderLinePropertis={'color':'black','linewidth':4},sensorsLineProperties = {'marker':'x','color':(116/255,113/255,209/255),'markersize':10,'markeredgewidth':5}):
 		
 		# let the parent class do its thing
-		super().setup()
+		super().setup(borderLinePropertis=borderLinePropertis,sensorsLineProperties=sensorsLineProperties)
 		
 		# axis are removed
 		plt.axis('off')
