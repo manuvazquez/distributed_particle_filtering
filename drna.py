@@ -386,7 +386,7 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 		painter = Painter.RectangularRoomPainter(room["bottom left corner"],room["top right corner"],sensorsPositions,sleepTime=painterSettings["sleep time between updates"])
 
 		# ...e.g., draw the sensors
-		painter.setupSensors()
+		painter.setup()
 		
 		# the initial position is painted...
 		painter.updateTargetPosition(targetInitialPosition)

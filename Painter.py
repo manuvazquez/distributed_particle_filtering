@@ -122,6 +122,40 @@ def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAgg
 
 	plt.savefig(outputFile)
 
+def plotTrajectory(filename,nTimeInstants=-1):
+	
+	import Sensor
+	import pickle
+	import os
+	
+	# data file is loaded
+	with np.load(filename) as data:
+		
+		position = np.append(data['targetInitialPosition'],data['targetPosition'],axis=1)
+	
+	# parameters are loaded
+	with open(os.path.splitext(filename)[0] + '.parameters',"rb") as f:
+		
+		# ...is loaded
+		parameters = pickle.load(f)[0]
+	
+	sensorsPositions = Sensor.EquispacedOnRectangleSensorLayer(parameters["room"]["bottom left corner"],parameters["room"]["top right corner"]).getPositions(parameters["sensors"]["number"])
+	
+	painter = BorderlessRectangularRoomPainter(parameters["room"]["bottom left corner"],parameters["room"]["top right corner"],sensorsPositions)
+	
+	painter.setup()
+	
+	if not (0<nTimeInstants<=position.shape[1]):
+		
+		nTimeInstants = position.shape[1]
+	
+	for i in range(nTimeInstants):
+		
+		print('i = ',i)
+		painter.updateTargetPosition(position[:,i])
+	
+	painter.save()
+
 class RoomPainter:
 	
 	def __init__(self,sensorsPositions,sleepTime=0.5):
@@ -147,7 +181,7 @@ class RoomPainter:
 		# so that the program doesn't wait for the open windows to be closed in order to continue
 		plt.ion()
 		
-	def setupSensors(self):
+	def setup(self):
 		
 		self._ax.plot(self._sensorsPositions[0,:], self._sensorsPositions[1,:],color='red',marker='+',linewidth=0)
 		self._ax.set_aspect('equal', 'datalim')
@@ -238,13 +272,40 @@ class RectangularRoomPainter(RoomPainter):
 		self._roomTopRightCorner = roomTopRightCorner
 		self._roomDiagonalVector = self._roomTopRightCorner - self._roomBottomLeftCorner
 
-	def setupSensors(self):
+	def setup(self):
 		
 		# let the parent class do its thing
-		super().setupSensors()
+		super().setup()
 		
 		# we define a rectangular patch...
 		roomEdge = matplotlib.patches.Rectangle((self._roomBottomLeftCorner[0],self._roomBottomLeftCorner[1]), self._roomDiagonalVector[0], self._roomDiagonalVector[1], fill=False, color='blue')
-		
+
 		# ...and added to the axes
 		self._ax.add_patch(roomEdge)
+
+class BorderlessRectangularRoomPainter(RectangularRoomPainter):
+	
+	def __init__(self,roomBottomLeftCorner,roomTopRightCorner,sensorsPositions,sleepTime=0.1):
+		
+		super().__init__(roomBottomLeftCorner,roomTopRightCorner,sensorsPositions,sleepTime=sleepTime)
+		
+		# the figure created by the superclass is discarded
+		self.close()
+		
+		self._figure = plt.figure('Room',figsize=tuple(self._roomDiagonalVector//4))
+		self._ax = self._figure.add_axes((0,0,1,1))
+		
+	def setup(self):
+		
+		# let the parent class do its thing
+		super().setup()
+		
+		# axis are removed
+		plt.axis('off')
+		
+	def save(self,outputFile='trajectory.eps'):
+		
+		# just in case...the current figure is set to the proper value
+		plt.figure(self._figure.number)
+		
+		plt.savefig(outputFile,bbox_inches="tight")
