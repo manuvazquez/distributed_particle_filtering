@@ -3,7 +3,7 @@ import math
 
 class Sensor:
 	def __init__(self,position,threshold,probDetection=0.9,probFalseAlarm=0.01,PRNG=np.random.RandomState()):
-		
+
 		# position is saved for later use
 		self._position = position
 		

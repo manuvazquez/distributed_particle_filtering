@@ -19,7 +19,9 @@
 	},
 	"sensors": {
 		"number": 16,
-		"radius": 5
+		"radius": 5,
+		"probability of detection within the radius": 0.9,
+		"probability of false alarm": 0.01
 	},
 	"room": {
 		"bottom left corner": [-20,-10],
