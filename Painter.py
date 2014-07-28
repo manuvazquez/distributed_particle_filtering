@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
-def plotDistributedAgainstCentralizedVsTime(centralizedPF,distributedPF,centralizedPFcolor,distributedPFcolor,centralizedPFmarker,distributedPFmarker,title,outputFile):
+def plotDistributedAgainstCentralizedVsTime(centralizedPF,distributedPF,centralizedPFcolor,distributedPFcolor,centralizedPFmarker,distributedPFmarker,title,outputFile,iFrom=0):
 
 	# interactive mode on
 	plt.ion()
@@ -15,15 +15,21 @@ def plotDistributedAgainstCentralizedVsTime(centralizedPF,distributedPF,centrali
 	
 	# ...and the corresponding axes created
 	mseVsTimeAxes = plt.axes()
-
-	mseVsTimeAxes.plot(centralizedPF,color=centralizedPFcolor,marker=centralizedPFmarker,label='Centralized PF')
+	
+	# range specifying the time instants being plotted
+	iTime = np.arange(iFrom,centralizedPF.shape[0])
+	
+	mseVsTimeAxes.plot(iTime,centralizedPF[iTime],color=centralizedPFcolor,marker=centralizedPFmarker,label='Centralized PF')
 
 	mseVsTimeAxes.hold(True)
 
-	mseVsTimeAxes.plot(distributedPF,color=distributedPFcolor,marker=distributedPFmarker,label='Distributed PF')
+	mseVsTimeAxes.plot(iTime,distributedPF[iTime],color=distributedPFcolor,marker=distributedPFmarker,label='Distributed PF')
 
 	# the labes are shown
 	mseVsTimeAxes.legend()
+	
+	# the x axis is adjusted so that no empty space is left before the beginning of the plot
+	mseVsTimeAxes.set_xbound(lower=iFrom)
 
 	plt.savefig(outputFile)
 

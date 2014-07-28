@@ -128,6 +128,12 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 
 	def computeMean(self):
 		
+		# if all the weights in this PF/PE are zero...
+		if self._aggregatedWeight==0:
+			
+			# ...then we return an all-zeros estimate, though any should do since this estimate must have zero weight
+			return np.zeros((self._state.shape[0],1))
+		
 		normalizedWeights = self._weights / self._aggregatedWeight
 
 		# element-wise multiplication of the state vectors and their correspondent weights...followed by addition => weighted mean

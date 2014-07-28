@@ -6,6 +6,7 @@ import json
 import time
 import sys
 import os
+import copy
 import signal
 import socket
 import pickle
@@ -141,7 +142,7 @@ def saveData():
 
 	# evolution of the largest aggregated weight over time
 	Painter.plotAggregatedWeightsSupremumVsTime(maxWeights,distributedPf.getAggregatedWeightsUpperBound(),
-											 painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),DRNAsettings["exchange period"],True)
+											 painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),DRNAsettings["exchange period"],True,ylabel='$c^q/M^{q-\\varepsilon}$')
 
 	# if requested, save the trajectory
 	if painterSettings["display evolution?"]:
@@ -169,7 +170,7 @@ def saveParameters():
 	with open('res_' + outputFile + '.parameters',mode='wb') as f:
 		
 		#  ...parameters and pseudo random numbers generators are pickled
-		pickle.dump((parameters,PRNGs),f)
+		pickle.dump((parameters,fronzenPRNGs),f)
 
 # ---------------------------------------------
 
@@ -221,7 +222,10 @@ else:
 				# the above created PRNG object is saved pickled into a file
 				pickle.dump(PRNGs[key],f)
 
-	saveParameters()
+	#saveParameters()
+
+# the PRNGs will change as the program runs, and we want to store them as they were in the beginning
+fronzenPRNGs = copy.deepcopy(PRNGs)
 
 # ---------------------------------------------------------------- signals handling ----------------------------------------------------------------------
 
