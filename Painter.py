@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
-def plotDistributedAgainstCentralizedVsTime(centralizedPF,distributedPF,centralizedPFcolor,distributedPFcolor,centralizedPFmarker,distributedPFmarker,title,outputFile,iFrom=0):
+def plotDistributedAgainstCentralizedVsTime(centralizedPF,distributedPF,centralizedPFcolor,distributedPFcolor,centralizedPFmarker,distributedPFmarker,title,outputFile,iFrom=0,
+											centralizedPFparameters={'label':'Centralized PF'},distributedPFparameters={'label':'Distributed PF'}):
 
 	# interactive mode on
 	plt.ion()
@@ -14,22 +15,22 @@ def plotDistributedAgainstCentralizedVsTime(centralizedPF,distributedPF,centrali
 	plt.clf()
 	
 	# ...and the corresponding axes created
-	mseVsTimeAxes = plt.axes()
+	metricVsTimeAxes = plt.axes()
 	
 	# range specifying the time instants being plotted
 	iTime = np.arange(iFrom,centralizedPF.shape[0])
 	
-	mseVsTimeAxes.plot(iTime,centralizedPF[iTime],color=centralizedPFcolor,marker=centralizedPFmarker,label='Centralized PF')
+	metricVsTimeAxes.plot(iTime,centralizedPF[iTime],color=centralizedPFcolor,marker=centralizedPFmarker,**centralizedPFparameters)
 
-	mseVsTimeAxes.hold(True)
+	metricVsTimeAxes.hold(True)
 
-	mseVsTimeAxes.plot(iTime,distributedPF[iTime],color=distributedPFcolor,marker=distributedPFmarker,label='Distributed PF')
+	metricVsTimeAxes.plot(iTime,distributedPF[iTime],color=distributedPFcolor,marker=distributedPFmarker,**distributedPFparameters)
 
 	# the labes are shown
-	mseVsTimeAxes.legend()
+	metricVsTimeAxes.legend()
 	
 	# the x axis is adjusted so that no empty space is left before the beginning of the plot
-	mseVsTimeAxes.set_xbound(lower=iFrom)
+	metricVsTimeAxes.set_xbound(lower=iFrom)
 
 	plt.savefig(outputFile)
 
