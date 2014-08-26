@@ -186,16 +186,16 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 
 class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 	
-	def __init__(self,nPEs,exchangePeriod,PEsNetwork,c,epsilon,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors):
+	def __init__(self,exchangePeriod,PEsNetwork,c,epsilon,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors):
 		
-		super().__init__(nPEs*nParticlesPerPE,resamplingAlgorithm,resamplingCriterion)
+		self._nPEs = PEsNetwork.getNumberOfPEs()
 		
-		self._nPEs = nPEs
-
+		super().__init__(self._nPEs*nParticlesPerPE,resamplingAlgorithm,resamplingCriterion)
+		
 		self._nParticlesPerPE = nParticlesPerPE
 
 		# the particle filters are built
-		self._PEs = [EmbeddedTargetTrackingParticleFilter(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,aggregatedWeight=1.0/nPEs) for i in range(nPEs)]
+		self._PEs = [EmbeddedTargetTrackingParticleFilter(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,aggregatedWeight=1.0/self._nPEs) for i in range(self._nPEs)]
 		
 		# a exchange of particles among PEs will happen every...
 		self._exchangePeriod = exchangePeriod
@@ -210,7 +210,7 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		self._normalizationPeriod = normalizationPeriod
 		
 		# parameter for checking the aggregated weights degeneration
-		self._aggregatedWeightsUpperBound = c/math.pow(nPEs,1.0-epsilon)
+		self._aggregatedWeightsUpperBound = c/math.pow(self._nPEs,1.0-epsilon)
 		
 	def getAggregatedWeightsUpperBound(self):
 		
@@ -305,6 +305,10 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		if normalizedWeights.max() > self._aggregatedWeightsUpperBound:
 			
 			return True
+		
+		else:
+		
+			return False
 		
 	def computeMean(self):
 		

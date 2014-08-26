@@ -170,7 +170,7 @@ def saveParameters():
 	with open('res_' + outputFile + '.parameters',mode='wb') as f:
 		
 		#  ...parameters and pseudo random numbers generators are pickled
-		pickle.dump((parameters,fronzenPRNGs),f)
+		pickle.dump((parameters,frozenPRNGs),f)
 
 # ---------------------------------------------
 
@@ -225,7 +225,7 @@ else:
 	#saveParameters()
 
 # the PRNGs will change as the program runs, and we want to store them as they were in the beginning
-fronzenPRNGs = copy.deepcopy(PRNGs)
+frozenPRNGs = copy.deepcopy(PRNGs)
 
 # ---------------------------------------------------------------- signals handling ----------------------------------------------------------------------
 
@@ -289,8 +289,7 @@ if PEs["topology"] in availableTopologies:
 
 else:
 	
-	print('PEs network topology not supported...')
-	raise SystemExit(0)
+	raise Exception('PEs network topology not supported...')
 
 # ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
 
@@ -323,11 +322,11 @@ resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm(PRNGs["Sensors a
 resamplingCriterion = Resampling.AlwaysResamplingCriterion()
 
 # plain non-parallelized particle filter
-pf = ParticleFilter.CentralizedTargetTrackingParticleFilter(K*PEs["number of PEs"][0],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
+pf = ParticleFilter.CentralizedTargetTrackingParticleFilter(K*PEsNetwork.getNumberOfPEs(),resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
 
 # distributed particle filter
 distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(
-	PEs["number of PEs"][0],DRNAsettings["exchange period"],PEsNetwork,DRNAsettings["c"],DRNAsettings["epsilon"],K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
+	DRNAsettings["exchange period"],PEsNetwork,DRNAsettings["c"],DRNAsettings["epsilon"],K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
 	)
 
 #------------------------------------------------------------- trajectory simulation ---------------------------------------------------------------------
@@ -362,7 +361,7 @@ for iTime in range(nTimeInstants):
 #------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
 
 # we store the aggregated weights...
-distributedPFaggregatedWeights = np.empty((nTimeInstants,PEs["number of PEs"][0],parameters["number of frames"]))
+distributedPFaggregatedWeights = np.empty((nTimeInstants,PEsNetwork.getNumberOfPEs(),parameters["number of frames"]))
 
 # ...and the position estimates
 centralizedPF_pos,distributedPF_pos = np.empty((2,nTimeInstants,parameters["number of frames"])),np.empty((2,nTimeInstants,parameters["number of frames"]))

@@ -50,6 +50,10 @@ class PEsNetwork:
 					alreadyProcessedPEs[iNeighbour,iPE] = alreadyProcessedPEs[iPE,iNeighbour] = True
 					
 		return exchangeTuples
+	
+	def getNumberOfPEs(self):
+		
+		return self._nPEs
 
 class Customized(PEsNetwork):
 	
