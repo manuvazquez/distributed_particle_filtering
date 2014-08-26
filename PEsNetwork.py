@@ -79,7 +79,7 @@ class Mesh(PEsNetwork):
 		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=PRNG)
 		
 		potentialNeighboursRelativePosition = self._topologySpecificParameters["neighbours"]
-		nRows,nCols = self._topologySpecificParameters["geometry"][0]
+		nRows,nCols = self._topologySpecificParameters["geometry"]
 		
 		assert nRows*nCols == nPEs
 		

@@ -50,7 +50,7 @@ else:
 K = parameters["number of particles per PE"]
 
 # different setups for the PEs
-PEs = parameters["PEs Network"]
+topologies = parameters['topologies']
 
 # number of sensors, radius...
 sensorsSettings = parameters["sensors"]
@@ -267,29 +267,7 @@ signal.signal(signal.SIGUSR1, sigusr1_handler)
 
 # ----------------------------------------------------------- Processing Elements (PEs) ------------------------------------------------------------------
 
-def allSubclasses(cls):
-    return [c.__name__ for c in cls.__subclasses__()] + [g for s in cls.__subclasses__() for g in allSubclasses(s)]
-
-# names of the classes implementing network topologies
-availableTopologies = allSubclasses(PEsNetwork.PEsNetwork)
-
-# if there is an implementation for the selected topology...
-if PEs["topology"] in availableTopologies:
-
-	# if this topology doesn't have any specific parameters...
-	if PEs["topology"] not in PEs:
-		
-		# ...the appropriate class is instantiated passing "None" as the parameters
-		PEsNetwork = getattr(PEsNetwork,PEs["topology"])(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],None,PRNG=PRNGs["PEs network pseudo random numbers generator"])
-		
-	# otherwise...
-	else:
-		# ...the appropriate class is instantiated with the found parameters
-		PEsNetwork = getattr(PEsNetwork,PEs["topology"])(PEs["number of PEs"][0],K,DRNAsettings["exchanged particles maximum percentage"],PEs[PEs["topology"]],PRNG=PRNGs["PEs network pseudo random numbers generator"])
-
-else:
-	
-	raise Exception('PEs network topology not supported...')
+PEsNetwork = getattr(PEsNetwork,topologies[0]['class'])(topologies[0]['number of PEs'],K,DRNAsettings["exchanged particles maximum percentage"],topologies[0]['parameters'],PRNG=PRNGs["PEs network pseudo random numbers generator"])
 
 # ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
 
