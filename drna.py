@@ -128,12 +128,12 @@ def saveData():
 	# MSE vs time (only the results for the first topology are plotted)
 	Painter.plotDistributedAgainstCentralizedVsTime(centralizedPF_MSE[:,0],distributedPF_MSE[:,0],
 						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],painterSettings["marker for the centralized PF"],painterSettings["marker for the distributed PF"],
-						'MSE vs Time',painterSettings["file name prefix for the MSE vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)))
+						painterSettings["file name prefix for the MSE vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),figureId='MSE vs Time')
 
 	# distance vs time (only the results for the first topology are plotted)
 	Painter.plotDistributedAgainstCentralizedVsTime(centralizedPF_error[:,0],distributedPF_error[:,0],
 						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],painterSettings["marker for the centralized PF"],painterSettings["marker for the distributed PF"],
-						'Euclidean distance vs Time',painterSettings["file name prefix for the euclidean distance vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)))
+						painterSettings["file name prefix for the euclidean distance vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),figureId='Euclidean distance vs Time')
 
 	# the aggregated weights are  normalized at ALL TIMES, for EVERY frame and EVERY topology
 	normalizedAggregatedWeights = [np.rollaxis(np.divide(np.rollaxis(w[:,:,:iFrame],2,1),w[:,:,:iFrame].sum(axis=1)[:,:,np.newaxis]),2,1) for w in distributedPFaggregatedWeights]
@@ -146,7 +146,7 @@ def saveData():
 
 	# evolution of the largest aggregated weight over time (only the results for the first topology are plotted)
 	Painter.plotAggregatedWeightsSupremumVsTime(maxWeights[0,:],distributedPf.getAggregatedWeightsUpperBound(),
-											 painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),DRNAsettings["exchange period"],True,ylabel='$c^q/M^{q-\\varepsilon}$')
+											 painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),DRNAsettings["exchange period"],addMarksOnStepExchangeInstants=True,ylabel='$c^q/M^{q-\\varepsilon}$')
 
 	# if requested, save the trajectory
 	if painterSettings["display evolution?"]:

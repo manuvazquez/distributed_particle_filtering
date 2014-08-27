@@ -2,14 +2,14 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
-def plotDistributedAgainstCentralizedVsTime(centralizedPF,distributedPF,centralizedPFcolor,distributedPFcolor,centralizedPFmarker,distributedPFmarker,title,outputFile,iFrom=0,
-											centralizedPFparameters={'label':'Centralized PF'},distributedPFparameters={'label':'Distributed PF'}):
+def plotDistributedAgainstCentralizedVsTime(centralizedPF,distributedPF,centralizedPFcolor,distributedPFcolor,centralizedPFmarker,distributedPFmarker,outputFile,iFrom=0,
+											centralizedPFparameters={'label':'Centralized PF'},distributedPFparameters={'label':'Distributed PF'},figureId='vs Time'):
 
 	# interactive mode on
 	plt.ion()
 
 	# a new figure is created to plot the MSE vs time
-	vsTimeFigure = plt.figure(title)
+	vsTimeFigure = plt.figure(figureId)
 	
 	# ...cleared (just in case this method is called several times)
 	plt.clf()
@@ -77,7 +77,10 @@ def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggreg
 
 	plt.savefig(outputFile)
 
-def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',stepExchangePeriod=1,addMarksOnStepExchangeInstants=False,ylabel='$c/M^{1-{\\varepsilon}}$',clear=True):
+def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,
+										outputFile='maxAggregatedWeightVsTime.eps',
+										stepExchangePeriod=1,addMarksOnStepExchangeInstants=False,
+										ylabel='$c/M^{1-{\\varepsilon}}$',figureId='Aggregated Weights Supremum Vs Time'):
 	
 	nTimeInstants = len(maxWeights)
 	
@@ -85,18 +88,10 @@ def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAgg
 	plt.ion()
 
 	# a new figure is created to plot the aggregated weights' supremum vs time...
-	maxAggregatedWeightVsTimeFigure = plt.figure('Aggregated Weights Supremum Vs Time')
+	maxAggregatedWeightVsTimeFigure = plt.figure(figureId)
 
-	# if clearing the figure is requested...
-	if clear:
-
-		# useful when the method is called several times on unrelated data
-		plt.clf()
-	
-	else:
-		
-		# useful when the method is called several times on RELATED data
-		plt.hold(True)
+	# ...cleared (just in case this method is called several times)
+	plt.clf()
 	
 	# ...and the corresponding axes created
 	maxAggregatedWeightVsTimeAxes = plt.axes()
