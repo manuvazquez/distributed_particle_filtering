@@ -1,6 +1,6 @@
 import numpy as np
 
-class PEsNetwork:
+class Topology:
 	
 	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=np.random.RandomState()):
 		
@@ -55,7 +55,7 @@ class PEsNetwork:
 		
 		return self._nPEs
 
-class Customized(PEsNetwork):
+class Customized(Topology):
 	
 	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=np.random.RandomState()):
 		
@@ -64,7 +64,7 @@ class Customized(PEsNetwork):
 		# each element in the list is another list specifying the neighbours of the corresponding PE
 		self._neighbours = self._topologySpecificParameters["neighbourhoods"]
 		
-class Ring(PEsNetwork):
+class Ring(Topology):
 	
 	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=np.random.RandomState()):
 		
@@ -72,7 +72,7 @@ class Ring(PEsNetwork):
 		
 		self._neighbours = [[(i-1) % nPEs,(i+1) % nPEs] for i in range(nPEs)]
 
-class Mesh(PEsNetwork):
+class Mesh(Topology):
 	
 	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=np.random.RandomState()):
 		
@@ -110,7 +110,7 @@ class Mesh(PEsNetwork):
 				# the list of neighbours of this PE is added to the list of lists of neighbours
 				self._neighbours.append(currentPEneighbours)
 
-class FullyConnected(PEsNetwork):
+class FullyConnected(Topology):
 	
 	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=np.random.RandomState()):
 		

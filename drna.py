@@ -11,9 +11,10 @@ import signal
 import socket
 import pickle
 import argparse
+import scipy.io
 
 # keys used to identify the different pseudo random numbers generators (they must coincide with those in the parameters file...)
-PRNGsKeys = ["Sensors and Monte Carlo pseudo random numbers generator","Trajectory pseudo random numbers generator","PEs network pseudo random numbers generator"]
+PRNGsKeys = ["Sensors and Monte Carlo pseudo random numbers generator","Trajectory pseudo random numbers generator","topology pseudo random numbers generator"]
 
 # in order to clock the execution time...
 startTime = time.time()
@@ -50,7 +51,7 @@ else:
 K = parameters["number of particles per PE"]
 
 # different setups for the PEs
-topologies = parameters['topologies']
+topologiesSettings = parameters['topologies']
 
 # number of sensors, radius...
 sensorsSettings = parameters["sensors"]
@@ -92,7 +93,7 @@ import Sensor
 import Painter
 from smc import ParticleFilter
 from smc import Resampling
-import PEsNetwork
+import topology
 
 # the name of the machine running the program (supposedly, using the socket module gives rise to portable code)
 hostname = socket.gethostname()
@@ -166,7 +167,8 @@ def saveData():
 		)
 	
 	# data is saved
-	np.savez('res_' + outputFile + '.npz',**dataToBeSaved)
+	#np.savez('res_' + outputFile + '.npz',**dataToBeSaved)
+	scipy.io.savemat('res_' + outputFile,dataToBeSaved)
 
 def saveParameters():
 	
@@ -201,7 +203,7 @@ if commandArguments.parametersToBeReproducedFilename:
 	
 else:
 
-	for withinParametersFileQuestion,key in zip(["load sensors and Monte Carlo pseudo random numbers generator?","load trajectory pseudo random numbers generator?","load PEs network pseudo random numbers generator?"],
+	for withinParametersFileQuestion,key in zip(["load sensors and Monte Carlo pseudo random numbers generator?","load trajectory pseudo random numbers generator?","load topology pseudo random numbers generator?"],
 								PRNGsKeys):
 		
 		# if loading the corresponding previous pseudo random numbers generator is requested...
@@ -271,8 +273,7 @@ signal.signal(signal.SIGUSR1, sigusr1_handler)
 
 # ----------------------------------------------------------- Processing Elements (PEs) ------------------------------------------------------------------
 
-#PEsNetwork = getattr(PEsNetwork,topologies[0]['class'])(topologies[0]['number of PEs'],K,DRNAsettings["exchanged particles maximum percentage"],topologies[0]['parameters'],PRNG=PRNGs["PEs network pseudo random numbers generator"])
-PEsNetworks = [getattr(PEsNetwork,t['class'])(t['number of PEs'],K,DRNAsettings["exchanged particles maximum percentage"],t['parameters'],PRNG=PRNGs["PEs network pseudo random numbers generator"]) for t in topologies]
+topologies = [getattr(topology,t['class'])(t['number of PEs'],K,DRNAsettings["exchanged particles maximum percentage"],t['parameters'],PRNG=PRNGs["topology pseudo random numbers generator"]) for t in topologiesSettings]
 
 # ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
 
@@ -305,16 +306,12 @@ resamplingAlgorithm = Resampling.MultinomialResamplingAlgorithm(PRNGs["Sensors a
 resamplingCriterion = Resampling.AlwaysResamplingCriterion()
 
 # plain non-parallelized particle filter
-#pf = ParticleFilter.CentralizedTargetTrackingParticleFilter(K*PEsNetwork.getNumberOfPEs(),resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)
-pfs = [ParticleFilter.CentralizedTargetTrackingParticleFilter(K*PEsNet.getNumberOfPEs(),resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors) for PEsNet in PEsNetworks]
+PFsForTopologies = [ParticleFilter.CentralizedTargetTrackingParticleFilter(K*t.getNumberOfPEs(),resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors) for t in topologies]
 
 # distributed particle filter
-distributedPfs = [ParticleFilter.TargetTrackingParticleFilterWithDRNA(
-	DRNAsettings["exchange period"],PEsNet,DRNAsettings["c"],DRNAsettings["epsilon"],K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
-	) for PEsNet in PEsNetworks]
-#distributedPf = ParticleFilter.TargetTrackingParticleFilterWithDRNA(
-	#DRNAsettings["exchange period"],PEsNetwork,DRNAsettings["c"],DRNAsettings["epsilon"],K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
-	#)
+distributedPFsForTopologies = [ParticleFilter.TargetTrackingParticleFilterWithDRNA(
+	DRNAsettings["exchange period"],t,DRNAsettings["c"],DRNAsettings["epsilon"],K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
+	) for t in topologies]
 
 #------------------------------------------------------------- trajectory simulation ---------------------------------------------------------------------
 
@@ -348,11 +345,10 @@ for iTime in range(nTimeInstants):
 #------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
 
 # we store the aggregated weights...
-#distributedPFaggregatedWeights = np.empty((nTimeInstants,PEsNetworks[0].getNumberOfPEs(),parameters["number of frames"]))
-distributedPFaggregatedWeights = [np.empty((nTimeInstants,PEsNet.getNumberOfPEs(),parameters["number of frames"])) for PEsNet in PEsNetworks]
+distributedPFaggregatedWeights = [np.empty((nTimeInstants,t.getNumberOfPEs(),parameters["number of frames"])) for t in topologies]
 
 # ...and the position estimates
-centralizedPF_pos,distributedPF_pos = np.empty((2,nTimeInstants,parameters["number of frames"],len(PEsNetworks))),np.empty((2,nTimeInstants,parameters["number of frames"],len(PEsNetworks)))
+centralizedPF_pos,distributedPF_pos = np.empty((2,nTimeInstants,parameters["number of frames"],len(topologies))),np.empty((2,nTimeInstants,parameters["number of frames"],len(topologies)))
 
 #------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
 
@@ -363,7 +359,7 @@ iFrame = 0
 
 while iFrame < parameters["number of frames"] and not ctrlCpressed:
 	
-	for iTopology,(pf,distributedPf) in enumerate(zip(pfs,distributedPfs)):
+	for iTopology,(pf,distributedPf) in enumerate(zip(PFsForTopologies,distributedPFsForTopologies)):
 		
 		# initialization of the particle filters
 		pf.initialize()

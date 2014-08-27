@@ -77,7 +77,7 @@ def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggreg
 
 	plt.savefig(outputFile)
 
-def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',stepExchangePeriod=1,addMarksOnStepExchangeInstants=False,ylabel='$c/M^{1-{\\varepsilon}}$'):
+def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',stepExchangePeriod=1,addMarksOnStepExchangeInstants=False,ylabel='$c/M^{1-{\\varepsilon}}$',clear=True):
 	
 	nTimeInstants = len(maxWeights)
 	
@@ -87,8 +87,16 @@ def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAgg
 	# a new figure is created to plot the aggregated weights' supremum vs time...
 	maxAggregatedWeightVsTimeFigure = plt.figure('Aggregated Weights Supremum Vs Time')
 
-	# ...cleared (just in case this method is called several times)
-	plt.clf()
+	# if clearing the figure is requested...
+	if clear:
+
+		# useful when the method is called several times on unrelated data
+		plt.clf()
+	
+	else:
+		
+		# useful when the method is called several times on RELATED data
+		plt.hold(True)
 	
 	# ...and the corresponding axes created
 	maxAggregatedWeightVsTimeAxes = plt.axes()

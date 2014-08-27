@@ -186,9 +186,9 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 
 class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 	
-	def __init__(self,exchangePeriod,PEsNetwork,c,epsilon,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors):
+	def __init__(self,exchangePeriod,topology,c,epsilon,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors):
 		
-		self._nPEs = PEsNetwork.getNumberOfPEs()
+		self._nPEs = topology.getNumberOfPEs()
 		
 		super().__init__(self._nPEs*nParticlesPerPE,resamplingAlgorithm,resamplingCriterion)
 		
@@ -201,10 +201,10 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		self._exchangePeriod = exchangePeriod
 		
 		# ...time instants, according to the geometry of the network
-		self._PEsNetwork = PEsNetwork
+		self._topology = topology
 		
 		# we get a unique exchange map from this network
-		self._exchangeMap = self._PEsNetwork.getExchangeTuples()
+		self._exchangeMap = self._topology.getExchangeTuples()
 		
 		# period for the normalization of the aggregated weights
 		self._normalizationPeriod = normalizationPeriod
@@ -270,7 +270,7 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 	def exchangeParticles(self):
 
 		## we generate a random exchange map
-		#self._exchangeMap = self._PEsNetwork.getExchangeTuples()
+		#self._exchangeMap = self._topology.getExchangeTuples()
 
 		# first, we compile all the particles that are going to be exchanged in an auxiliar variable
 		aux = []
