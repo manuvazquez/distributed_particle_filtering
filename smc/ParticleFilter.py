@@ -77,7 +77,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		# the weights are updated
 		self._weights *= likelihoodsProduct
 		
-		# the aggregated weight is kept up to date at any time
+		# the aggregated weight is kept up to date at all times
 		self.updateAggregatedWeight()
 		
 		# whatever is required (it depends on the algorithm) to avoid weights degeneracy...
@@ -131,7 +131,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		# if all the weights in this PF/PE are zero...
 		if self._aggregatedWeight==0:
 			
-			# ...then we return an all-zeros estimate, though any should do since this estimate must have zero weight
+			# ...then we return an all-zeros estimate, though any should do since this estimate must contribute zero
 			return np.zeros((self._state.shape[0],1))
 		
 		normalizedWeights = self._weights / self._aggregatedWeight
@@ -186,7 +186,7 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 
 class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 	
-	def __init__(self,exchangePeriod,topology,c,epsilon,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors):
+	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors):
 		
 		self._nPEs = topology.getNumberOfPEs()
 		
@@ -202,19 +202,15 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		
 		# ...time instants, according to the geometry of the network
 		self._topology = topology
-		
+
+		# useful for checking how well the algorithm is doing
+		self._aggregatedWeightsUpperBound = aggregatedWeightsUpperBound
+
 		# we get a unique exchange map from this network
 		self._exchangeMap = self._topology.getExchangeTuples()
 		
 		# period for the normalization of the aggregated weights
 		self._normalizationPeriod = normalizationPeriod
-		
-		# parameter for checking the aggregated weights degeneration
-		self._aggregatedWeightsUpperBound = c/math.pow(self._nPEs,1.0-epsilon)
-		
-	def getAggregatedWeightsUpperBound(self):
-		
-		return self._aggregatedWeightsUpperBound
 	
 	def initialize(self):
 		

@@ -43,11 +43,13 @@ class EffectiveSampleSizeBasedResamplingCriterion(ResamplingCriterion):
 		
 		# a division by zero may occur...
 		try:
+			
 			nEffectiveParticles = 1/np.dot(weights,weights)
+			
 		except ZeroDivisionError:
-			print('ResampleCriterion::isResamplingNeeded: all the weights are zero!!...quitting')
-			raise SystemExit(0)
-		
+			
+			raise Exception('all the weights are zero!!')
+			
 		return nEffectiveParticles<(self._resamplingRatio*weights.size)
 	
 class AlwaysResamplingCriterion(ResamplingCriterion):

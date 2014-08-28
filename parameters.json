@@ -60,9 +60,10 @@
 		"use display server if available?": false
 	},
 	"DRNA": {
-		"exchange period": 5,
-		"exchanged particles maximum percentage": 0.15,
+		"exchange period": 10,
+		"exchanged particles maximum percentage": 0.65,
 		"c": 4.0,
+		"q": 4,
 		"epsilon": 0.1,
 		"normalization period": 5
 	},

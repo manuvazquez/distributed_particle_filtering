@@ -142,10 +142,10 @@ def saveData():
 	normalizedAggregatedWeightsDic = {'normalizedAggregatedWeights_{}'.format(i):array for i,array in enumerate(normalizedAggregatedWeights)}
 	
 	# ...and the maximum weight, also at ALL TIMES and for EVERY frame, is obtained
-	maxWeights = np.array([(w.max(axis=1)**4).mean(axis=1)**(1/4) for w in normalizedAggregatedWeights])
+	maxWeights = np.array([(w.max(axis=1)**DRNAsettings['q']).mean(axis=1) for w in normalizedAggregatedWeights])
 
 	# evolution of the largest aggregated weight over time (only the results for the first topology are plotted)
-	Painter.plotAggregatedWeightsSupremumVsTime(maxWeights[0,:],distributedPf.getAggregatedWeightsUpperBound(),
+	Painter.plotAggregatedWeightsSupremumVsTime(maxWeights[0,:],aggregatedWeightsUpperBounds[0],
 											 painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),DRNAsettings["exchange period"],addMarksOnStepExchangeInstants=True,ylabel='$c^q/M^{q-\\varepsilon}$')
 
 	# if requested, save the trajectory
@@ -155,8 +155,7 @@ def saveData():
 
 	# a dictionary encompassing all the data to be saved
 	dataToBeSaved = dict(
-			#normalizedAggregatedWeights = normalizedAggregatedWeights,
-			aggregatedWeightsUpperBound = distributedPf.getAggregatedWeightsUpperBound(),
+			aggregatedWeightsUpperBounds = aggregatedWeightsUpperBounds,
 			targetInitialPosition = targetInitialPosition,
 			targetInitialVelocity = targetInitialVelocity,
 			targetPosition = targetPosition,
@@ -169,6 +168,7 @@ def saveData():
 	# data is saved
 	#np.savez('res_' + outputFile + '.npz',**dataToBeSaved)
 	scipy.io.savemat('res_' + outputFile,dataToBeSaved)
+	print('results saved in "{}"'.format('res_' + outputFile))
 
 def saveParameters():
 	
@@ -275,6 +275,9 @@ signal.signal(signal.SIGUSR1, sigusr1_handler)
 
 topologies = [getattr(topology,t['class'])(t['number of PEs'],K,DRNAsettings["exchanged particles maximum percentage"],t['parameters'],PRNG=PRNGs["topology pseudo random numbers generator"]) for t in topologiesSettings]
 
+# we compute the upper bound for the supremum of the aggregated weights that should guarante convergence
+aggregatedWeightsUpperBounds = [DRNAsettings['c']/math.pow(t['number of PEs'],1.0-DRNAsettings['epsilon']) for t in topologiesSettings]
+
 # ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
 
 # an object for computing the positions of the sensors is created and used
@@ -310,8 +313,8 @@ PFsForTopologies = [ParticleFilter.CentralizedTargetTrackingParticleFilter(K*t.g
 
 # distributed particle filter
 distributedPFsForTopologies = [ParticleFilter.TargetTrackingParticleFilterWithDRNA(
-	DRNAsettings["exchange period"],t,DRNAsettings["c"],DRNAsettings["epsilon"],K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
-	) for t in topologies]
+	DRNAsettings["exchange period"],t,upperBound,K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
+	) for t,upperBound in zip(topologies,aggregatedWeightsUpperBounds)]
 
 #------------------------------------------------------------- trajectory simulation ---------------------------------------------------------------------
 
@@ -394,7 +397,7 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 
 		for iTime in range(nTimeInstants):
 
-			print('---------- iFrame = {}, iTime = {}'.format(repr(iFrame),repr(iTime)))
+			print('---------- iFrame = {}, iTopology = {}, iTime = {}'.format(repr(iFrame),repr(iTopology),repr(iTime)))
 
 			print('position:\n',targetPosition[:,iTime:iTime+1])
 			print('velocity:\n',targetVelocity[:,iTime:iTime+1])
