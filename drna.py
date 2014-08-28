@@ -99,7 +99,7 @@ import topology
 hostname = socket.gethostname()
 
 # date and time
-date = time.strftime("%a_%d_%H:%M:%S")
+date = time.strftime("%a_%Y-%m-%d_%H:%M:%S")
 
 # output data file
 outputFile = hostname +'_' + date
@@ -160,8 +160,8 @@ def saveData():
 			targetInitialVelocity = targetInitialVelocity,
 			targetPosition = targetPosition,
 			targetVelocity = targetVelocity,
-			centralizedPF_pos = centralizedPF_pos[:,:,:iFrame],
-			distributedPF_pos = distributedPF_pos[:,:,:iFrame],
+			centralizedPF_pos = centralizedPF_pos[:,:,:iFrame,:],
+			distributedPF_pos = distributedPF_pos[:,:,:iFrame,:],
 			**normalizedAggregatedWeightsDic
 		)
 	

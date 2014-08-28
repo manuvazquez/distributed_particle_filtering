@@ -28,7 +28,7 @@
 	],
 	"sensors": {
 		"number": 16,
-		"radius": 5,
+		"radius": 7,
 		"probability of detection within the radius": 0.9,
 		"probability of false alarm": 0.01
 	},
