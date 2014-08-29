@@ -126,12 +126,12 @@ def saveData():
 	distributedPF_error = np.sqrt((np.subtract(distributedPF_pos[:,:,:iFrame,:],targetPosition[:,:,np.newaxis,np.newaxis])**2).sum(axis=0)).mean(axis=1)
 
 	# MSE vs time (only the results for the first topology are plotted)
-	Painter.plotDistributedAgainstCentralizedVsTime(centralizedPF_MSE[:,0],distributedPF_MSE[:,0],
+	Painter.plotDistributedAgainstCentralized(np.arange(nTimeInstants),centralizedPF_MSE[:,0],distributedPF_MSE[:,0],
 						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],painterSettings["marker for the centralized PF"],painterSettings["marker for the distributed PF"],
 						painterSettings["file name prefix for the MSE vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),figureId='MSE vs Time')
 
 	# distance vs time (only the results for the first topology are plotted)
-	Painter.plotDistributedAgainstCentralizedVsTime(centralizedPF_error[:,0],distributedPF_error[:,0],
+	Painter.plotDistributedAgainstCentralized(np.arange(nTimeInstants),centralizedPF_error[:,0],distributedPF_error[:,0],
 						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],painterSettings["marker for the centralized PF"],painterSettings["marker for the distributed PF"],
 						painterSettings["file name prefix for the euclidean distance vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),figureId='Euclidean distance vs Time')
 

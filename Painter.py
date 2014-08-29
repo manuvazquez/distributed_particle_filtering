@@ -2,51 +2,51 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
-def plotDistributedAgainstCentralizedVsTime(centralizedPF,distributedPF,centralizedPFcolor,distributedPFcolor,centralizedPFmarker,distributedPFmarker,outputFile,iFrom=0,
-											centralizedPFparameters={'label':'Centralized PF'},distributedPFparameters={'label':'Distributed PF'},figureId='vs Time'):
-
+def setupAxes(figureId,clearFigure=True):
+	
 	# interactive mode on
 	plt.ion()
 
-	# a new figure is created to plot the MSE vs time
-	vsTimeFigure = plt.figure(figureId)
+	# a new figure is created...
+	fig = plt.figure(figureId)
 	
-	# ...cleared (just in case this method is called several times)
-	plt.clf()
+	# ...and, if requested,...
+	if clearFigure:
+		# ...cleared, just in case this method is called several times with the same "figureId"
+		plt.clf()
 	
 	# ...and the corresponding axes created
-	metricVsTimeAxes = plt.axes()
+	axes = plt.axes()
 	
-	# range specifying the time instants being plotted
-	iTime = np.arange(iFrom,centralizedPF.shape[0])
+	return axes,fig
+
+def plotDistributedAgainstCentralized(x,centralizedPF,distributedPF,centralizedPFcolor,distributedPFcolor,centralizedPFmarker,distributedPFmarker,outputFile,
+											centralizedPFparameters={'label':'Centralized PF'},distributedPFparameters={'label':'Distributed PF'},figureId='vs Time',axesProperties={}):
+
+	# a new pair of axes is set up
+	ax,_ = setupAxes(figureId)
 	
-	metricVsTimeAxes.plot(iTime,centralizedPF[iTime],color=centralizedPFcolor,marker=centralizedPFmarker,**centralizedPFparameters)
+	ax.plot(x,centralizedPF,color=centralizedPFcolor,marker=centralizedPFmarker,**centralizedPFparameters)
 
-	metricVsTimeAxes.hold(True)
+	ax.hold(True)
 
-	metricVsTimeAxes.plot(iTime,distributedPF[iTime],color=distributedPFcolor,marker=distributedPFmarker,**distributedPFparameters)
+	ax.plot(x,distributedPF,color=distributedPFcolor,marker=distributedPFmarker,**distributedPFparameters)
 
 	# the labes are shown
-	metricVsTimeAxes.legend()
-	
-	# the x axis is adjusted so that no empty space is left before the beginning of the plot
-	metricVsTimeAxes.set_xbound(lower=iFrom)
+	ax.legend()
 
+	# the x axis is adjusted so that no empty space is left before the beginning of the plot
+	ax.set_xbound(lower=x[0],upper=x[-1])
+	
+	# set any additional properties
+	ax.set(**axesProperties)
+	
 	plt.savefig(outputFile)
 
 def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregatedWeightsVsTime.eps',xticksStep=10):
-	
-	# interactive mode on
-	plt.ion()
 
-	# a new figure is created to plot the aggregated weights fmp vs time
-	aggregatedWeightsVsTimeFigure = plt.figure('Aggregated Weights Evolution')
-	
-	# ...cleared (just in case this method is called several times)
-	plt.clf()
-	
-	# ...and the corresponding axes created
-	aggregatedWeightsVsTimeAxes = plt.axes()
+	# the corresponding axes are created
+	aggregatedWeightsVsTimeAxes,_ = setupAxes('Aggregated Weights Evolution')
 	
 	# the shape of the array with the aggregated weights is used to figure out the number of PEs and time instants
 	nTimeInstants,nPEs = aggregatedWeights.shape
@@ -83,18 +83,9 @@ def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,
 										ylabel='$c/M^{1-{\\varepsilon}}$',figureId='Aggregated Weights Supremum Vs Time'):
 	
 	nTimeInstants = len(maxWeights)
-	
-	# interactive mode on
-	plt.ion()
 
-	# a new figure is created to plot the aggregated weights' supremum vs time...
-	maxAggregatedWeightVsTimeFigure = plt.figure(figureId)
-
-	# ...cleared (just in case this method is called several times)
-	plt.clf()
-	
-	# ...and the corresponding axes created
-	maxAggregatedWeightVsTimeAxes = plt.axes()
+	# the corresponding axes are created
+	maxAggregatedWeightVsTimeAxes,_ = setupAxes(figureId)
 	
 	if addMarksOnStepExchangeInstants:
 		
@@ -137,11 +128,16 @@ def plotTrajectory(filename,nTimeInstants=-1):
 	import Sensor
 	import pickle
 	import os
+	import scipy.io
 	
-	# data file is loaded
-	with np.load(filename) as data:
+	data = scipy.io.loadmat(filename)
+	position = np.append(data['targetInitialPosition'],data['targetPosition'],axis=1)
+	del data
+	
+	## data file is loaded
+	#with np.load(filename) as data:
 		
-		position = np.append(data['targetInitialPosition'],data['targetPosition'],axis=1)
+		#position = np.append(data['targetInitialPosition'],data['targetPosition'],axis=1)
 	
 	# parameters are loaded
 	with open(os.path.splitext(filename)[0] + '.parameters',"rb") as f:
@@ -178,9 +174,6 @@ class RoomPainter:
 		self._sensorsPositions = sensorsPositions
 		self._sleepTime = sleepTime
 		
-		self._figure = plt.figure('Room')
-		self._ax = plt.axes()
-		
 		# in order to draw a segment from the previous position to the current one, we need to remember the former
 		self._previousPosition = None
 		
@@ -193,8 +186,8 @@ class RoomPainter:
 		# in order to avoid a legend entry per plotted segment
 		self._legendEntries = []
 		
-		# so that the program doesn't wait for the open windows to be closed in order to continue
-		plt.ion()
+		# a new pair of axes is set up
+		self._ax,self._figure = setupAxes('Room',clearFigure=False)
 		
 	def setup(self,sensorsLineProperties = {'marker':'+','color':'red'}):
 		
@@ -268,10 +261,7 @@ class RoomPainter:
 		# just in case...the current figure is set to the proper value
 		plt.figure(self._figure.number)
 		
-		
 		self._ax.legend(self._legendEntries,['real'] + list(self._previousEstimates.keys()),ncol=3)
-		
-		#self._ax.set_ybound(lower=-8)
 		
 		plt.savefig(outputFile)
 		
