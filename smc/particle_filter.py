@@ -1,7 +1,7 @@
 import numpy as np
 import math
 
-import State
+import state
 
 class ParticleFilter:
 	
@@ -68,7 +68,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		
 		# for each sensor, we compute the likelihood of EVERY particle (position)
 		likelihoods = np.array(
-			[sensor.likelihood(observations[i],State.position(self._state)) for i,sensor in enumerate(self._sensors)]
+			[sensor.likelihood(observations[i],state.position(self._state)) for i,sensor in enumerate(self._sensors)]
 			)
 		
 		# for each particle, we compute the product of the likelihoods for all the sensors

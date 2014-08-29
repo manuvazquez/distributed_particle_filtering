@@ -20,7 +20,7 @@ def setupAxes(figureId,clearFigure=True):
 	
 	return axes,fig
 
-def plotDistributedAgainstCentralized(x,centralizedPF,distributedPF,centralizedPFcolor,distributedPFcolor,centralizedPFmarker,distributedPFmarker,outputFile,
+def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,centralizedPFcolor,distributedPFcolor,centralizedPFmarker,distributedPFmarker,outputFile,
 											centralizedPFparameters={'label':'Centralized PF'},distributedPFparameters={'label':'Distributed PF'},figureId='vs Time',axesProperties={}):
 
 	# a new pair of axes is set up
@@ -43,7 +43,7 @@ def plotDistributedAgainstCentralized(x,centralizedPF,distributedPF,centralizedP
 	
 	plt.savefig(outputFile)
 
-def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregatedWeightsVsTime.eps',xticksStep=10):
+def aggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregatedWeightsVsTime.eps',xticksStep=10):
 
 	# the corresponding axes are created
 	aggregatedWeightsVsTimeAxes,_ = setupAxes('Aggregated Weights Evolution')
@@ -77,7 +77,7 @@ def plotAggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggreg
 
 	plt.savefig(outputFile)
 
-def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,
+def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,
 										outputFile='maxAggregatedWeightVsTime.eps',
 										stepExchangePeriod=1,addMarksOnStepExchangeInstants=False,
 										ylabel='$c/M^{1-{\\varepsilon}}$',figureId='Aggregated Weights Supremum Vs Time'):
@@ -123,9 +123,9 @@ def plotAggregatedWeightsSupremumVsTime(maxWeights,upperBound,
 
 	plt.savefig(outputFile)
 
-def plotTrajectory(filename,nTimeInstants=-1):
+def trajectory(filename,nTimeInstants=-1):
 	
-	import Sensor
+	import sensor
 	import pickle
 	import os
 	import scipy.io
@@ -146,7 +146,7 @@ def plotTrajectory(filename,nTimeInstants=-1):
 		parameters = pickle.load(f)[0]
 	
 	# the positions of the sensors are computed
-	sensorsPositions = Sensor.EquispacedOnRectangleSensorLayer(parameters["room"]["bottom left corner"],parameters["room"]["top right corner"]).getPositions(parameters["sensors"]["number"])
+	sensorsPositions = sensor.EquispacedOnRectangleSensorLayer(parameters["room"]["bottom left corner"],parameters["room"]["top right corner"]).getPositions(parameters["sensors"]["number"])
 	
 	# a Painter object is created to do the dirty work
 	painter = TightRectangularRoomPainter(parameters["room"]["bottom left corner"],parameters["room"]["top right corner"],sensorsPositions)
@@ -159,7 +159,7 @@ def plotTrajectory(filename,nTimeInstants=-1):
 		# ...the entire trajectory is plotted
 		nTimeInstants = position.shape[1]
 		
-		print('plotTrajectory: the number of time instants to be plotted is not within the limits...plotting the entire sequence...')
+		print('trajectory: the number of time instants to be plotted is not within the limits...plotting the entire sequence...')
 	
 	for i in range(nTimeInstants):
 		

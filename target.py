@@ -1,4 +1,4 @@
-import State
+import state
 
 class Target:
 	
@@ -10,10 +10,10 @@ class Target:
 		initialState = prior.sample(PRNG=self._PRNG)
 
 		# ...and used to initialize the position...
-		self._pos = State.position(initialState)
+		self._pos = state.position(initialState)
 		
 		# ...and the speed
-		self._velocity = State.velocity(initialState)
+		self._velocity = state.velocity(initialState)
 		
 		# the power with which the target is transmitting
 		self._txPower = txPower
@@ -32,7 +32,7 @@ class Target:
 	def step(self):
 		
 		# the new state is first computed...
-		newState = self._transitionKernel.nextState(State.buildState(self._pos,self._velocity),PRNG=self._PRNG)
+		newState = self._transitionKernel.nextState(state.buildState(self._pos,self._velocity),PRNG=self._PRNG)
 		
 		# ...and the position and velocity are obtained thereof
-		self._pos,self._velocity = State.position(newState),State.velocity(newState)
+		self._pos,self._velocity = state.position(newState),state.velocity(newState)
