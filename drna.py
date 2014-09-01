@@ -94,6 +94,7 @@ import plot
 from smc import particle_filter
 from smc import resampling
 import topology
+import drnautil
 
 # the name of the machine running the program (supposedly, using the socket module gives rise to portable code)
 hostname = socket.gethostname()
@@ -276,7 +277,7 @@ signal.signal(signal.SIGUSR1, sigusr1_handler)
 topologies = [getattr(topology,t['class'])(t['number of PEs'],K,DRNAsettings["exchanged particles maximum percentage"],t['parameters'],PRNG=PRNGs["topology pseudo random numbers generator"]) for t in topologiesSettings]
 
 # we compute the upper bound for the supremum of the aggregated weights that should guarante convergence
-aggregatedWeightsUpperBounds = [DRNAsettings['c']/math.pow(t['number of PEs'],1.0-DRNAsettings['epsilon']) for t in topologiesSettings]
+aggregatedWeightsUpperBounds = [drnautil.supremumUpperBound(t['number of PEs'],DRNAsettings['c'],DRNAsettings['q'],DRNAsettings['epsilon']) for t in topologiesSettings]
 
 # ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
 
