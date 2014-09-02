@@ -38,7 +38,7 @@ def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,centralizedP
 	# the x axis is adjusted so that no empty space is left before the beginning of the plot
 	ax.set_xbound(lower=x[0],upper=x[-1])
 	
-	# set any additional properties
+	# set any additional properties for the axes
 	ax.set(**axesProperties)
 	
 	plt.savefig(outputFile)
@@ -77,49 +77,73 @@ def aggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregated
 
 	plt.savefig(outputFile)
 
-def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,
-										outputFile='maxAggregatedWeightVsTime.eps',
-										stepExchangePeriod=1,addMarksOnStepExchangeInstants=False,
-										ylabel='$c/M^{1-{\\varepsilon}}$',figureId='Aggregated Weights Supremum Vs Time'):
+def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',stepExchangePeriod=1,
+									ylabel='$c^q/M^{q-\\varepsilon}$',figureId='Aggregated Weights Supremum Vs Time',axesProperties={}):
 	
 	nTimeInstants = len(maxWeights)
 
 	# the corresponding axes are created
-	maxAggregatedWeightVsTimeAxes,_ = setupAxes(figureId)
+	ax,_ = setupAxes(figureId)
 	
-	if addMarksOnStepExchangeInstants:
-		
-		# for the x-axis
-		t = np.arange(nTimeInstants)
-		
-		# this is plotted along time
-		maxAggregatedWeightVsTimeAxes.plot(t,maxWeights[t],label='Supremum',linestyle=':')
-		
-		# the time instants at which step exchanges occur...
-		tExchangeSteps = np.arange(stepExchangePeriod-1,nTimeInstants,stepExchangePeriod)
-		
-		# ...are plotted with different markers
-		maxAggregatedWeightVsTimeAxes.plot(tExchangeSteps,maxWeights[tExchangeSteps],label='Exchange steps',linestyle='.',marker='D',color='black')
-		
-	else:
+	# for the x-axis
+	t = np.arange(nTimeInstants)
 	
-		# for the x-axis
-		t = np.arange(stepExchangePeriod-1,nTimeInstants,stepExchangePeriod)
-
-		# this is plotted along time
-		maxAggregatedWeightVsTimeAxes.plot(t,maxWeights[t],label='Supremum')
+	# this is plotted along time
+	ax.plot(t,maxWeights[t],label='Supremum',linestyle=':')
+	
+	# the time instants at which step exchanges occur...
+	tExchangeSteps = np.arange(stepExchangePeriod-1,nTimeInstants,stepExchangePeriod)
+	
+	# ...are plotted with different markers
+	ax.plot(tExchangeSteps,maxWeights[tExchangeSteps],label='Exchange steps',linestyle='.',marker='D',color='black')
 	
 	# the x-axis is adjusted so that it ends exactly at the last time instant
-	maxAggregatedWeightVsTimeAxes.set_xbound(lower=t[0],upper=t[-1])
+	ax.set_xbound(lower=t[0],upper=t[-1])
 	
 	# the y-axis goes up to 1
-	maxAggregatedWeightVsTimeAxes.set_ybound(upper=upperBound*4,lower=0)
+	ax.set_ybound(upper=upperBound*4,lower=0)
 	
 	# the upper bound is plotted
-	maxAggregatedWeightVsTimeAxes.axhline(y=upperBound,linewidth=2, color='red',linestyle='dashed',label=ylabel)
+	ax.axhline(y=upperBound,linewidth=2, color='red',linestyle='dashed',label=ylabel)
 	
 	# in order to show the legend
-	maxAggregatedWeightVsTimeAxes.legend(loc='upper right')
+	ax.legend(loc='upper right')
+	
+	# set any additional properties for the axes
+	ax.set(**axesProperties)
+
+	plt.savefig(outputFile)
+
+def aggregatedWeightsSupremumVsNumberOfPEs(Ms,maxWeights,upperBounds=None,outputFile='maxAggregatedWeightVsM.eps',ylabel='$c^q/M^{q-\\varepsilon}$',figureId='Aggregated Weights Supremum Vs M',axesProperties={}):
+	
+	# the corresponding axes are created
+	ax,_ = setupAxes(figureId)
+	
+	# this is plotted along time
+	#ax.plot(Ms,maxWeights,label='supremum')
+	ax.plot(Ms,maxWeights)
+	
+	if upperBounds:
+	
+		# the bound
+		ax.plot(Ms,upperBounds,color='red',label='upper bound',marker='+',markersize=10,markeredgewidth=2,linestyle=':')
+		
+		# the y-axis goes up to 1
+		ax.set_ybound(upper=upperBounds[0],lower=0)
+	
+	# only the ticks corresponding to the values of M
+	ax.set_xticks(Ms)
+	
+	# the x-axis is adjusted so that it ends exactly at the last time instant
+	ax.set_xbound(lower=Ms[0],upper=Ms[-1])
+
+	if upperBounds:
+		
+		# in order to show the legend
+		ax.legend(loc='upper right')
+	
+	# set any additional properties for the axes
+	ax.set(**axesProperties)
 
 	plt.savefig(outputFile)
 

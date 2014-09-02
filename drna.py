@@ -147,7 +147,7 @@ def saveData():
 
 	# evolution of the largest aggregated weight over time (only the results for the first topology are plotted)
 	plot.aggregatedWeightsSupremumVsTime(maxWeights[0,:],aggregatedWeightsUpperBounds[0],
-											 painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),DRNAsettings["exchange period"],addMarksOnStepExchangeInstants=True,ylabel='$c^q/M^{q-\\varepsilon}$')
+											 painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),DRNAsettings["exchange period"])
 
 	# if requested, save the trajectory
 	if painterSettings["display evolution?"]:
