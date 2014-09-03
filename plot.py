@@ -121,16 +121,13 @@ def aggregatedWeightsSupremumVsNumberOfPEs(Ms,maxWeights,upperBounds=None,output
 	
 	# this is plotted along time
 	#ax.plot(Ms,maxWeights,label='supremum')
-	ax.plot(Ms,maxWeights)
+	ax.semilogy(Ms,maxWeights)
 	
 	if upperBounds:
 	
 		# the bound
-		ax.plot(Ms,upperBounds,color='red',label='upper bound',marker='+',markersize=10,markeredgewidth=2,linestyle=':')
+		ax.semilogy(Ms,upperBounds,color='red',label='upper bound',marker='+',markersize=10,markeredgewidth=2,linestyle=':')
 		
-		# the y-axis goes up to 1
-		ax.set_ybound(upper=upperBounds[0],lower=0)
-	
 	# only the ticks corresponding to the values of M
 	ax.set_xticks(Ms)
 	

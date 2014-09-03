@@ -4,6 +4,13 @@
 	"number of particles per PE": 200,
 	"topologies": [
 		{
+			"class": "FixedDegreeSimpleGraph",
+			"number of PEs": 128,
+			"parameters": {
+				"number of neighbours as a percentage of the number of PEs": 0.5
+			}
+		},
+		{
 			"class": "Mesh",
 			"number of PEs": 16,
 			"parameters": {

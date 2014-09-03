@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 class Topology:
 	
@@ -110,6 +111,21 @@ class Mesh(Topology):
 				# the list of neighbours of this PE is added to the list of lists of neighbours
 				self._neighbours.append(currentPEneighbours)
 
+class FixedDegreeSimpleGraph(Topology):
+	
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=np.random.RandomState()):
+		
+		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=PRNG)
+		
+		nNeighbours = math.ceil(topologySpecificParameters['number of neighbours as a percentage of the number of PEs']*nPEs)
+		
+		import networkx as nx
+		
+		# the Havel-Hakimi algorithm is used to obtain a simple graph with the requested degrees
+		graph = nx.havel_hakimi_graph([nNeighbours]*nPEs)
+		
+		self._neighbours = [graph.neighbors(i) for i in range(nPEs)]
+		
 class FullyConnected(Topology):
 	
 	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=np.random.RandomState()):
