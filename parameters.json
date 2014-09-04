@@ -4,7 +4,7 @@
 	"number of particles per PE": 200,
 	"topologies": [
 		{
-			"class": "FixedDegreeSimpleGraph",
+			"class": "ConstantDegreeSimpleGraph",
 			"number of PEs": 128,
 			"parameters": {
 				"number of neighbours as a percentage of the number of PEs": 0.5
@@ -30,6 +30,12 @@
 			"number of PEs": 16,
 			"parameters": {
 				"neighbourhoods": [[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]]
+			}
+		},
+		{
+			"class": "FullyConnected",
+			"number of PEs": 16,
+			"parameters": {
 			}
 		}
 	],

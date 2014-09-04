@@ -111,7 +111,7 @@ class Mesh(Topology):
 				# the list of neighbours of this PE is added to the list of lists of neighbours
 				self._neighbours.append(currentPEneighbours)
 
-class FixedDegreeSimpleGraph(Topology):
+class ConstantDegreeSimpleGraph(Topology):
 	
 	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=np.random.RandomState()):
 		
@@ -132,11 +132,7 @@ class FullyConnected(Topology):
 		
 		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=PRNG)
 		
-		self._neighbours = [list(range(nPEs)) for i in range(nPEs)]
-		
-		for i in range(nPEs):
-			
-			del self._neighbours[i][i]
+		self._neighbours = [[j for j in range(nPEs) if j!=i] for i in range(nPEs)]
 			
 class FullyConnectedWithRandomLinksRemoved(FullyConnected):
 	
