@@ -229,8 +229,6 @@ else:
 				# the above created PRNG object is saved pickled into a file
 				pickle.dump(PRNGs[key],f)
 
-	#saveParameters()
-
 # the PRNGs will change as the program runs, and we want to store them as they were in the beginning
 frozenPRNGs = copy.deepcopy(PRNGs)
 
@@ -322,29 +320,11 @@ distributedPFsForTopologies = [particle_filter.TargetTrackingParticleFilterWithD
 # the target is created...
 mobile = target.Target(prior,transitionKernel,PRNG=PRNGs["Trajectory pseudo random numbers generator"])
 
-# initial position and velocity of the target are kept
-targetInitialPosition,targetInitialVelocity = mobile.pos(),mobile.velocity()
+targetInitialPosition,targetInitialVelocity,targetPosition,targetVelocity = mobile.simulateTrajectory(sensors,nTimeInstants)
 
-print('initial position:\n',targetInitialPosition)
-print('initial velocity:\n',targetInitialVelocity)
-
-targetPosition,targetVelocity = np.empty((2,nTimeInstants)),np.empty((2,nTimeInstants))
-observations = [None]*nTimeInstants
-
-# the trajectory is simulated, and the corresponding observations are obtained (notice that there is no observation for initial position)
-for iTime in range(nTimeInstants):
-	
-	# the target moves...
-	mobile.step()
-	
-	# ..and its new position and velocity are stored
-	targetPosition[:,iTime:iTime+1],targetVelocity[:,iTime:iTime+1] = mobile.pos(),mobile.velocity()
-	
-	
-	# the observations (one per sensor) are computed
-	observations[iTime] = np.array(
-			[float(sensor.detect(mobile.pos())) for sensor in sensors]
-			)
+# observations for all the sensors at every time instant (each list)
+# NOTE: conversion to float is done so that the observations (either 1 or 0) are amenable to be used in later computations
+observations = [np.array([sensor.detect(state.position(s[:,np.newaxis])) for sensor in sensors],dtype=float) for s in targetPosition.T]
 
 #------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
 
@@ -386,7 +366,7 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 			# the initial position is painted...
 			painter.updateTargetPosition(targetInitialPosition)
 
-			# ...along with those estimated by the PFs (they should around the middle of the room...)
+			# ...along with those estimated by the PFs (they should be around the middle of the room...)
 			painter.updateEstimatedPosition(state.position(pf.computeMean()),identifier='centralized',color=painterSettings["color for the centralized PF"])
 			painter.updateEstimatedPosition(state.position(distributedPf.computeMean()),identifier='distributed',color=painterSettings["color for the distributed PF"])
 

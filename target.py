@@ -1,4 +1,5 @@
 import state
+import numpy as np
 
 class Target:
 	
@@ -7,14 +8,8 @@ class Target:
 		self._PRNG = PRNG
 		
 		# initial state is obtained by means of the prior...
-		initialState = prior.sample(PRNG=self._PRNG)
+		self._state = prior.sample(PRNG=self._PRNG)
 
-		# ...and used to initialize the position...
-		self._pos = state.position(initialState)
-		
-		# ...and the speed
-		self._velocity = state.velocity(initialState)
-		
 		# the power with which the target is transmitting
 		self._txPower = txPower
 
@@ -23,16 +18,30 @@ class Target:
 
 	def pos(self):
 		
-		return self._pos
+		return state.position(self._state)
 	
 	def velocity(self):
 		
-		return self._velocity
+		return state.velocity(self._state)
 		
-	def step(self):
+	def simulateTrajectory(self,sensors,nTimeInstants):
 		
-		# the new state is first computed...
-		newState = self._transitionKernel.nextState(state.buildState(self._pos,self._velocity),PRNG=self._PRNG)
+		# a trajectory with the requested number of time instants...plus the initial one
+		computedTrajectory = np.empty((state.nElements(),nTimeInstants+1))
 		
-		# ...and the position and velocity are obtained thereof
-		self._pos,self._velocity = state.position(newState),state.velocity(newState)
+		# initial state is set
+		computedTrajectory[:,0:1] = self._state
+
+		print('initial position:\n',state.position(computedTrajectory[:,0:1]))
+		print('initial velocity:\n',state.velocity(computedTrajectory[:,0:1]))
+
+		# the trajectory is simulated, and the corresponding observations are obtained (notice that there is no observation for initial position)
+		for iTime in range(nTimeInstants):
+			
+			# a new state is obtained as the target moves...
+			self._state = self._transitionKernel.nextState(self._state,PRNG=self._PRNG)
+			
+			# ..and it is stored in the corresponding position (which is iTime+1)
+			computedTrajectory[:,iTime+1:iTime+2] = self._state
+		
+		return (state.position(computedTrajectory[:,0:1]),state.velocity(computedTrajectory[:,0:1]),state.position(computedTrajectory[:,1:]),state.velocity(computedTrajectory[:,1:]))
