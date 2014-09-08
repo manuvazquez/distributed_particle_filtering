@@ -119,12 +119,12 @@ def saveData():
 		return
 
 	# the mean of the MSE incurred by both PFs
-	centralizedPF_MSE = (np.subtract(centralizedPF_pos[:,:,:iFrame,:],targetPosition[:,:,np.newaxis,np.newaxis])**2).mean(axis=0).mean(axis=1)
-	distributedPF_MSE = (np.subtract(distributedPF_pos[:,:,:iFrame,:],targetPosition[:,:,np.newaxis,np.newaxis])**2).mean(axis=0).mean(axis=1)
+	centralizedPF_MSE = (np.subtract(centralizedPF_pos[:,:,:iFrame,:],targetPosition[:,:,:iFrame,np.newaxis])**2).mean(axis=0).mean(axis=1)
+	distributedPF_MSE = (np.subtract(distributedPF_pos[:,:,:iFrame,:],targetPosition[:,:,:iFrame,np.newaxis])**2).mean(axis=0).mean(axis=1)
 	
 	# ...the same for the error (euclidean distance)
-	centralizedPF_error = np.sqrt((np.subtract(centralizedPF_pos[:,:,:iFrame,:],targetPosition[:,:,np.newaxis,np.newaxis])**2).sum(axis=0)).mean(axis=1)
-	distributedPF_error = np.sqrt((np.subtract(distributedPF_pos[:,:,:iFrame,:],targetPosition[:,:,np.newaxis,np.newaxis])**2).sum(axis=0)).mean(axis=1)
+	centralizedPF_error = np.sqrt((np.subtract(centralizedPF_pos[:,:,:iFrame,:],targetPosition[:,:,:iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
+	distributedPF_error = np.sqrt((np.subtract(distributedPF_pos[:,:,:iFrame,:],targetPosition[:,:,:iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
 
 	# MSE vs time (only the results for the first topology are plotted)
 	plot.distributedPFagainstCentralizedPF(np.arange(nTimeInstants),centralizedPF_MSE[:,0],distributedPF_MSE[:,0],
@@ -157,10 +157,7 @@ def saveData():
 	# a dictionary encompassing all the data to be saved
 	dataToBeSaved = dict(
 			aggregatedWeightsUpperBounds = aggregatedWeightsUpperBounds,
-			targetInitialPosition = targetInitialPosition,
-			targetInitialVelocity = targetInitialVelocity,
-			targetPosition = targetPosition,
-			targetVelocity = targetVelocity,
+			targetPosition = targetPosition[:,:,:iFrame],
 			centralizedPF_pos = centralizedPF_pos[:,:,:iFrame,:],
 			distributedPF_pos = distributedPF_pos[:,:,:iFrame,:],
 			**normalizedAggregatedWeightsDic
@@ -240,8 +237,6 @@ original_sigint_handler = signal.getsignal(signal.SIGINT)
 # the interrupt signal (ctrl-c) is handled by this function
 def sigint_handler(signum, frame):
 	
-	print('wap')
-	
 	# we may need to modify this global variable
 	global ctrlCpressed
 
@@ -315,17 +310,6 @@ distributedPFsForTopologies = [particle_filter.TargetTrackingParticleFilterWithD
 	DRNAsettings["exchange period"],t,upperBound,K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
 	) for t,upperBound in zip(topologies,aggregatedWeightsUpperBounds)]
 
-#------------------------------------------------------------- trajectory simulation ---------------------------------------------------------------------
-
-# the target is created...
-mobile = target.Target(prior,transitionKernel,PRNG=PRNGs["Trajectory pseudo random numbers generator"])
-
-targetInitialPosition,targetInitialVelocity,targetPosition,targetVelocity = mobile.simulateTrajectory(sensors,nTimeInstants)
-
-# observations for all the sensors at every time instant (each list)
-# NOTE: conversion to float is done so that the observations (either 1 or 0) are amenable to be used in later computations
-observations = [np.array([sensor.detect(state.position(s[:,np.newaxis])) for sensor in sensors],dtype=float) for s in targetPosition.T]
-
 #------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
 
 # we store the aggregated weights...
@@ -334,14 +318,27 @@ distributedPFaggregatedWeights = [np.empty((nTimeInstants,t.getNumberOfPEs(),par
 # ...and the position estimates
 centralizedPF_pos,distributedPF_pos = np.empty((2,nTimeInstants,parameters["number of frames"],len(topologies))),np.empty((2,nTimeInstants,parameters["number of frames"],len(topologies)))
 
+# there will be as many trajectories as frames
+targetPosition = np.empty((2,nTimeInstants,parameters["number of frames"]))
+
 #------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
 
-# NOTE: a "while loop" is here more convenient than a "for loop" because having the "iFrame" variable defined at all times after the processing has started (including when finishted) 
+# the object representing the target
+mobile = target.Target(prior,transitionKernel,PRNG=PRNGs["Trajectory pseudo random numbers generator"])
+
+# NOTE: a "while loop" is here more convenient than a "for loop" because having the "iFrame" variable defined at all times after the processing has started (and finished) 
 # allows to know hown many frames have actually been processed (if any)
 
 iFrame = 0
 
 while iFrame < parameters["number of frames"] and not ctrlCpressed:
+	
+	# a trajectory is simulated
+	targetPosition[:,:,iFrame],targetVelocity = mobile.simulateTrajectory(sensors,nTimeInstants)
+
+	# observations for all the sensors at every time instant (each list)
+	# NOTE: conversion to float is done so that the observations (either 1 or 0) are amenable to be used in later computations
+	observations = [np.array([sensor.detect(state.position(s[:,np.newaxis])) for sensor in sensors],dtype=float) for s in targetPosition[:,:,iFrame].T]
 	
 	for iTopology,(pf,distributedPf) in enumerate(zip(PFsForTopologies,distributedPFsForTopologies)):
 		
@@ -362,25 +359,12 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 
 			# ...e.g., draw the sensors
 			painter.setup()
-			
-			# the initial position is painted...
-			painter.updateTargetPosition(targetInitialPosition)
-
-			# ...along with those estimated by the PFs (they should be around the middle of the room...)
-			painter.updateEstimatedPosition(state.position(pf.computeMean()),identifier='centralized',color=painterSettings["color for the centralized PF"])
-			painter.updateEstimatedPosition(state.position(distributedPf.computeMean()),identifier='distributed',color=painterSettings["color for the distributed PF"])
-
-			if painterSettings['display particles evolution?']:
-
-				# particles are plotted
-				painter.updateParticlesPositions(state.position(pf.getState()),identifier='centralized',color=painterSettings["color for the centralized PF"])
-				painter.updateParticlesPositions(state.position(distributedPf.getState()),identifier='distributed',color=painterSettings["color for the distributed PF"])
 
 		for iTime in range(nTimeInstants):
 
 			print('---------- iFrame = {}, iTopology = {}, iTime = {}'.format(repr(iFrame),repr(iTopology),repr(iTime)))
 
-			print('position:\n',targetPosition[:,iTime:iTime+1])
+			print('position:\n',targetPosition[:,iTime:iTime+1,iFrame])
 			print('velocity:\n',targetVelocity[:,iTime:iTime+1])
 			
 			# particle filters are updated
@@ -401,7 +385,7 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 			if painterSettings["display evolution?"]:
 
 				# the plot is updated with the position of the target...
-				painter.updateTargetPosition(targetPosition[:,iTime:iTime+1])
+				painter.updateTargetPosition(targetPosition[:,iTime:iTime+1,iFrame])
 				
 				# ...those estimated by the PFs
 				painter.updateEstimatedPosition(state.position(centralizedPF_mean),identifier='centralized',color=painterSettings["color for the centralized PF"])
