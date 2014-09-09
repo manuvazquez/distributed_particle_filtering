@@ -20,17 +20,16 @@ def setupAxes(figureId,clearFigure=True):
 	
 	return axes,fig
 
-def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,centralizedPFcolor,distributedPFcolor,centralizedPFmarker,distributedPFmarker,outputFile,
-											centralizedPFparameters={'label':'Centralized PF'},distributedPFparameters={'label':'Distributed PF'},figureId='vs Time',axesProperties={}):
+def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,outputFile,centralizedPFparameters={'label':'Centralized PF'},distributedPFparameters={'label':'Distributed PF'},figureId='vs Time',axesProperties={}):
 
 	# a new pair of axes is set up
 	ax,_ = setupAxes(figureId)
 	
-	ax.plot(x,centralizedPF,color=centralizedPFcolor,marker=centralizedPFmarker,**centralizedPFparameters)
+	ax.plot(x,centralizedPF,**centralizedPFparameters)
 
 	ax.hold(True)
 
-	ax.plot(x,distributedPF,color=distributedPFcolor,marker=distributedPFmarker,**distributedPFparameters)
+	ax.plot(x,distributedPF,**distributedPFparameters)
 
 	# the labes are shown
 	ax.legend()
@@ -42,6 +41,8 @@ def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,centralizedP
 	ax.set(**axesProperties)
 	
 	plt.savefig(outputFile)
+	
+	return ax
 
 def aggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregatedWeightsVsTime.eps',xticksStep=10):
 

@@ -128,13 +128,17 @@ def saveData():
 
 	# MSE vs time (only the results for the first topology are plotted)
 	plot.distributedPFagainstCentralizedPF(np.arange(nTimeInstants),centralizedPF_MSE[:,0],distributedPF_MSE[:,0],
-						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],painterSettings["marker for the centralized PF"],painterSettings["marker for the distributed PF"],
-						painterSettings["file name prefix for the MSE vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),figureId='MSE vs Time')
+						painterSettings["file name prefix for the MSE vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),
+						centralizedPFparameters={'label':'Centralized PF','color':painterSettings["color for the centralized PF"],'marker':painterSettings["marker for the centralized PF"]},
+						distributedPFparameters={'label':'Distributed PF','color':painterSettings["color for the distributed PF"],'marker':painterSettings["marker for the distributed PF"]},
+						figureId='MSE vs Time')
 
 	# distance vs time (only the results for the first topology are plotted)
 	plot.distributedPFagainstCentralizedPF(np.arange(nTimeInstants),centralizedPF_error[:,0],distributedPF_error[:,0],
-						painterSettings["color for the centralized PF"],painterSettings["color for the distributed PF"],painterSettings["marker for the centralized PF"],painterSettings["marker for the distributed PF"],
-						painterSettings["file name prefix for the euclidean distance vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),figureId='Euclidean distance vs Time')
+						painterSettings["file name prefix for the euclidean distance vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),
+						centralizedPFparameters={'label':'Centralized PF','color':painterSettings["color for the centralized PF"],'marker':painterSettings["marker for the centralized PF"]},
+						distributedPFparameters={'label':'Distributed PF','color':painterSettings["color for the distributed PF"],'marker':painterSettings["marker for the distributed PF"]},
+						figureId='Euclidean distance vs Time')
 
 	# the aggregated weights are  normalized at ALL TIMES, for EVERY frame and EVERY topology
 	normalizedAggregatedWeights = [np.rollaxis(np.divide(np.rollaxis(w[:,:,:iFrame],2,1),w[:,:,:iFrame].sum(axis=1)[:,:,np.newaxis]),2,1) for w in distributedPFaggregatedWeights]
