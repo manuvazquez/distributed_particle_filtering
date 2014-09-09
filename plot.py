@@ -144,21 +144,19 @@ def aggregatedWeightsSupremumVsNumberOfPEs(Ms,maxWeights,upperBounds=None,output
 
 	plt.savefig(outputFile)
 
-def trajectory(filename,nTimeInstants=-1):
+def trajectory(filename,iTrajectory=0,nTimeInstants=-1):
 	
 	import sensor
 	import pickle
 	import os
 	import scipy.io
 	
-	data = scipy.io.loadmat(filename)
-	position = np.append(data['targetInitialPosition'],data['targetPosition'],axis=1)
-	del data
+	position = scipy.io.loadmat(filename)['targetPosition'][...,iTrajectory]
 	
 	## data file is loaded
 	#with np.load(filename) as data:
 		
-		#position = np.append(data['targetInitialPosition'],data['targetPosition'],axis=1)
+		#position = data['targetPosition']
 	
 	# parameters are loaded
 	with open(os.path.splitext(filename)[0] + '.parameters',"rb") as f:
@@ -231,7 +229,7 @@ class RoomPainter:
 		# if this is the first update...
 		else:
 			# ...just plot the position keeping the handler...
-			p, = self._ax.plot(position[0],position[1],color='red')
+			p, = self._ax.plot(position[0],position[1],color='red',marker='d',markersize=10)
 			
 			# we add this to the list of entries in the legend (just once!!)
 			self._legendEntries.append(p)
@@ -299,7 +297,7 @@ class RectangularRoomPainter(RoomPainter):
 		self._roomBottomLeftCorner = roomBottomLeftCorner
 		self._roomTopRightCorner = roomTopRightCorner
 		self._roomDiagonalVector = self._roomTopRightCorner - self._roomBottomLeftCorner
-
+		
 	def setup(self,borderLinePropertis={'color':'blue'},sensorsLineProperties = {'marker':'+','color':'red'}):
 		
 		# let the parent class do its thing
@@ -329,7 +327,7 @@ class TightRectangularRoomPainter(RectangularRoomPainter):
 		super().setup(borderLinePropertis=borderLinePropertis,sensorsLineProperties=sensorsLineProperties)
 		
 		# axis are removed
-		plt.axis('off')
+		#plt.axis('off')
 		
 	def save(self,outputFile='trajectory.eps'):
 		
