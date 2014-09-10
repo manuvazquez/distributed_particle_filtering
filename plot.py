@@ -23,7 +23,7 @@ def setupAxes(figureId,clearFigure=True):
 def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,outputFile,centralizedPFparameters={'label':'Centralized PF'},distributedPFparameters={'label':'Distributed PF'},figureId='vs Time',axesProperties={}):
 
 	# a new pair of axes is set up
-	ax,_ = setupAxes(figureId)
+	ax,fig = setupAxes(figureId)
 	
 	ax.plot(x,centralizedPF,**centralizedPFparameters)
 
@@ -42,12 +42,12 @@ def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,outputFile,c
 	
 	plt.savefig(outputFile)
 	
-	return ax
+	return ax,fig
 
 def aggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregatedWeightsVsTime.eps',xticksStep=10):
 
 	# the corresponding axes are created
-	aggregatedWeightsVsTimeAxes,_ = setupAxes('Aggregated Weights Evolution')
+	ax,_ = setupAxes('Aggregated Weights Evolution')
 	
 	# the shape of the array with the aggregated weights is used to figure out the number of PEs and time instants
 	nTimeInstants,nPEs = aggregatedWeights.shape
@@ -66,20 +66,23 @@ def aggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregated
 
 	for i in range(nPEs):
 		
-		aggregatedWeightsVsTimeAxes.bar(t,normalizedAggregatedWeights[:,i],bottom=accum,color=PEsColors[i,:])
+		ax.bar(t,normalizedAggregatedWeights[:,i],bottom=accum,color=PEsColors[i,:])
 		accum += normalizedAggregatedWeights[:,i]
 	
-	aggregatedWeightsVsTimeAxes.set_xticks(np.arange(0.5,nTimeInstants,xticksStep))
-	aggregatedWeightsVsTimeAxes.set_xticklabels(range(0,nTimeInstants,xticksStep))
-	aggregatedWeightsVsTimeAxes.set_xbound(upper=nTimeInstants)
+	ax.set_xticks(np.arange(0.5,nTimeInstants,xticksStep))
+	ax.set_xticklabels(range(0,nTimeInstants,xticksStep))
+	ax.set_xbound(upper=nTimeInstants)
 	
-	aggregatedWeightsVsTimeAxes.set_yticks([0,0.5,1])
-	aggregatedWeightsVsTimeAxes.set_ybound(upper=1)
+	ax.set_yticks([0,0.5,1])
+	ax.set_ybound(upper=1)
 
 	plt.savefig(outputFile)
 
 def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',stepExchangePeriod=1,
-									ylabel='$c^q/M^{q-\\varepsilon}$',figureId='Aggregated Weights Supremum Vs Time',axesProperties={}):
+									supremumLineProperties={'label':'Supremum','linestyle':':'},
+									supremumAtExchangeStepsLineProperties={'label':'Exchange steps','linestyle':'.','marker':'D','color':'black'},
+									upperBoundLineProperties={'label':'$c^q/M^{q-\\varepsilon}$','linestyle':'dashed','color':'red','linewidth':2},
+									figureId='Aggregated Weights Supremum Vs Time',axesProperties={}):
 	
 	nTimeInstants = len(maxWeights)
 
@@ -90,13 +93,13 @@ def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggrega
 	t = np.arange(nTimeInstants)
 	
 	# this is plotted along time
-	ax.plot(t,maxWeights[t],label='Supremum',linestyle=':')
+	ax.plot(t,maxWeights[t],**supremumLineProperties)
 	
 	# the time instants at which step exchanges occur...
 	tExchangeSteps = np.arange(stepExchangePeriod-1,nTimeInstants,stepExchangePeriod)
 	
 	# ...are plotted with different markers
-	ax.plot(tExchangeSteps,maxWeights[tExchangeSteps],label='Exchange steps',linestyle='.',marker='D',color='black')
+	ax.plot(tExchangeSteps,maxWeights[tExchangeSteps],**supremumAtExchangeStepsLineProperties)
 	
 	# the x-axis is adjusted so that it ends exactly at the last time instant
 	ax.set_xbound(lower=t[0],upper=t[-1])
@@ -105,7 +108,7 @@ def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggrega
 	ax.set_ybound(upper=upperBound*4,lower=0)
 	
 	# the upper bound is plotted
-	ax.axhline(y=upperBound,linewidth=2, color='red',linestyle='dashed',label=ylabel)
+	ax.axhline(y=upperBound,**upperBoundLineProperties)
 	
 	# in order to show the legend
 	ax.legend(loc='upper right')
@@ -115,19 +118,20 @@ def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggrega
 
 	plt.savefig(outputFile)
 
-def aggregatedWeightsSupremumVsNumberOfPEs(Ms,maxWeights,upperBounds=None,outputFile='maxAggregatedWeightVsM.eps',ylabel='$c^q/M^{q-\\varepsilon}$',figureId='Aggregated Weights Supremum Vs M',axesProperties={}):
+def aggregatedWeightsSupremumVsNumberOfPEs(Ms,maxWeights,upperBounds=None,outputFile='maxAggregatedWeightVsM.eps',
+										   supremumLineProperties={},upperBoundLineProperties={'color':'red','label':'$c^q/M^{q-\\varepsilon}$','marker':'+','markersize':10,'markeredgewidth':2,'linestyle':':'},
+										   figureId='Aggregated Weights Supremum Vs M',axesProperties={}):
 	
 	# the corresponding axes are created
 	ax,_ = setupAxes(figureId)
 	
 	# this is plotted along time
-	#ax.plot(Ms,maxWeights,label='supremum')
-	ax.semilogy(Ms,maxWeights)
+	ax.semilogy(Ms,maxWeights,**supremumLineProperties)
 	
 	if upperBounds:
 	
 		# the bound
-		ax.semilogy(Ms,upperBounds,color='red',label='upper bound',marker='+',markersize=10,markeredgewidth=2,linestyle=':')
+		ax.semilogy(Ms,upperBounds,**upperBoundLineProperties)
 		
 	# only the ticks corresponding to the values of M
 	ax.set_xticks(Ms)
