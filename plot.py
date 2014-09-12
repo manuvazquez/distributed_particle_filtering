@@ -40,7 +40,9 @@ def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,outputFile,c
 	# set any additional properties for the axes
 	ax.set(**axesProperties)
 	
-	plt.savefig(outputFile)
+	if outputFile:
+	
+		plt.savefig(outputFile)
 	
 	return ax,fig
 
@@ -87,7 +89,7 @@ def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggrega
 	nTimeInstants = len(maxWeights)
 
 	# the corresponding axes are created
-	ax,_ = setupAxes(figureId)
+	ax,fig = setupAxes(figureId)
 	
 	# for the x-axis
 	t = np.arange(nTimeInstants)
@@ -115,26 +117,33 @@ def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggrega
 	
 	# set any additional properties for the axes
 	ax.set(**axesProperties)
+	
+	if outputFile:
 
-	plt.savefig(outputFile)
+		plt.savefig(outputFile)
+	
+	return ax,fig
 
 def aggregatedWeightsSupremumVsNumberOfPEs(Ms,maxWeights,upperBounds=None,outputFile='maxAggregatedWeightVsM.eps',
 										   supremumLineProperties={},upperBoundLineProperties={'color':'red','label':'$c^q/M^{q-\\varepsilon}$','marker':'+','markersize':10,'markeredgewidth':2,'linestyle':':'},
 										   figureId='Aggregated Weights Supremum Vs M',axesProperties={}):
 	
 	# the corresponding axes are created
-	ax,_ = setupAxes(figureId)
+	ax,fig = setupAxes(figureId)
 	
 	# this is plotted along time
-	ax.semilogy(Ms,maxWeights,**supremumLineProperties)
+	ax.loglog(Ms,maxWeights,**supremumLineProperties)
 	
 	if upperBounds:
 	
 		# the bound
-		ax.semilogy(Ms,upperBounds,**upperBoundLineProperties)
+		ax.loglog(Ms,upperBounds,**upperBoundLineProperties)
 		
 	# only the ticks corresponding to the values of M
 	ax.set_xticks(Ms)
+	
+	# so that the ticks show up properly when the x axis is logarithmic
+	ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 	
 	# the x-axis is adjusted so that it ends exactly at the last time instant
 	ax.set_xbound(lower=Ms[0],upper=Ms[-1])
@@ -147,7 +156,11 @@ def aggregatedWeightsSupremumVsNumberOfPEs(Ms,maxWeights,upperBounds=None,output
 	# set any additional properties for the axes
 	ax.set(**axesProperties)
 
-	plt.savefig(outputFile)
+	if outputFile:
+
+		plt.savefig(outputFile)
+	
+	return ax,fig
 
 def trajectory(filename,iTrajectory=0,nTimeInstants=-1):
 	
