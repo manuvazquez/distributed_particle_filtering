@@ -162,7 +162,7 @@ def aggregatedWeightsSupremumVsNumberOfPEs(Ms,maxWeights,upperBounds=None,output
 	
 	return ax,fig
 
-def trajectory(filename,iTrajectory=0,nTimeInstants=-1):
+def trajectory(filename,iTrajectory=0,nTimeInstants=-1,ticksFontSize=12):
 	
 	import sensor
 	import pickle
@@ -186,7 +186,7 @@ def trajectory(filename,iTrajectory=0,nTimeInstants=-1):
 	sensorsPositions = sensor.EquispacedOnRectangleSensorLayer(parameters["room"]["bottom left corner"],parameters["room"]["top right corner"]).getPositions(parameters["sensors"]["number"])
 	
 	# a Painter object is created to do the dirty work
-	painter = TightRectangularRoomPainter(parameters["room"]["bottom left corner"],parameters["room"]["top right corner"],sensorsPositions)
+	painter = TightRectangularRoomPainter(parameters["room"]["bottom left corner"],parameters["room"]["top right corner"],sensorsPositions,ticksFontSize=ticksFontSize)
 	
 	painter.setup()
 	
@@ -316,22 +316,24 @@ class RectangularRoomPainter(RoomPainter):
 		self._roomTopRightCorner = roomTopRightCorner
 		self._roomDiagonalVector = self._roomTopRightCorner - self._roomBottomLeftCorner
 		
-	def setup(self,borderLinePropertis={'color':'blue'},sensorsLineProperties = {'marker':'+','color':'red'}):
+	def setup(self,borderLineProperties={'color':'blue'},sensorsLineProperties = {'marker':'+','color':'red'}):
 		
 		# let the parent class do its thing
 		super().setup(sensorsLineProperties=sensorsLineProperties)
 		
 		# we define a rectangular patch...
-		roomEdge = matplotlib.patches.Rectangle((self._roomBottomLeftCorner[0],self._roomBottomLeftCorner[1]), self._roomDiagonalVector[0], self._roomDiagonalVector[1], fill=False,**borderLinePropertis)
+		roomEdge = matplotlib.patches.Rectangle((self._roomBottomLeftCorner[0],self._roomBottomLeftCorner[1]), self._roomDiagonalVector[0], self._roomDiagonalVector[1], fill=False,**borderLineProperties)
 
 		# ...and added to the axes
 		self._ax.add_patch(roomEdge)
 
 class TightRectangularRoomPainter(RectangularRoomPainter):
 	
-	def __init__(self,roomBottomLeftCorner,roomTopRightCorner,sensorsPositions,sleepTime=0.1):
+	def __init__(self,roomBottomLeftCorner,roomTopRightCorner,sensorsPositions,sleepTime=0.1,ticksFontSize=14):
 		
 		super().__init__(roomBottomLeftCorner,roomTopRightCorner,sensorsPositions,sleepTime=sleepTime)
+		
+		self._ticksFontSize = ticksFontSize
 		
 		# the figure created by the superclass is discarded
 		self.close()
@@ -339,13 +341,16 @@ class TightRectangularRoomPainter(RectangularRoomPainter):
 		self._figure = plt.figure('Room',figsize=tuple(self._roomDiagonalVector//4))
 		self._ax = self._figure.add_axes((0,0,1,1))
 		
-	def setup(self,borderLinePropertis={'color':'black','linewidth':4},sensorsLineProperties = {'marker':'x','color':(116/255,113/255,209/255),'markersize':10,'markeredgewidth':5}):
+	def setup(self,borderLineProperties={'color':'black','linewidth':4},sensorsLineProperties = {'marker':'x','color':(116/255,113/255,209/255),'markersize':10,'markeredgewidth':5}):
 		
 		# let the parent class do its thing
-		super().setup(borderLinePropertis=borderLinePropertis,sensorsLineProperties=sensorsLineProperties)
+		super().setup(borderLineProperties=borderLineProperties,sensorsLineProperties=sensorsLineProperties)
 		
 		# axis are removed
 		#plt.axis('off')
+		
+		# the font size of the ticks in both axes is set
+		self._ax.tick_params(axis='both',labelsize=self._ticksFontSize)
 		
 	def save(self,outputFile='trajectory.eps'):
 		

@@ -176,7 +176,7 @@ class BouncingWithinRectangleTransitionKernel(TransitionKernel):
 				angle = math.acos(step[0]/np.linalg.norm(step))
 				
 				if step[1]<=0:
-					# we account for the fact that the angle between two vectors computed by means of the dot product is always between 0 and pi (the shortest)
+					# we account for the fact that the angle between two vectors computed by means of the dot product (the shortest) is always between 0 and pi
 					angle = 2*math.pi - angle
 				
 				# up
