@@ -59,14 +59,14 @@ sensorsSettings = parameters["sensors"]
 # number of time instants
 nTimeInstants = parameters["number of time instants"]
 
-# room dimensions
-room = parameters["room"]
+# roomSettings dimensions
+roomSettings = parameters["room"]
 
 # parameters for the distribution of the initial state
-priorDistribution = parameters["prior distribution"]
+priorDistributionSettings = parameters["prior distribution"]
 
 # state transition kernel parameters
-stateTransition = parameters["state transition"]
+stateTransitionSettings = parameters["state transition"]
 
 # for the particle filters
 SMCsettings = parameters["SMC"]
@@ -183,11 +183,11 @@ def saveParameters():
 # ---------------------------------------------
 
 # we'd rather have the coordinates of the corners stored as numpy arrays...
-room["bottom left corner"] = np.array(room["bottom left corner"])
-room["top right corner"] = np.array(room["top right corner"])
+roomSettings["bottom left corner"] = np.array(roomSettings["bottom left corner"])
+roomSettings["top right corner"] = np.array(roomSettings["top right corner"])
 
 # it amounts to the width and height
-roomDiagonalVector = room["top right corner"] - room["bottom left corner"]
+roomDiagonalVector = roomSettings["top right corner"] - roomSettings["bottom left corner"]
 
 # ------------------------------------------------------------------ random numbers ----------------------------------------------------------------------
 
@@ -279,7 +279,7 @@ aggregatedWeightsUpperBounds = [drnautil.supremumUpperBound(t['number of PEs'],D
 # ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
 
 # an object for computing the positions of the sensors is created and used
-sensorsPositions = sensor.EquispacedOnRectangleSensorLayer(room["bottom left corner"],room["top right corner"]).getPositions(sensorsSettings["number"])
+sensorsPositions = sensor.EquispacedOnRectangleSensorLayer(roomSettings["bottom left corner"],roomSettings["top right corner"]).getPositions(sensorsSettings["number"])
 
 # the actual number of sensor might not be equal to that requested
 sensorsSettings["number"] = sensorsPositions.shape[1]
@@ -292,10 +292,10 @@ sensors = [sensor.Sensor(sensorsPositions[:,i:i+1],sensorsSettings["radius"],
 # ----------------------------------------------------------------- dynamic model ------------------------------------------------------------------------
 
 # a object that represents the prior distribution...
-prior = state.UniformBoundedPositionGaussianVelocityPrior(room["bottom left corner"],room["top right corner"],velocityVariance=priorDistribution["velocity variance"],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
+prior = state.UniformBoundedPositionGaussianVelocityPrior(roomSettings["bottom left corner"],roomSettings["top right corner"],velocityVariance=priorDistributionSettings["velocity variance"],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ...and a different one for the transition kernel
-transitionKernel = state.BouncingWithinRectangleTransitionKernel(room["bottom left corner"],room["top right corner"],velocityVariance=stateTransition["velocity variance"],noiseVariance=stateTransition["position variance"],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
+transitionKernel = state.BouncingWithinRectangleTransitionKernel(roomSettings["bottom left corner"],roomSettings["top right corner"],velocityVariance=stateTransitionSettings["velocity variance"],noiseVariance=stateTransitionSettings["position variance"],stepDuration=stateTransitionSettings['time step size'],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ------------------------------------------------------------------- SMC stuff --------------------------------------------------------------------------
 
@@ -359,7 +359,7 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 				painter.close()
 
 			# this object will handle graphics...
-			painter = plot.RectangularRoomPainter(room["bottom left corner"],room["top right corner"],sensorsPositions,sleepTime=painterSettings["sleep time between updates"])
+			painter = plot.RectangularRoomPainter(roomSettings["bottom left corner"],roomSettings["top right corner"],sensorsPositions,sleepTime=painterSettings["sleep time between updates"])
 
 			# ...e.g., draw the sensors
 			painter.setup()

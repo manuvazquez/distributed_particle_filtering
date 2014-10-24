@@ -57,7 +57,8 @@
 	},
 	"state transition": {
 		"velocity variance": 0.01,
-		"position variance": 0.01
+		"position variance": 0.01,
+		"time step size": 1
 	},
 	"painter": {
 		"sleep time between updates": 0.01,
