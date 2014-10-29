@@ -233,8 +233,8 @@ class RoomPainter:
 
 		self._ax.set_aspect('equal', 'datalim')
 		
-		# plot now...
-		plt.show()
+		# show...now!
+		self._figure.show()
 		
 	def updateTargetPosition(self,position):
 		
@@ -255,7 +255,7 @@ class RoomPainter:
 		self._previousPosition = position
 		
 		# plot now...
-		plt.draw()
+		self._figure.canvas.draw()
 
 		# ...and wait...
 		plt.pause(self._sleepTime)
@@ -279,7 +279,7 @@ class RoomPainter:
 		self._previousEstimates[identifier] = position
 		
 		# plot now...
-		plt.draw()
+		self._figure.canvas.draw()
 
 	def updateParticlesPositions(self,positions,identifier='unnamed',color='blue'):
 
@@ -291,7 +291,7 @@ class RoomPainter:
 		self._particles[identifier], = self._ax.plot(positions[0,:],positions[1,:],color=color,marker='o',linewidth=0)
 		
 		# plot now...
-		plt.draw()
+		self._figure.canvas.draw()
 		
 	def save(self,outputFile='trajectory.eps'):
 		

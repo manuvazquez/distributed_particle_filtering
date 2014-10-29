@@ -82,7 +82,14 @@
 		"c": 4.0,
 		"q": 4,
 		"epsilon": 0.1,
-		"normalization period": 5
+		"normalization period": 5,
+		"resample after exchange?": false,
+		"PEs with sensors blueprint class": "FullyConnected"
+	},
+	"PEs with sensors blueprints": {
+		"FixedNumberOfPesPerSensor": {
+			"number of PEs per sensor": 8
+		}
 	},
 	"load sensors and Monte Carlo pseudo random numbers generator?": false,
 	"Sensors and Monte Carlo pseudo random numbers generator": "SensorsAndMonteCarloRandom.RandomState",

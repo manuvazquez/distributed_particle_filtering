@@ -62,6 +62,8 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		
 		super().step(observations)
 		
+		assert len(observations) == len(self._sensors)
+		
 		# every particle is updated (previous state is not stored...)
 		self._state = np.hstack(
 			[self._stateTransitionKernel.nextState(self._state[:,i:i+1]) for i in range(self._nParticles)])
@@ -157,6 +159,11 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		
 		# the normalized weights are used to resample
 		self.resample(self._weights)
+	
+	
+	def getWeights(self):
+		
+		return self._weights
 # =========================================================================================================
 
 class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilter):
@@ -186,16 +193,24 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 
 class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 	
-	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors):
+	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,resampleAfterExchange):
 		
 		self._nPEs = topology.getNumberOfPEs()
+		
+		# a list of lists, the first one containing the indices of the sensors "seen" by the first PE...and so on
+		self._PEsSensorsConnections = PEsSensorsConnections
+		
+		# used later at each "step"
+		self._resampleAfterExchange = resampleAfterExchange
 		
 		super().__init__(self._nPEs*nParticlesPerPE,resamplingAlgorithm,resamplingCriterion)
 		
 		self._nParticlesPerPE = nParticlesPerPE
-
-		# the particle filters are built
-		self._PEs = [EmbeddedTargetTrackingParticleFilter(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,aggregatedWeight=1.0/self._nPEs) for i in range(self._nPEs)]
+		
+		# the particle filters are built (each one associated with a different set of sensors)
+		self._PEs = [EmbeddedTargetTrackingParticleFilter(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,
+													[s for iSensor,s in enumerate(sensors) if iSensor in PEsSensorsConnections[iPe]],
+													aggregatedWeight=1.0/self._nPEs) for iPe in range(self._nPEs)]
 		
 		# a exchange of particles among PEs will happen every...
 		self._exchangePeriod = exchangePeriod
@@ -229,9 +244,10 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		super().step(observations)
 		
 		# a step is taken in every PF (ideally, this would occur concurrently)
-		for PE in self._PEs:
+		for iPe,PE in enumerate(self._PEs):
 			
-			PE.step(observations)
+			# only the appropriate observations are passed to this PE
+			PE.step([obs for iObs,obs in enumerate(observations) if iObs in self._PEsSensorsConnections[iPe]])
 		
 		# a new time instant has elapsed
 		self._n += 1
@@ -246,7 +262,9 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 				
 				PE.updateAggregatedWeight()
 				
-				#PE.resample()
+				if self._resampleAfterExchange:
+				
+					PE.avoidWeightDegeneracy()
 			
 			if self.degeneratedAggregatedWeights():
 				print('after exchanging, aggregated weights are still degenerated => assumption 4 is not being satisfied!!')

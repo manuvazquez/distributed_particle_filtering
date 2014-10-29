@@ -95,6 +95,7 @@ from smc import particle_filter
 from smc import resampling
 import topology
 import drnautil
+import PEsWithSensorsBlueprint
 
 # the name of the machine running the program (supposedly, using the socket module gives rise to portable code)
 hostname = socket.gethostname()
@@ -289,6 +290,8 @@ sensors = [sensor.Sensor(sensorsPositions[:,i:i+1],sensorsSettings["radius"],
 						 probDetection=sensorsSettings["probability of detection within the radius"],probFalseAlarm=sensorsSettings["probability of false alarm"],
 						 PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]) for i in range(sensorsSettings["number"])]
 
+pesWithSensorsBlueprint = getattr(PEsWithSensorsBlueprint,DRNAsettings['PEs with sensors blueprint class'])(sensorsSettings["number"],parameters['PEs with sensors blueprints'].get(DRNAsettings['PEs with sensors blueprint class']))
+
 # ----------------------------------------------------------------- dynamic model ------------------------------------------------------------------------
 
 # a object that represents the prior distribution...
@@ -311,7 +314,8 @@ PFsForTopologies = [particle_filter.CentralizedTargetTrackingParticleFilter(K*t.
 
 # distributed particle filter
 distributedPFsForTopologies = [particle_filter.TargetTrackingParticleFilterWithDRNA(
-	DRNAsettings["exchange period"],t,upperBound,K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors
+	DRNAsettings["exchange period"],t,upperBound,K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+	sensors,pesWithSensorsBlueprint.getPEsSensorsConnections(t.getNumberOfPEs()),DRNAsettings['resample after exchange?']
 	) for t,upperBound in zip(topologies,aggregatedWeightsUpperBounds)]
 
 #------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
