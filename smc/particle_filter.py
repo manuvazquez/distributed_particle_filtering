@@ -222,7 +222,7 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		self._aggregatedWeightsUpperBound = aggregatedWeightsUpperBound
 
 		# we get a unique exchange map from this network
-		self._exchangeMap = self._topology.getExchangeTuples()
+		self._exchangeMap,_ = self._topology.getExchangeTuples()
 		
 		# period for the normalization of the aggregated weights
 		self._normalizationPeriod = normalizationPeriod
@@ -284,17 +284,17 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 	def exchangeParticles(self):
 
 		## we generate a random exchange map
-		#self._exchangeMap = self._topology.getExchangeTuples()
+		#self._exchangeMap,_ = self._topology.getExchangeTuples()
 
 		# first, we compile all the particles that are going to be exchanged in an auxiliar variable
 		aux = []
 		for exchangeTuple in self._exchangeMap:
-			aux.append([self._PEs[exchangeTuple[0]].getParticle(exchangeTuple[1]),self._PEs[exchangeTuple[2]].getParticle(exchangeTuple[3])])
+			aux.append((self._PEs[exchangeTuple.iPE].getParticle(exchangeTuple.iParticleWithinPE),self._PEs[exchangeTuple.iNeighbour].getParticle(exchangeTuple.iParticleWithinNeighbour)))
 
 		# afterwards, we loop through all the exchange tuples performing the real exchange
 		for (exchangeTuple,particles) in zip(self._exchangeMap,aux):
-			self._PEs[exchangeTuple[0]].setParticle(exchangeTuple[1],particles[1])
-			self._PEs[exchangeTuple[2]].setParticle(exchangeTuple[3],particles[0])
+			self._PEs[exchangeTuple.iPE].setParticle(exchangeTuple.iParticleWithinPE,particles[1])
+			self._PEs[exchangeTuple.iNeighbour].setParticle(exchangeTuple.iParticleWithinNeighbour,particles[0])
 			
 	def getState(self):
 		
