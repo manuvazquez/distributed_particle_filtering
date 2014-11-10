@@ -83,7 +83,6 @@
 		"q": 4,
 		"epsilon": 0.1,
 		"normalization period": 5,
-		"resample after exchange?": false,
 		"PEs with sensors blueprint class": "FullyConnected"
 	},
 	"PEs with sensors blueprints": {

@@ -193,15 +193,12 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 
 class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 	
-	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,resampleAfterExchange):
+	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections):
 		
 		self._nPEs = topology.getNumberOfPEs()
 		
 		# a list of lists, the first one containing the indices of the sensors "seen" by the first PE...and so on
 		self._PEsSensorsConnections = PEsSensorsConnections
-		
-		# used later at each "step"
-		self._resampleAfterExchange = resampleAfterExchange
 		
 		super().__init__(self._nPEs*nParticlesPerPE,resamplingAlgorithm,resamplingCriterion)
 		
@@ -262,10 +259,6 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 				
 				PE.updateAggregatedWeight()
 				
-				if self._resampleAfterExchange:
-				
-					PE.avoidWeightDegeneracy()
-			
 			if self.degeneratedAggregatedWeights():
 				print('after exchanging, aggregated weights are still degenerated => assumption 4 is not being satisfied!!')
 				print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())

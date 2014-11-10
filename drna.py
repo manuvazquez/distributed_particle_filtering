@@ -315,7 +315,7 @@ PFsForTopologies = [particle_filter.CentralizedTargetTrackingParticleFilter(K*t.
 # distributed particle filter
 distributedPFsForTopologies = [particle_filter.TargetTrackingParticleFilterWithDRNA(
 	DRNAsettings["exchange period"],t,upperBound,K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-	sensors,pesWithSensorsBlueprint.getPEsSensorsConnections(t.getNumberOfPEs()),DRNAsettings['resample after exchange?']
+	sensors,pesWithSensorsBlueprint.getPEsSensorsConnections(t.getNumberOfPEs())
 	) for t,upperBound in zip(topologies,aggregatedWeightsUpperBounds)]
 
 #------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
