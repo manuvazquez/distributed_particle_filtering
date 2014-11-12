@@ -69,9 +69,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 			[self._stateTransitionKernel.nextState(self._state[:,i:i+1]) for i in range(self._nParticles)])
 		
 		# for each sensor, we compute the likelihood of EVERY particle (position)
-		likelihoods = np.array(
-			[sensor.likelihood(observations[i],state.position(self._state)) for i,sensor in enumerate(self._sensors)]
-			)
+		likelihoods = np.array([sensor.likelihood(obs,state.position(self._state)) for sensor,obs in zip(self._sensors,observations)])
 		
 		# for each particle, we compute the product of the likelihoods for all the sensors
 		likelihoodsProduct = likelihoods.prod(axis=0)
@@ -244,8 +242,9 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		for iPe,PE in enumerate(self._PEs):
 			
 			# only the appropriate observations are passed to this PE
-			PE.step([obs for iObs,obs in enumerate(observations) if iObs in self._PEsSensorsConnections[iPe]])
-		
+			# NOTE: it is assumed that the order in which the observations are passed is the same as that of the sensors when building the PF
+			PE.step(observations[self._PEsSensorsConnections[iPe]])
+			
 		# a new time instant has elapsed
 		self._n += 1
 		
