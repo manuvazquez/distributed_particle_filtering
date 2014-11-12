@@ -95,7 +95,7 @@ from smc import particle_filter
 from smc import resampling
 import topology
 import drnautil
-import PEsWithSensorsBlueprint
+import sensors_PEs_connector
 
 # the name of the machine running the program (supposedly, using the socket module gives rise to portable code)
 hostname = socket.gethostname()
@@ -290,7 +290,8 @@ sensors = [sensor.Sensor(sensorsPositions[:,i:i+1],sensorsSettings["radius"],
 						 probDetection=sensorsSettings["probability of detection within the radius"],probFalseAlarm=sensorsSettings["probability of false alarm"],
 						 PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]) for i in range(sensorsSettings["number"])]
 
-pesWithSensorsBlueprint = getattr(PEsWithSensorsBlueprint,DRNAsettings['PEs with sensors blueprint class'])(sensorsSettings["number"],parameters['PEs with sensors blueprints'].get(DRNAsettings['PEs with sensors blueprint class']))
+sensorsPEsConnectorParameters = parameters['available sensors with PEs connectors'][DRNAsettings['sensors with PEs connector']]
+sensorsPEsConnector = getattr(sensors_PEs_connector,sensorsPEsConnectorParameters['class'])(sensorsSettings["number"],sensorsPEsConnectorParameters)
 
 # ----------------------------------------------------------------- dynamic model ------------------------------------------------------------------------
 
@@ -315,7 +316,7 @@ PFsForTopologies = [particle_filter.CentralizedTargetTrackingParticleFilter(K*t.
 # distributed particle filter
 distributedPFsForTopologies = [particle_filter.TargetTrackingParticleFilterWithDRNA(
 	DRNAsettings["exchange period"],t,upperBound,K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-	sensors,pesWithSensorsBlueprint.getPEsSensorsConnections(t.getNumberOfPEs())
+	sensors,sensorsPEsConnector.getConnections(t.getNumberOfPEs())
 	) for t,upperBound in zip(topologies,aggregatedWeightsUpperBounds)]
 
 #------------------------------------------------------------- metrics initialization --------------------------------------------------------------------

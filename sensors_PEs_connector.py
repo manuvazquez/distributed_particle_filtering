@@ -1,7 +1,7 @@
 import abc
 import networkx
 
-class PEsWithSensorsBlueprint(metaclass=abc.ABCMeta):
+class SensorsPEsConnector(metaclass=abc.ABCMeta):
 	
 	def __init__(self,nSensors,parameters=None):
 		
@@ -9,19 +9,19 @@ class PEsWithSensorsBlueprint(metaclass=abc.ABCMeta):
 		self._parameters = parameters
 	
 	@abc.abstractmethod
-	def getPEsSensorsConnections(self,nPEs):
+	def getConnections(self,nPEs):
 		
 		return
 
-class FullyConnected(PEsWithSensorsBlueprint):
+class EverySensorWithEveryPEConnector(SensorsPEsConnector):
 	
-	def getPEsSensorsConnections(self,nPEs):
+	def getConnections(self,nPEs):
 		
 		return [list(range(self._nSensors))]*nPEs
 
-class FixedNumberOfPesPerSensor(PEsWithSensorsBlueprint):
+class EverySensorWithSomePEsConnector(SensorsPEsConnector):
 	
-	def getPEsSensorsConnections(self,nPEs):
+	def getConnections(self,nPEs):
 
 		# each sensor is associated with "nPEsPerSensor" PEs
 		sensorsDegrees = [self._parameters['number of PEs per sensor']]*self._nSensors

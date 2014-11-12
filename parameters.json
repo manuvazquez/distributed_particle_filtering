@@ -83,10 +83,14 @@
 		"q": 4,
 		"epsilon": 0.1,
 		"normalization period": 5,
-		"PEs with sensors blueprint class": "FullyConnected"
+		"sensors with PEs connector": "every sensor connected to every PE"
 	},
-	"PEs with sensors blueprints": {
-		"FixedNumberOfPesPerSensor": {
+	"available sensors with PEs connectors": {
+		"every sensor connected to every PE": {
+			"class": "EverySensorWithEveryPEConnector"
+		},
+		"every sensor connected to a fixed number of PEs": {
+			"class": "EverySensorWithSomePEsConnector",
 			"number of PEs per sensor": 8
 		}
 	},
