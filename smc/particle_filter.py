@@ -191,7 +191,8 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 
 class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 	
-	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections):
+	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
+			  PFsClass=EmbeddedTargetTrackingParticleFilter):
 		
 		self._nPEs = topology.getNumberOfPEs()
 		
@@ -203,7 +204,7 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		self._nParticlesPerPE = nParticlesPerPE
 		
 		# the particle filters are built (each one associated with a different set of sensors)
-		self._PEs = [EmbeddedTargetTrackingParticleFilter(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,
+		self._PEs = [PFsClass(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,
 													[s for iSensor,s in enumerate(sensors) if iSensor in PEsSensorsConnections[iPe]],
 													aggregatedWeight=1.0/self._nPEs) for iPe in range(self._nPEs)]
 		
@@ -322,3 +323,18 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		normalizedAggregatedWeights = self.getAggregatedWeights()/self.getAggregatedWeights().sum()
 		
 		return np.multiply(np.hstack([PE.computeMean() for PE in self._PEs]),normalizedAggregatedWeights).sum(axis=1)[np.newaxis].T
+
+class ActivationsAwareEmbeddedTargetTrackingParticleFilter(EmbeddedTargetTrackingParticleFilter):
+	
+	def __init__(self,nParticles,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,aggregatedWeight=1.0,function=lambda x:2*x+1):
+		
+		super().__init__(nParticles,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,aggregatedWeight)
+		
+		self._function = function
+	
+	def step(self,observations):
+		
+		# the number active sensors is taken into account in the weights
+		self._weights *= self._function(observations.sum())
+		
+		super().step(observations)
