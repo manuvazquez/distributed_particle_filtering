@@ -11,7 +11,6 @@ import signal
 import socket
 import pickle
 import argparse
-import scipy.io
 
 # keys used to identify the different pseudo random numbers generators (they must coincide with those in the parameters file...)
 PRNGsKeys = ["Sensors and Monte Carlo pseudo random numbers generator","Trajectory pseudo random numbers generator","topology pseudo random numbers generator"]
@@ -47,19 +46,13 @@ else:
 		# the parameters file is read to memory
 		parameters = json.load(jsonData)
 
-# number of particles per processing element (PE)
-K = parameters["number of particles per PE"]
-
-# different setups for the PEs
-topologiesSettings = parameters['topologies']
-
 # number of sensors, radius...
 sensorsSettings = parameters["sensors"]
 
 # number of time instants
 nTimeInstants = parameters["number of time instants"]
 
-# roomSettings dimensions
+# room dimensions
 roomSettings = parameters["room"]
 
 # parameters for the distribution of the initial state
@@ -90,12 +83,9 @@ import matplotlib.pyplot as plt
 import target
 import state
 import sensor
-import plot
-from smc import particle_filter
 from smc import resampling
-import topology
-import drnautil
 import sensors_PEs_connector
+import simulation
 
 # the name of the machine running the program (supposedly, using the socket module gives rise to portable code)
 hostname = socket.gethostname()
@@ -112,66 +102,6 @@ np.set_printoptions(precision=3,linewidth=100)
 # ---------------------------------------------
 
 # NOTE: most functions access global variables, though they don't modify them (except one of the handlers)
-
-def saveData():
-	
-	if 'iFrame' not in globals() or iFrame==0:
-		print('saveData: nothing to save...skipping')
-		return
-
-	# the mean of the MSE incurred by both PFs
-	centralizedPF_MSE = (np.subtract(centralizedPF_pos[:,:,:iFrame,:],targetPosition[:,:,:iFrame,np.newaxis])**2).mean(axis=0).mean(axis=1)
-	distributedPF_MSE = (np.subtract(distributedPF_pos[:,:,:iFrame,:],targetPosition[:,:,:iFrame,np.newaxis])**2).mean(axis=0).mean(axis=1)
-	
-	# ...the same for the error (euclidean distance)
-	centralizedPF_error = np.sqrt((np.subtract(centralizedPF_pos[:,:,:iFrame,:],targetPosition[:,:,:iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
-	distributedPF_error = np.sqrt((np.subtract(distributedPF_pos[:,:,:iFrame,:],targetPosition[:,:,:iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
-
-	# MSE vs time (only the results for the first topology are plotted)
-	plot.distributedPFagainstCentralizedPF(np.arange(nTimeInstants),centralizedPF_MSE[:,0],distributedPF_MSE[:,0],
-						painterSettings["file name prefix for the MSE vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),
-						centralizedPFparameters={'label':'Centralized PF','color':painterSettings["color for the centralized PF"],'marker':painterSettings["marker for the centralized PF"]},
-						distributedPFparameters={'label':'Distributed PF','color':painterSettings["color for the distributed PF"],'marker':painterSettings["marker for the distributed PF"]},
-						figureId='MSE vs Time')
-
-	# distance vs time (only the results for the first topology are plotted)
-	plot.distributedPFagainstCentralizedPF(np.arange(nTimeInstants),centralizedPF_error[:,0],distributedPF_error[:,0],
-						painterSettings["file name prefix for the euclidean distance vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),
-						centralizedPFparameters={'label':'Centralized PF','color':painterSettings["color for the centralized PF"],'marker':painterSettings["marker for the centralized PF"]},
-						distributedPFparameters={'label':'Distributed PF','color':painterSettings["color for the distributed PF"],'marker':painterSettings["marker for the distributed PF"]},
-						figureId='Euclidean distance vs Time')
-
-	# the aggregated weights are  normalized at ALL TIMES, for EVERY frame and EVERY topology
-	normalizedAggregatedWeights = [np.rollaxis(np.divide(np.rollaxis(w[:,:,:iFrame],2,1),w[:,:,:iFrame].sum(axis=1)[:,:,np.newaxis]),2,1) for w in distributedPFaggregatedWeights]
-	
-	# ...the same data structured in a dictionary
-	normalizedAggregatedWeightsDic = {'normalizedAggregatedWeights_{}'.format(i):array for i,array in enumerate(normalizedAggregatedWeights)}
-	
-	# ...and the maximum weight, also at ALL TIMES and for EVERY frame, is obtained
-	maxWeights = np.array([(w.max(axis=1)**DRNAsettings['q']).mean(axis=1) for w in normalizedAggregatedWeights])
-
-	# evolution of the largest aggregated weight over time (only the results for the first topology are plotted)
-	plot.aggregatedWeightsSupremumVsTime(maxWeights[0,:],aggregatedWeightsUpperBounds[0],
-											 painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + outputFile + '_nFrames={}.eps'.format(repr(iFrame)),DRNAsettings["exchange period"])
-
-	# if requested, save the trajectory
-	if painterSettings["display evolution?"]:
-		if 'iTime' in globals() and iTime>0:
-			painter.save(('trajectory_up_to_iTime={}_' + hostname + '_' + date + '.eps').format(repr(iTime)))
-
-	# a dictionary encompassing all the data to be saved
-	dataToBeSaved = dict(
-			aggregatedWeightsUpperBounds = aggregatedWeightsUpperBounds,
-			targetPosition = targetPosition[:,:,:iFrame],
-			centralizedPF_pos = centralizedPF_pos[:,:,:iFrame,:],
-			distributedPF_pos = distributedPF_pos[:,:,:iFrame,:],
-			**normalizedAggregatedWeightsDic
-		)
-	
-	# data is saved
-	#np.savez('res_' + outputFile + '.npz',**dataToBeSaved)
-	scipy.io.savemat('res_' + outputFile,dataToBeSaved)
-	print('results saved in "{}"'.format('res_' + outputFile))
 
 def saveParameters():
 	
@@ -256,7 +186,7 @@ def sigint_handler(signum, frame):
 def sigusr1_handler(signum, frame):
 	
 	# plots and data are saved...
-	saveData()
+	sim.saveData(targetPosition,iFrame)
 	
 	# ...and the parameters as well
 	saveParameters()
@@ -270,13 +200,6 @@ signal.signal(signal.SIGINT, sigint_handler)
 # handler for SIGUSR1 is installed
 signal.signal(signal.SIGUSR1, sigusr1_handler)
 
-# ----------------------------------------------------------- Processing Elements (PEs) ------------------------------------------------------------------
-
-topologies = [getattr(topology,t['class'])(t['number of PEs'],K,DRNAsettings["exchanged particles maximum percentage"],t['parameters'],PRNG=PRNGs["topology pseudo random numbers generator"]) for t in topologiesSettings]
-
-# we compute the upper bound for the supremum of the aggregated weights that should guarante convergence
-aggregatedWeightsUpperBounds = [drnautil.supremumUpperBound(t['number of PEs'],DRNAsettings['c'],DRNAsettings['q'],DRNAsettings['epsilon']) for t in topologiesSettings]
-
 # ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
 
 # an object for computing the positions of the sensors is created and used
@@ -289,9 +212,6 @@ sensorsSettings["number"] = sensorsPositions.shape[1]
 sensors = [sensor.Sensor(sensorsPositions[:,i:i+1],sensorsSettings["radius"],
 						 probDetection=sensorsSettings["probability of detection within the radius"],probFalseAlarm=sensorsSettings["probability of false alarm"],
 						 PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]) for i in range(sensorsSettings["number"])]
-
-sensorsPEsConnectorParameters = parameters['available sensors with PEs connectors'][DRNAsettings['sensors with PEs connector']]
-sensorsPEsConnector = getattr(sensors_PEs_connector,sensorsPEsConnectorParameters['class'])(sensorsSettings["number"],sensorsPEsConnectorParameters)
 
 # ----------------------------------------------------------------- dynamic model ------------------------------------------------------------------------
 
@@ -310,31 +230,18 @@ resamplingAlgorithm = resampling.MultinomialResamplingAlgorithm(PRNGs["Sensors a
 #resamplingCriterion = resampling.EffectiveSampleSizeBasedResamplingCriterion(SMCsettings["resampling ratio"])
 resamplingCriterion = resampling.AlwaysResamplingCriterion()
 
-# plain non-parallelized particle filter
-PFsForTopologies = [particle_filter.CentralizedTargetTrackingParticleFilter(K*t.getNumberOfPEs(),resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors) for t in topologies]
-
-# distributed particle filter
-distributedPFsForTopologies = [particle_filter.TargetTrackingParticleFilterWithDRNA(
-	DRNAsettings["exchange period"],t,upperBound,K,DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-	sensors,sensorsPEsConnector.getConnections(t.getNumberOfPEs())
-	#,PFsClass=particle_filter.ActivationsAwareEmbeddedTargetTrackingParticleFilter
-	) for t,upperBound in zip(topologies,aggregatedWeightsUpperBounds)]
-
-#------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
-
-# we store the aggregated weights...
-distributedPFaggregatedWeights = [np.empty((nTimeInstants,t.getNumberOfPEs(),parameters["number of frames"])) for t in topologies]
-
-# ...and the position estimates
-centralizedPF_pos,distributedPF_pos = np.empty((2,nTimeInstants,parameters["number of frames"],len(topologies))),np.empty((2,nTimeInstants,parameters["number of frames"],len(topologies)))
+#-------------------------------------------------------------------- other stuff  -----------------------------------------------------------------------
 
 # there will be as many trajectories as frames
 targetPosition = np.empty((2,nTimeInstants,parameters["number of frames"]))
 
-#------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
-
 # the object representing the target
 mobile = target.Target(prior,transitionKernel,PRNG=PRNGs["Trajectory pseudo random numbers generator"])
+
+# a "simulation" object is created
+sim = simulation.Convergence(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
+
+#------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
 
 # NOTE: a "while loop" is here more convenient than a "for loop" because having the "iFrame" variable defined at all times after the processing has started (and finished) 
 # allows to know hown many frames have actually been processed (if any)
@@ -350,67 +257,12 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 	# NOTE: conversion to float is done so that the observations (either 1 or 0) are amenable to be used in later computations
 	observations = [np.array([sensor.detect(state.position(s[:,np.newaxis])) for sensor in sensors],dtype=float) for s in targetPosition[:,:,iFrame].T]
 	
-	for iTopology,(pf,distributedPf) in enumerate(zip(PFsForTopologies,distributedPFsForTopologies)):
-		
-		# initialization of the particle filters
-		pf.initialize()
-		distributedPf.initialize()
-
-		if painterSettings['display evolution?']:
-			
-			# if this is the first iteration...
-			if 'painter' in locals():
-				
-				# ...then, the previous figure is closed
-				painter.close()
-
-			# this object will handle graphics...
-			painter = plot.RectangularRoomPainter(roomSettings["bottom left corner"],roomSettings["top right corner"],sensorsPositions,sleepTime=painterSettings["sleep time between updates"])
-
-			# ...e.g., draw the sensors
-			painter.setup()
-
-		for iTime in range(nTimeInstants):
-
-			print('---------- iFrame = {}, iTopology = {}, iTime = {}'.format(repr(iFrame),repr(iTopology),repr(iTime)))
-
-			print('position:\n',targetPosition[:,iTime:iTime+1,iFrame])
-			print('velocity:\n',targetVelocity[:,iTime:iTime+1])
-			
-			# particle filters are updated
-			pf.step(observations[iTime])
-			distributedPf.step(observations[iTime])
-			
-			# the mean computed by the centralized and distributed PFs
-			centralizedPF_mean,distributedPF_mean = pf.computeMean(),distributedPf.computeMean()
-			
-			centralizedPF_pos[:,iTime:iTime+1,iFrame,iTopology],distributedPF_pos[:,iTime:iTime+1,iFrame,iTopology] = state.position(centralizedPF_mean),state.position(distributedPF_mean)
-			
-			# the aggregated weights of the different PEs in the distributed PF are stored
-			distributedPFaggregatedWeights[iTopology][iTime,:,iFrame] = distributedPf.getAggregatedWeights()
-			
-			print('centralized PF\n',centralizedPF_mean)
-			print('distributed PF\n',distributedPF_mean)
-			
-			if painterSettings["display evolution?"]:
-
-				# the plot is updated with the position of the target...
-				painter.updateTargetPosition(targetPosition[:,iTime:iTime+1,iFrame])
-				
-				# ...those estimated by the PFs
-				painter.updateEstimatedPosition(state.position(centralizedPF_mean),identifier='centralized',color=painterSettings["color for the centralized PF"])
-				painter.updateEstimatedPosition(state.position(distributedPF_mean),identifier='distributed',color=painterSettings["color for the distributed PF"])
-
-				if painterSettings["display particles evolution?"]:
-
-					# ...and those of the particles...
-					painter.updateParticlesPositions(state.position(pf.getState()),identifier='centralized',color=painterSettings["color for the centralized PF"])
-					painter.updateParticlesPositions(state.position(distributedPf.getState()),identifier='distributed',color=painterSettings["color for the distributed PF"])
+	sim.processFrame(targetPosition[:,:,iFrame],targetVelocity,observations,iFrame)
 	
 	iFrame += 1
 	
 # plots and data are saved...
-saveData()
+sim.saveData(targetPosition,iFrame)
 
 # ...and the parameters too
 saveParameters()

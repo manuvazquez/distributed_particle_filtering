@@ -50,6 +50,11 @@ class Sensor:
 		likelihoods[distances>=self._threshold] = self._pmfObservationsWhenFar[observation]
 
 		return likelihoods
+	
+	@property
+	def position(self):
+		
+		return self._position
 
 class SensorLayer:
 	
