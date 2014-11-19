@@ -186,7 +186,7 @@ def sigint_handler(signum, frame):
 def sigusr1_handler(signum, frame):
 	
 	# plots and data are saved...
-	sim.saveData(targetPosition,iFrame)
+	sim.saveData(targetPosition)
 	
 	# ...and the parameters as well
 	saveParameters()
@@ -257,12 +257,12 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 	# NOTE: conversion to float is done so that the observations (either 1 or 0) are amenable to be used in later computations
 	observations = [np.array([sensor.detect(state.position(s[:,np.newaxis])) for sensor in sensors],dtype=float) for s in targetPosition[:,:,iFrame].T]
 	
-	sim.processFrame(targetPosition[:,:,iFrame],targetVelocity,observations,iFrame)
+	sim.processFrame(targetPosition[:,:,iFrame],targetVelocity,observations)
 	
 	iFrame += 1
 	
 # plots and data are saved...
-sim.saveData(targetPosition,iFrame)
+sim.saveData(targetPosition)
 
 # ...and the parameters too
 saveParameters()

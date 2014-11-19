@@ -35,13 +35,16 @@ class Simulation(metaclass=abc.ABCMeta):
 		# sensors positions are gathered
 		self._sensorsPositions = np.hstack([s.position for s in sensors])
 		
-	@abc.abstractmethod
-	def processFrame(self,targetPosition,targetVelocity,observations,iFrame):
+		# ...so that it equals 0 the first time it is incremented 
+		self._iFrame = -1
 		
-		pass
+	@abc.abstractmethod
+	def processFrame(self,targetPosition,targetVelocity,observations):
+		
+		self._iFrame += 1
 	
 	@abc.abstractmethod
-	def saveData(self,targetPosition,iFrame):
+	def saveData(self,targetPosition):
 		
 		pass
 
@@ -80,38 +83,38 @@ class Convergence(Simulation):
 		# ...and the position estimates
 		self._centralizedPF_pos,self._distributedPF_pos = np.empty((2,self._nTimeInstants,parameters["number of frames"],len(topologies))),np.empty((2,self._nTimeInstants,parameters["number of frames"],len(topologies)))
 		
-	def saveData(self,targetPosition,iFrame):
+	def saveData(self,targetPosition):
 		
-		super().saveData(targetPosition,iFrame)
+		super().saveData(targetPosition)
 		
-		if iFrame==0:
+		if self._iFrame==0:
 			print('saveData: nothing to save...skipping')
 			return
 
 		# the mean of the MSE incurred by both PFs
-		centralizedPF_MSE = (np.subtract(self._centralizedPF_pos[:,:,:iFrame,:],targetPosition[:,:,:iFrame,np.newaxis])**2).mean(axis=0).mean(axis=1)
-		distributedPF_MSE = (np.subtract(self._distributedPF_pos[:,:,:iFrame,:],targetPosition[:,:,:iFrame,np.newaxis])**2).mean(axis=0).mean(axis=1)
+		centralizedPF_MSE = (np.subtract(self._centralizedPF_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).mean(axis=0).mean(axis=1)
+		distributedPF_MSE = (np.subtract(self._distributedPF_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).mean(axis=0).mean(axis=1)
 		
 		# ...the same for the error (euclidean distance)
-		centralizedPF_error = np.sqrt((np.subtract(self._centralizedPF_pos[:,:,:iFrame,:],targetPosition[:,:,:iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
-		distributedPF_error = np.sqrt((np.subtract(self._distributedPF_pos[:,:,:iFrame,:],targetPosition[:,:,:iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
+		centralizedPF_error = np.sqrt((np.subtract(self._centralizedPF_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
+		distributedPF_error = np.sqrt((np.subtract(self._distributedPF_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
 
 		# MSE vs time (only the results for the first topology are plotted)
 		plot.distributedPFagainstCentralizedPF(np.arange(self._nTimeInstants),centralizedPF_MSE[:,0],distributedPF_MSE[:,0],
-							self._painterSettings["file name prefix for the MSE vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(iFrame)),
+							self._painterSettings["file name prefix for the MSE vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
 							centralizedPFparameters={'label':'Centralized PF','color':self._painterSettings["color for the centralized PF"],'marker':self._painterSettings["marker for the centralized PF"]},
 							distributedPFparameters={'label':'Distributed PF','color':self._painterSettings["color for the distributed PF"],'marker':self._painterSettings["marker for the distributed PF"]},
 							figureId='MSE vs Time')
 
 		# distance vs time (only the results for the first topology are plotted)
 		plot.distributedPFagainstCentralizedPF(np.arange(self._nTimeInstants),centralizedPF_error[:,0],distributedPF_error[:,0],
-							self._painterSettings["file name prefix for the euclidean distance vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(iFrame)),
+							self._painterSettings["file name prefix for the euclidean distance vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
 							centralizedPFparameters={'label':'Centralized PF','color':self._painterSettings["color for the centralized PF"],'marker':self._painterSettings["marker for the centralized PF"]},
 							distributedPFparameters={'label':'Distributed PF','color':self._painterSettings["color for the distributed PF"],'marker':self._painterSettings["marker for the distributed PF"]},
 							figureId='Euclidean distance vs Time')
 
 		# the aggregated weights are normalized at ALL TIMES, for EVERY frame and EVERY topology
-		normalizedAggregatedWeights = [np.rollaxis(np.divide(np.rollaxis(w[:,:,:iFrame],2,1),w[:,:,:iFrame].sum(axis=1)[:,:,np.newaxis]),2,1) for w in self._distributedPFaggregatedWeights]
+		normalizedAggregatedWeights = [np.rollaxis(np.divide(np.rollaxis(w[:,:,:self._iFrame],2,1),w[:,:,:self._iFrame].sum(axis=1)[:,:,np.newaxis]),2,1) for w in self._distributedPFaggregatedWeights]
 		
 		# ...the same data structured in a dictionary
 		normalizedAggregatedWeightsDic = {'normalizedAggregatedWeights_{}'.format(i):array for i,array in enumerate(normalizedAggregatedWeights)}
@@ -121,7 +124,7 @@ class Convergence(Simulation):
 
 		# evolution of the largest aggregated weight over time (only the results for the first topology are plotted)
 		plot.aggregatedWeightsSupremumVsTime(maxWeights[0,:],self._aggregatedWeightsUpperBounds[0],
-												self._painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(iFrame)),self._DRNAsettings["exchange period"])
+												self._painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),self._DRNAsettings["exchange period"])
 
 		# if requested, save the trajectory
 		if self._painterSettings["display evolution?"]:
@@ -131,9 +134,9 @@ class Convergence(Simulation):
 		# a dictionary encompassing all the data to be saved
 		dataToBeSaved = dict(
 				aggregatedWeightsUpperBounds = self._aggregatedWeightsUpperBounds,
-				targetPosition = targetPosition[:,:,:iFrame],
-				centralizedPF_pos = self._centralizedPF_pos[:,:,:iFrame,:],
-				distributedPF_pos = self._distributedPF_pos[:,:,:iFrame,:],
+				targetPosition = targetPosition[:,:,:self._iFrame],
+				centralizedPF_pos = self._centralizedPF_pos[:,:,:self._iFrame,:],
+				distributedPF_pos = self._distributedPF_pos[:,:,:self._iFrame,:],
 				**normalizedAggregatedWeightsDic
 			)
 		
@@ -142,9 +145,9 @@ class Convergence(Simulation):
 		scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
 		print('results saved in "{}"'.format('res_' + self._outputFile))
 	
-	def processFrame(self,targetPosition,targetVelocity,observations,iFrame):
+	def processFrame(self,targetPosition,targetVelocity,observations):
 		
-		super().processFrame(targetPosition,targetVelocity,observations,iFrame)
+		super().processFrame(targetPosition,targetVelocity,observations)
 		
 		for iTopology,(pf,distributedPf) in enumerate(zip(self._PFsForTopologies,self._distributedPFsForTopologies)):
 			
@@ -168,7 +171,7 @@ class Convergence(Simulation):
 
 			for iTime in range(self._nTimeInstants):
 
-				print('---------- iFrame = {}, iTopology = {}, iTime = {}'.format(repr(iFrame),repr(iTopology),repr(iTime)))
+				print('---------- iFrame = {}, iTopology = {}, iTime = {}'.format(repr(self._iFrame),repr(iTopology),repr(iTime)))
 
 				print('position:\n',targetPosition[:,iTime:iTime+1])
 				print('velocity:\n',targetVelocity[:,iTime:iTime+1])
@@ -180,10 +183,10 @@ class Convergence(Simulation):
 				# the mean computed by the centralized and distributed PFs
 				centralizedPF_mean,distributedPF_mean = pf.computeMean(),distributedPf.computeMean()
 				
-				self._centralizedPF_pos[:,iTime:iTime+1,iFrame,iTopology],self._distributedPF_pos[:,iTime:iTime+1,iFrame,iTopology] = state.position(centralizedPF_mean),state.position(distributedPF_mean)
+				self._centralizedPF_pos[:,iTime:iTime+1,self._iFrame,iTopology],self._distributedPF_pos[:,iTime:iTime+1,self._iFrame,iTopology] = state.position(centralizedPF_mean),state.position(distributedPF_mean)
 				
 				# the aggregated weights of the different PEs in the distributed PF are stored
-				self._distributedPFaggregatedWeights[iTopology][iTime,:,iFrame] = distributedPf.getAggregatedWeights()
+				self._distributedPFaggregatedWeights[iTopology][iTime,:,self._iFrame] = distributedPf.getAggregatedWeights()
 				
 				print('centralized PF\n',centralizedPF_mean)
 				print('distributed PF\n',distributedPF_mean)
