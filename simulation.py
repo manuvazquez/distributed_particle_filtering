@@ -226,8 +226,18 @@ class PartialObservations(Simulation):
 		sensorsPEsConnectorParameters = parameters['available sensors with PEs connectors'][self._DRNAsettings['sensors with PEs connector']]
 		sensorsPEsConnector = getattr(sensors_PEs_connector,sensorsPEsConnectorParameters['class'])(len(sensors),sensorsPEsConnectorParameters)
 		
-		functions = [lambda x:1,lambda x:2*x+1]
-		#functions = [lambda x:1]
+		# the functions to be tested are extracted from the parameters file...
+		functions = [eval('lambda x:' + f['definition']) for f in parameters['partial observations']['functions of #1s']]
+		
+		# ...along with the colors to be used for them in the plots...
+		self._PFsColors = [f['color when plotting'] for f in parameters['partial observations']['functions of #1s']]
+		
+		# ...and the labels
+		self._PFsLabels = [f['label'] for f in parameters['partial observations']['functions of #1s']]
+		
+		# the color and label for the centralized PF are inserted at the front of the corresponding lists
+		self._PFsColors.insert(0,'black')
+		self._PFsLabels.insert(0,'Centralized')
 		
 		# distributed PFs are added to the list
 		for f in functions:
@@ -242,9 +252,6 @@ class PartialObservations(Simulation):
 		# the position estimates
 		self._PFs_pos = np.empty((2,self._nTimeInstants,parameters["number of frames"],len(self._PFs)))
 		
-		self._PFsColors = ['blue','green','magenta']
-		self._PFsLabels = ['Centralized','DRNA (1)','DRNA (2x+1)']
-		
 		assert len(self._PFsColors) == len(self._PFsLabels) == len(self._PFs) == len(functions)+1
 		
 	def saveData(self,targetPosition):
@@ -254,6 +261,7 @@ class PartialObservations(Simulation):
 		
 		# the mean of the error (euclidean distance) incurred by the PFs
 		PF_error = np.sqrt((np.subtract(self._PFs_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
+		#np.sqrt((np.subtract(f['PF_pos'][:,:,:,:],f['targetPosition'][:,:,:,np.newaxis])**2).sum(axis=0)).mean(axis=1)
 		
 		# a dictionary encompassing all the data to be saved
 		dataToBeSaved = dict(
