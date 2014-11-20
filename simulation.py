@@ -261,7 +261,6 @@ class PartialObservations(Simulation):
 		
 		# the mean of the error (euclidean distance) incurred by the PFs
 		PF_error = np.sqrt((np.subtract(self._PFs_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
-		#np.sqrt((np.subtract(f['PF_pos'][:,:,:,:],f['targetPosition'][:,:,:,np.newaxis])**2).sum(axis=0)).mean(axis=1)
 		
 		# a dictionary encompassing all the data to be saved
 		dataToBeSaved = dict(
@@ -274,7 +273,9 @@ class PartialObservations(Simulation):
 		scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
 		print('results saved in "{}"'.format('res_' + self._outputFile))
 		
-		plot.PFs(range(self._nTimeInstants),PF_error,None,[{'label':l} for l in self._PFsLabels])
+		plot.PFs(range(self._nTimeInstants),PF_error,
+		   self._painterSettings["file name prefix for the PFs with partial observations vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
+			[{'label':l} for l in self._PFsLabels])
 		
 	def processFrame(self,targetPosition,targetVelocity,observations):
 		

@@ -19,7 +19,7 @@ class EverySensorWithEveryPEConnector(SensorsPEsConnector):
 		
 		return [list(range(self._nSensors))]*nPEs
 
-class EverySensorWithSomePEsConnector(SensorsPEsConnector):
+class SensorOrientedConnector(SensorsPEsConnector):
 	
 	def getConnections(self,nPEs):
 
