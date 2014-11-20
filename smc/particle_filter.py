@@ -330,11 +330,27 @@ class ActivationsAwareEmbeddedTargetTrackingParticleFilter(EmbeddedTargetTrackin
 		
 		super().__init__(nParticles,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,aggregatedWeight)
 		
-		self._function = function
-	
+		# attribute mean to be accessed
+		self.function = function
+		
 	def step(self,observations):
 		
 		# the number active sensors is taken into account in the weights
-		self._weights *= self._function(observations.sum())
+		self._weights *= self.function(observations.sum())
 		
+		# notice that the method from the superclass is called AFTER updating the weights (this is because some actions in the superclass' method depend on the final weights) 
 		super().step(observations)
+
+class ActivationsAwareTargetTrackingParticleFilterWithDRNA(TargetTrackingParticleFilterWithDRNA):
+	
+	# here the default PF class is "ActivationsAwareEmbeddedTargetTrackingParticleFilter"
+	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,function,
+			  PFsClass=ActivationsAwareEmbeddedTargetTrackingParticleFilter):
+		
+		# let the superclass do the hard work
+		super().__init__(exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass)
+		
+		# the given function is set to be used by all the PEs
+		for PE in self._PEs:
+			
+			PE.function = function

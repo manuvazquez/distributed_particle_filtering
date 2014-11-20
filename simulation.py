@@ -32,6 +32,9 @@ class Simulation(metaclass=abc.ABCMeta):
 		# room  dimensions
 		self._roomSettings = parameters["room"]
 		
+		# different setups for the PEs
+		self._topologiesSettings = parameters['topologies']
+		
 		# sensors positions are gathered
 		self._sensorsPositions = np.hstack([s.position for s in sensors])
 		
@@ -45,24 +48,23 @@ class Simulation(metaclass=abc.ABCMeta):
 	
 	@abc.abstractmethod
 	def saveData(self,targetPosition):
-		
-		pass
+
+		if self._iFrame==0:
+			print('saveData: nothing to save...skipping')
+			return
 
 class Convergence(Simulation):
 	
 	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs):
 		
-		# the the super class do its thing...
+		# let the super class do its thing...
 		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
 		
-		# different setups for the PEs
-		topologiesSettings = parameters['topologies']
-		
 		topologies = [getattr(topology,t['class'])(t['number of PEs'],self._K,self._DRNAsettings["exchanged particles maximum percentage"],t['parameters'],
-											 PRNG=PRNGs["topology pseudo random numbers generator"]) for t in topologiesSettings]
+											 PRNG=PRNGs["topology pseudo random numbers generator"]) for t in self._topologiesSettings]
 		
 		# we compute the upper bound for the supremum of the aggregated weights that should guarante convergence
-		self._aggregatedWeightsUpperBounds = [drnautil.supremumUpperBound(t['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon']) for t in topologiesSettings]
+		self._aggregatedWeightsUpperBounds = [drnautil.supremumUpperBound(t['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon']) for t in self._topologiesSettings]
 		
 		# plain non-parallelized particle filter
 		self._PFsForTopologies = [particle_filter.CentralizedTargetTrackingParticleFilter(self._K*t.getNumberOfPEs(),resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors) for t in topologies]
@@ -85,12 +87,9 @@ class Convergence(Simulation):
 		
 	def saveData(self,targetPosition):
 		
+		# let the super class do its thing...
 		super().saveData(targetPosition)
 		
-		if self._iFrame==0:
-			print('saveData: nothing to save...skipping')
-			return
-
 		# the mean of the MSE incurred by both PFs
 		centralizedPF_MSE = (np.subtract(self._centralizedPF_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).mean(axis=0).mean(axis=1)
 		distributedPF_MSE = (np.subtract(self._distributedPF_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).mean(axis=0).mean(axis=1)
@@ -147,6 +146,7 @@ class Convergence(Simulation):
 	
 	def processFrame(self,targetPosition,targetVelocity,observations):
 		
+		# let the super class do its thing...
 		super().processFrame(targetPosition,targetVelocity,observations)
 		
 		for iTopology,(pf,distributedPf) in enumerate(zip(self._PFsForTopologies,self._distributedPFsForTopologies)):
@@ -205,3 +205,120 @@ class Convergence(Simulation):
 						# ...and those of the particles...
 						self._painter.updateParticlesPositions(state.position(pf.getState()),identifier='centralized',color=self._painterSettings["color for the centralized PF"])
 						self._painter.updateParticlesPositions(state.position(distributedPf.getState()),identifier='distributed',color=self._painterSettings["color for the distributed PF"])
+
+class PartialObservations(Simulation):
+	
+	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs):
+		
+		# let the super class do its thing...
+		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
+		
+		# the FIRST topology in the parameters file is selected
+		selectedTopologySettings = self._topologiesSettings[0]
+		selectedTopology = getattr(topology,selectedTopologySettings['class'])(selectedTopologySettings['number of PEs'],self._K,self._DRNAsettings["exchanged particles maximum percentage"],selectedTopologySettings['parameters'],
+											 PRNG=PRNGs["topology pseudo random numbers generator"])
+		
+		# plain (centralized) particle filter
+		self._PFs = [particle_filter.CentralizedTargetTrackingParticleFilter(self._K*selectedTopology.getNumberOfPEs(),resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)]
+		
+		aggregatedWeightsUpperBound = drnautil.supremumUpperBound(selectedTopologySettings['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
+		
+		sensorsPEsConnectorParameters = parameters['available sensors with PEs connectors'][self._DRNAsettings['sensors with PEs connector']]
+		sensorsPEsConnector = getattr(sensors_PEs_connector,sensorsPEsConnectorParameters['class'])(len(sensors),sensorsPEsConnectorParameters)
+		
+		functions = [lambda x:1,lambda x:2*x+1]
+		#functions = [lambda x:1]
+		
+		# distributed PFs are added to the list
+		for f in functions:
+			
+			self._PFs.append(
+				particle_filter.ActivationsAwareTargetTrackingParticleFilterWithDRNA(
+					self._DRNAsettings["exchange period"],selectedTopology,aggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
+					prior,transitionKernel,sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()),f
+				)
+			)
+		
+		# the position estimates
+		self._PFs_pos = np.empty((2,self._nTimeInstants,parameters["number of frames"],len(self._PFs)))
+		
+		self._PFsColors = ['blue','green','magenta']
+		self._PFsLabels = ['Centralized','DRNA (1)','DRNA (2x+1)']
+		
+		assert len(self._PFsColors) == len(self._PFsLabels) == len(self._PFs) == len(functions)+1
+		
+	def saveData(self,targetPosition):
+		
+		# let the super class do its thing...
+		super().saveData(targetPosition)
+		
+		# the mean of the error (euclidean distance) incurred by the PFs
+		PF_error = np.sqrt((np.subtract(self._PFs_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
+		
+		# a dictionary encompassing all the data to be saved
+		dataToBeSaved = dict(
+				targetPosition = targetPosition[:,:,:self._iFrame],
+				PF_pos = self._PFs_pos[:,:,:self._iFrame,:]
+			)
+		
+		# data is saved
+		#np.savez('res_' + self._outputFile + '.npz',**dataToBeSaved)
+		scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
+		print('results saved in "{}"'.format('res_' + self._outputFile))
+		
+		plot.PFs(range(self._nTimeInstants),PF_error,None,[{'label':l} for l in self._PFsLabels])
+		
+	def processFrame(self,targetPosition,targetVelocity,observations):
+		
+		# let the super class do its thing...
+		super().processFrame(targetPosition,targetVelocity,observations)
+		
+		for pf in self._PFs:
+			
+			# initialization of the particle filters
+			pf.initialize()
+		
+		if self._painterSettings['display evolution?']:
+			
+			# if this is not the first iteration...
+			if hasattr(self,'_painter'):
+				
+				# ...then, the previous figure is closed
+				self._painter.close()
+
+			# this object will handle graphics...
+			self._painter = plot.RectangularRoomPainter(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],self._sensorsPositions,sleepTime=self._painterSettings["sleep time between updates"])
+
+			# ...e.g., draw the sensors
+			self._painter.setup()
+
+		for iTime in range(self._nTimeInstants):
+
+			print('---------- iFrame = {}, iTime = {}'.format(repr(self._iFrame),repr(iTime)))
+
+			print('position:\n',targetPosition[:,iTime:iTime+1])
+			print('velocity:\n',targetVelocity[:,iTime:iTime+1])
+			
+			# particle filters are updated
+			for iPF,(pf,label) in enumerate(zip(self._PFs,self._PFsLabels)):
+				
+				# initialization of the particle filters
+				pf.step(observations[iTime])
+				
+				self._PFs_pos[:,iTime:iTime+1,self._iFrame,iPF] = state.position(pf.computeMean())
+				
+				print('position estimated by {}\n'.format(label),self._PFs_pos[:,iTime:iTime+1,self._iFrame,iPF])
+			
+			if self._painterSettings["display evolution?"]:
+
+				# the plot is updated with the position of the target...
+				self._painter.updateTargetPosition(targetPosition[:,iTime:iTime+1])
+				
+				# ...those estimated by the PFs
+				for iPF,(pf,color) in enumerate(zip(self._PFs,self._PFsColors)):
+					
+					self._painter.updateEstimatedPosition(self._PFs_pos[:,iTime:iTime+1,self._iFrame,iPF],identifier='#{}'.format(iPF),color=color)
+					
+					if self._painterSettings["display particles evolution?"]:
+						
+						self._painter.updateParticlesPositions(state.position(pf.getState()),identifier='#{}'.format(iPF),color=color)

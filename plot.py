@@ -46,6 +46,39 @@ def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,outputFile,c
 	
 	return ax,fig
 
+def PFs(x,y,outputFile,parameters,figureId='vs Time',axesProperties={}):
+
+	# a new pair of axes is set up
+	ax,fig = setupAxes(figureId)
+	
+	assert y.shape[0] == len(x)
+	assert y.shape[1] == len(parameters)
+	
+	# several plots in the same figure
+	ax.hold(True)
+	
+	for data,param in zip(y.T,parameters):
+		
+		ax.plot(x,data,**param)
+	
+	# the labes are shown
+	ax.legend()
+
+	# the x axis is adjusted so that no empty space is left before the beginning of the plot
+	ax.set_xbound(lower=x[0],upper=x[-1])
+	
+	# set any additional properties for the axes
+	ax.set(**axesProperties)
+	
+	# show the plot...now!!
+	fig.show()
+	
+	if outputFile:
+	
+		plt.savefig(outputFile)
+	
+	return ax,fig
+
 def aggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregatedWeightsVsTime.eps',xticksStep=10):
 
 	# the corresponding axes are created
