@@ -223,7 +223,7 @@ class PartialObservations(Simulation):
 		
 		aggregatedWeightsUpperBound = drnautil.supremumUpperBound(selectedTopologySettings['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
 		
-		sensorsPEsConnectorParameters = parameters['available sensors with PEs connectors'][self._DRNAsettings['sensors with PEs connector']]
+		sensorsPEsConnectorParameters = parameters['partial observations']['available sensors with PEs connectors'][parameters['partial observations']['sensors with PEs connector']]
 		sensorsPEsConnector = getattr(sensors_PEs_connector,sensorsPEsConnectorParameters['class'])(len(sensors),sensorsPEsConnectorParameters)
 		
 		# the functions to be tested are extracted from the parameters file...

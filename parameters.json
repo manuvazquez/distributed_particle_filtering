@@ -83,19 +83,19 @@
 		"c": 4.0,
 		"q": 4,
 		"epsilon": 0.1,
-		"normalization period": 5,
-		"sensors with PEs connector": "every sensor connected to every PE"
-	},
-	"available sensors with PEs connectors": {
-		"every sensor connected to every PE": {
-			"class": "EverySensorWithEveryPEConnector"
-		},
-		"fixed number of PEs per sensor": {
-			"class": "SensorOrientedConnector",
-			"number of PEs per sensor": 4
-		}
+		"normalization period": 5
 	},
 	"partial observations": {
+		"available sensors with PEs connectors": {
+			"every sensor connected to every PE": {
+				"class": "EverySensorWithEveryPEConnector"
+			},
+			"fixed number of PEs per sensor": {
+				"class": "SensorOrientedConnector",
+				"number of PEs per sensor": 4
+			}
+		},
+		"sensors with PEs connector": "every sensor connected to every PE",
 		"functions of #1s": [
 			{
 				"definition": "1",
