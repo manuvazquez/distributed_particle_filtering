@@ -275,7 +275,7 @@ class PartialObservations(Simulation):
 		
 		plot.PFs(range(self._nTimeInstants),PF_error,
 		   self._painterSettings["file name prefix for the PFs with partial observations vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
-			[{'label':l} for l in self._PFsLabels])
+			[{'label':l,'color':c} for l,c in zip(self._PFsLabels,self._PFsColors)])
 		
 	def processFrame(self,targetPosition,targetVelocity,observations):
 		

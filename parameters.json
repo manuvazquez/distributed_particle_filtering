@@ -92,7 +92,7 @@
 		},
 		"fixed number of PEs per sensor": {
 			"class": "SensorOrientedConnector",
-			"number of PEs per sensor": 8
+			"number of PEs per sensor": 4
 		}
 	},
 	"partial observations": {
@@ -114,7 +114,7 @@
 			},
 			{
 				"definition": "2*x+1",
-				"color when plotting": "yellow",
+				"color when plotting": "purple",
 				"label": "DRNA (2x+1)"
 			}
 		]
