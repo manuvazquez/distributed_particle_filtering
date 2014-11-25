@@ -221,38 +221,32 @@ class PartialObservations(Simulation):
 		# plain (centralized) particle filter
 		self._PFs = [particle_filter.CentralizedTargetTrackingParticleFilter(self._K*selectedTopology.getNumberOfPEs(),resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)]
 		
+		# the color and label for the centralized PF are added to the corresponding lists
+		self._PFsColors = ['black']
+		self._PFsLabels = ['Centralized']
+		
 		aggregatedWeightsUpperBound = drnautil.supremumUpperBound(selectedTopologySettings['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
 		
 		sensorsPEsConnectorParameters = parameters['partial observations']['available sensors with PEs connectors'][parameters['partial observations']['sensors with PEs connector']]
 		sensorsPEsConnector = getattr(sensors_PEs_connector,sensorsPEsConnectorParameters['class'])(len(sensors),sensorsPEsConnectorParameters)
 		
-		# the functions to be tested are extracted from the parameters file...
-		functions = [eval('lambda x:' + f['definition']) for f in parameters['partial observations']['functions of #1s']]
-		
-		# ...along with the colors to be used for them in the plots...
-		self._PFsColors = [f['color when plotting'] for f in parameters['partial observations']['functions of #1s']]
-		
-		# ...and the labels
-		self._PFsLabels = [f['label'] for f in parameters['partial observations']['functions of #1s']]
-		
-		# the color and label for the centralized PF are inserted at the front of the corresponding lists
-		self._PFsColors.insert(0,'black')
-		self._PFsLabels.insert(0,'Centralized')
-		
-		# distributed PFs are added to the list
-		for f in functions:
+		# a distributed PF is added to the list for each of the functions defined in the parameters file
+		for f in parameters['partial observations']['functions of #1s']:
 			
 			self._PFs.append(
 				particle_filter.ActivationsAwareTargetTrackingParticleFilterWithDRNA(
 					self._DRNAsettings["exchange period"],selectedTopology,aggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
-					prior,transitionKernel,sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()),f
+					prior,transitionKernel,sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()),eval('lambda x:' + f['definition'])
 				)
 			)
+			
+			self._PFsColors.append(f['color when plotting'])
+			self._PFsLabels.append(f['label'])
 		
 		# the position estimates
 		self._PFs_pos = np.empty((2,self._nTimeInstants,parameters["number of frames"],len(self._PFs)))
 		
-		assert len(self._PFsColors) == len(self._PFsLabels) == len(self._PFs) == len(functions)+1
+		assert len(self._PFsColors) == len(self._PFsLabels) == len(self._PFs)
 		
 	def saveData(self,targetPosition):
 		
