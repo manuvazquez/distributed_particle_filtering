@@ -230,6 +230,16 @@ class PartialObservations(Simulation):
 		sensorsPEsConnectorParameters = parameters['partial observations']['available sensors with PEs connectors'][parameters['partial observations']['sensors with PEs connector']]
 		sensorsPEsConnector = getattr(sensors_PEs_connector,sensorsPEsConnectorParameters['class'])(len(sensors),sensorsPEsConnectorParameters)
 		
+		# a distributed PF with partial observations, in which the estimates are computed using only the PEs with the higher number of active sensors
+		self._PFs.append(
+			particle_filter.OnlyPEsWithActiveSensorsTargetTrackingParticleFilterWithDRNA(
+				self._DRNAsettings["exchange period"],selectedTopology,aggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
+				prior,transitionKernel,sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs())
+			)
+		)
+		self._PFsColors.append('cyan')
+		self._PFsLabels.append('DRNA (PEs with maximum #active sensors)')
+		
 		# a distributed PF is added to the list for each of the functions defined in the parameters file
 		for f in parameters['partial observations']['functions of #1s']:
 			

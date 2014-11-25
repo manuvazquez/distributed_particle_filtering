@@ -239,8 +239,8 @@ targetPosition = np.empty((2,nTimeInstants,parameters["number of frames"]))
 mobile = target.Target(prior,transitionKernel,PRNG=PRNGs["Trajectory pseudo random numbers generator"])
 
 # a "simulation" object is created
-sim = simulation.Convergence(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
-#sim = simulation.PartialObservations(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
+#sim = simulation.Convergence(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
+sim = simulation.PartialObservations(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
 
 #------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
 

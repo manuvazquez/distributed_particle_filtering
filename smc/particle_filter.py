@@ -354,3 +354,35 @@ class ActivationsAwareTargetTrackingParticleFilterWithDRNA(TargetTrackingParticl
 		for PE in self._PEs:
 			
 			PE.function = function
+
+class RememberingNumberOfActiveSensorsEmbeddedTargetTrackingParticleFilter(EmbeddedTargetTrackingParticleFilter):
+	
+	def step(self,observations):
+		
+		# the number of active observations "seen" by this PE is remembered for later use...
+		self.nActiveObservations = observations.sum()
+		
+		# ...and everything else is the same
+		super().step(observations)
+		
+class OnlyPEsWithActiveSensorsTargetTrackingParticleFilterWithDRNA(TargetTrackingParticleFilterWithDRNA):
+	
+	# here the default PF class is "RememberingNumberOfActiveSensorsEmbeddedTargetTrackingParticleFilter"
+	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
+			  PFsClass=RememberingNumberOfActiveSensorsEmbeddedTargetTrackingParticleFilter):
+		
+		# let the superclass do the hard work
+		super().__init__(exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass)
+		
+	def computeMean(self):
+		
+		# the number of 1's that each PE "has seen"
+		nActiveObservations = np.array([p.nActiveObservations for p in self._PEs])
+		
+		# we focus on the PE (or PEs) with the maximum number of active sensors
+		iRelevantPEs = ( nActiveObservations==np.max(nActiveObservations) )
+		
+		# the only aggregated weights that are normalized are the ones corresponding to the indexes of the PEs above
+		normalizedAggregatedWeights = self.getAggregatedWeights()[iRelevantPEs]/self.getAggregatedWeights()[iRelevantPEs].sum()
+		
+		return np.multiply(np.hstack([self._PEs[iPE].computeMean() for iPE in iRelevantPEs if iPE]),normalizedAggregatedWeights).sum(axis=1)[np.newaxis].T
