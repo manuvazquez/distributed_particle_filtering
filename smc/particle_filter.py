@@ -380,9 +380,26 @@ class OnlyPEsWithActiveSensorsTargetTrackingParticleFilterWithDRNA(TargetTrackin
 		nActiveObservations = np.array([p.nActiveObservations for p in self._PEs])
 		
 		# we focus on the PE (or PEs) with the maximum number of active sensors
-		iRelevantPEs = ( nActiveObservations==np.max(nActiveObservations) )
+		iRelevantPEs = np.where(nActiveObservations==np.max(nActiveObservations))[0]
 		
-		# the only aggregated weights that are normalized are the ones corresponding to the indexes of the PEs above
-		normalizedAggregatedWeights = self.getAggregatedWeights()[iRelevantPEs]/self.getAggregatedWeights()[iRelevantPEs].sum()
+		# normalization constant for the aggregated weights of the PEs with active sensors
+		normConstant = self.getAggregatedWeights()[iRelevantPEs].sum()
 		
-		return np.multiply(np.hstack([self._PEs[iPE].computeMean() for iPE in iRelevantPEs if iPE]),normalizedAggregatedWeights).sum(axis=1)[np.newaxis].T
+		# if the above aggregated weights cannot be normalized...
+		# NOTE: array "normalizedAggregatedWeights", initialized below, will only contain the normalized weight of the SELECTED (relevant) PEs
+		if np.isclose(normConstant,0.0):
+			
+			# it is assumed that all the PEs are equally "reliable"
+			normalizedAggregatedWeights = np.ones_like(iRelevantPEs)/len(iRelevantPEs)
+		
+		# ...otherwise
+		else:
+			# ...they are normalized
+			normalizedAggregatedWeights = self.getAggregatedWeights()[iRelevantPEs]/normConstant
+		
+		#if np.isnan(np.multiply(np.hstack([self._PEs[iPE].computeMean() for iPE in iRelevantPEs]),normalizedAggregatedWeights).sum(axis=1)[np.newaxis].T).any():
+			
+			#import code
+			#code.interact(local=dict(globals(), **locals()))
+		
+		return np.multiply(np.hstack([self._PEs[iPE].computeMean() for iPE in iRelevantPEs]),normalizedAggregatedWeights).sum(axis=1)[np.newaxis].T
