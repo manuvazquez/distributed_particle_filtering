@@ -232,7 +232,7 @@ class PartialObservations(Simulation):
 		
 		# a distributed PF with partial observations, in which the estimates are computed using only the PEs with the higher number of active sensors
 		self._PFs.append(
-			particle_filter.OnlyPEsWithActiveSensorsTargetTrackingParticleFilterWithDRNA(
+			particle_filter.OnlyPEsWithMaxActiveSensorsTargetTrackingParticleFilterWithDRNA(
 				self._DRNAsettings["exchange period"],selectedTopology,aggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
 				prior,transitionKernel,sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs())
 			)

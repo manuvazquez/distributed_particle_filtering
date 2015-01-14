@@ -322,6 +322,7 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		# the aggregated weights are not necessarily normalized
 		normalizedAggregatedWeights = self.getAggregatedWeights()/self.getAggregatedWeights().sum()
 		
+		# notice that "computeMean" will return a numpy array the size of the state (rather than a scalar)
 		return np.multiply(np.hstack([PE.computeMean() for PE in self._PEs]),normalizedAggregatedWeights).sum(axis=1)[np.newaxis].T
 
 class ActivationsAwareEmbeddedTargetTrackingParticleFilter(EmbeddedTargetTrackingParticleFilter):
@@ -335,7 +336,7 @@ class ActivationsAwareEmbeddedTargetTrackingParticleFilter(EmbeddedTargetTrackin
 		
 	def step(self,observations):
 		
-		# the number active sensors is taken into account in the weights
+		# the number of active sensors is taken into account in the weights
 		self._weights *= self.function(observations.sum())
 		
 		# notice that the method from the superclass is called AFTER updating the weights (this is because some actions in the superclass' method depend on the final weights) 
@@ -365,7 +366,7 @@ class RememberingNumberOfActiveSensorsEmbeddedTargetTrackingParticleFilter(Embed
 		# ...and everything else is the same
 		super().step(observations)
 		
-class OnlyPEsWithActiveSensorsTargetTrackingParticleFilterWithDRNA(TargetTrackingParticleFilterWithDRNA):
+class OnlyPEsWithMaxActiveSensorsTargetTrackingParticleFilterWithDRNA(TargetTrackingParticleFilterWithDRNA):
 	
 	# here the default PF class is "RememberingNumberOfActiveSensorsEmbeddedTargetTrackingParticleFilter"
 	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
