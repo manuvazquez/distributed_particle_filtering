@@ -189,18 +189,20 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 
 # =========================================================================================================
 
-class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
+class DistributedTargetTrackingParticleFilter(ParticleFilter):
 	
-	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
+	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
 			  PFsClass=EmbeddedTargetTrackingParticleFilter):
 		
+		super().__init__(topology.getNumberOfPEs()*nParticlesPerPE,resamplingAlgorithm,resamplingCriterion)
+		
+		# it is handy to keep the number of PEs in a variable
 		self._nPEs = topology.getNumberOfPEs()
 		
 		# a list of lists, the first one containing the indices of the sensors "seen" by the first PE...and so on
 		self._PEsSensorsConnections = PEsSensorsConnections
 		
-		super().__init__(self._nPEs*nParticlesPerPE,resamplingAlgorithm,resamplingCriterion)
-		
+		# number of particles per Pe
 		self._nParticlesPerPE = nParticlesPerPE
 		
 		# the particle filters are built (each one associated with a different set of sensors)
@@ -208,20 +210,8 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 													[s for iSensor,s in enumerate(sensors) if iSensor in PEsSensorsConnections[iPe]],
 													aggregatedWeight=1.0/self._nPEs) for iPe in range(self._nPEs)]
 		
-		# a exchange of particles among PEs will happen every...
-		self._exchangePeriod = exchangePeriod
-		
 		# ...time instants, according to the geometry of the network
 		self._topology = topology
-
-		# useful for checking how well the algorithm is doing
-		self._aggregatedWeightsUpperBound = aggregatedWeightsUpperBound
-
-		# we get a unique exchange map from this network
-		self._exchangeMap,_ = self._topology.getExchangeTuples()
-		
-		# period for the normalization of the aggregated weights
-		self._normalizationPeriod = normalizationPeriod
 	
 	def initialize(self):
 		
@@ -232,7 +222,7 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 			
 			PE.initialize()
 
-		# because of the exchange and normalization periods, we must keep track of the elapsed (discreet) time instants
+		# because of the normalization period, we must keep track of the elapsed (discreet) time instants
 		self._n = 0
 
 	def step(self,observations):
@@ -248,6 +238,35 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 			
 		# a new time instant has elapsed
 		self._n += 1
+	
+	def getState(self):
+		
+		# the state from every PE is gathered together
+		return np.hstack([PE.getState() for PE in self._PEs])
+
+
+class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilter):
+	
+	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
+			  PFsClass=EmbeddedTargetTrackingParticleFilter):
+		
+		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass)
+		
+		# a exchange of particles among PEs will happen every...
+		self._exchangePeriod = exchangePeriod
+
+		# useful for checking how well the algorithm is doing
+		self._aggregatedWeightsUpperBound = aggregatedWeightsUpperBound
+		
+		# period for the normalization of the aggregated weights
+		self._normalizationPeriod = normalizationPeriod
+
+		# we get a unique exchange map from this network
+		self._exchangeMap,_ = self._topology.getExchangeTuples()
+
+	def step(self,observations):
+		
+		super().step(observations)
 		
 		# if it is exchanging particles time
 		if (self._n % self._exchangePeriod == 0):
@@ -262,7 +281,7 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 			if self.degeneratedAggregatedWeights():
 				print('after exchanging, aggregated weights are still degenerated => assumption 4 is not being satisfied!!')
 				print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
-
+		
 		# in order to peform some checks...
 		aggregatedWeightsSum = self.getAggregatedWeights().sum()
 		
@@ -288,11 +307,14 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		for (exchangeTuple,particles) in zip(self._exchangeMap,aux):
 			self._PEs[exchangeTuple.iPE].setParticle(exchangeTuple.iParticleWithinPE,particles[1])
 			self._PEs[exchangeTuple.iNeighbour].setParticle(exchangeTuple.iParticleWithinNeighbour,particles[0])
-			
-	def getState(self):
+	
+	def computeMean(self):
 		
-		# the state from every PE is gathered together
-		return np.hstack([PE.getState() for PE in self._PEs])
+		# the aggregated weights are not necessarily normalized
+		normalizedAggregatedWeights = self.getAggregatedWeights()/self.getAggregatedWeights().sum()
+		
+		# notice that "computeMean" will return a numpy array the size of the state (rather than a scalar)
+		return np.multiply(np.hstack([PE.computeMean() for PE in self._PEs]),normalizedAggregatedWeights).sum(axis=1)[np.newaxis].T
 	
 	def getAggregatedWeights(self):
 		
@@ -316,14 +338,6 @@ class TargetTrackingParticleFilterWithDRNA(ParticleFilter):
 		else:
 		
 			return False
-		
-	def computeMean(self):
-		
-		# the aggregated weights are not necessarily normalized
-		normalizedAggregatedWeights = self.getAggregatedWeights()/self.getAggregatedWeights().sum()
-		
-		# notice that "computeMean" will return a numpy array the size of the state (rather than a scalar)
-		return np.multiply(np.hstack([PE.computeMean() for PE in self._PEs]),normalizedAggregatedWeights).sum(axis=1)[np.newaxis].T
 
 class ActivationsAwareEmbeddedTargetTrackingParticleFilter(EmbeddedTargetTrackingParticleFilter):
 	

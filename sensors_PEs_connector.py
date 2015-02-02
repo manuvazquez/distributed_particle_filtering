@@ -63,11 +63,14 @@ class SensorsPositionsBasedConnector(SensorsPEsConnector):
 		# a number of samples proportional to the number of PEs...
 		nPoints = self._parameters['number of uniform samples']*nPEs
 		
-		# ...is generated from a uniform distribution whose bounds are given by the rectangular space spanned by the sensors
-		points = np.vstack((numpy.random.uniform(bottomLeftMostPosition[0],topRightMostPosition[0],(1,nPoints)),numpy.random.uniform(bottomLeftMostPosition[1],topRightMostPosition[1],(1,nPoints))))
+		# the seed of the Pseudo Random Numbers Generator to be used below (so that the positions obtained for the PEs stay the same through different runs)
+		PRNG = numpy.random.RandomState(1234567)
 		
-		# "nPEs" centroids for the above coordinates are computed using K-Means
-		PEsPositions,_ = scipy.cluster.vq.kmeans(points.T,nPEs)
+		# ...is generated from a uniform distribution whose bounds are given by the rectangular space spanned by the sensors
+		points = np.vstack((PRNG.uniform(bottomLeftMostPosition[0],topRightMostPosition[0],(1,nPoints)),PRNG.uniform(bottomLeftMostPosition[1],topRightMostPosition[1],(1,nPoints))))
+		
+		# "nPEs" centroids for the above coordinates are computed using K-Means; initial random centroids are passed to the function so it does not generate them with its own random generator
+		PEsPositions,_ = scipy.cluster.vq.kmeans(points.T,points.T[PRNG.choice(points.shape[1],nPEs),:])
 		
 		# more convenient so that (just like the sensors positions), every column contains the two coordinates for a position
 		PEsPositions = PEsPositions.T
