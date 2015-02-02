@@ -92,7 +92,7 @@ class EquispacedOnRectangleSensorLayer(SensorLayer):
 		
 		nOverfittingSensors = (nSquaresInXdimension+1)*(nSquaresInYdimension+1)
 		
-		# if adding a sensor in each dimension we get closer to the number of requested sensors...
+		# if by adding a sensor in each dimension we get closer to the number of requested sensors...
 		if (nSensors-(nSquaresInXdimension*nSquaresInYdimension)) > (nOverfittingSensors-nSensors):
 			# ...we repeat the computations with the "overfitting" number of sensors
 			areaPerSensor = self._area/nOverfittingSensors

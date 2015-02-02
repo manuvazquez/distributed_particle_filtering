@@ -93,6 +93,10 @@
 			"fixed number of PEs per sensor": {
 				"class": "SensorOrientedConnector",
 				"number of PEs per sensor": 4
+			},
+			"sensors connected to the closest PEs": {
+				"class": "SensorsPositionsBasedConnector",
+				"number of uniform samples": 100
 			}
 		},
 		"sensors with PEs connector": "every sensor connected to every PE",

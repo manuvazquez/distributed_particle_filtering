@@ -38,7 +38,7 @@ class Simulation(metaclass=abc.ABCMeta):
 		# sensors positions are gathered
 		self._sensorsPositions = np.hstack([s.position for s in sensors])
 		
-		# ...so that it equals 0 the first time it is incremented 
+		# so that it equals 0 the first time it is incremented...
 		self._iFrame = -1
 		
 	@abc.abstractmethod
@@ -69,7 +69,7 @@ class Convergence(Simulation):
 		# plain non-parallelized particle filter
 		self._PFsForTopologies = [particle_filter.CentralizedTargetTrackingParticleFilter(self._K*t.getNumberOfPEs(),resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors) for t in topologies]
 		
-		sensorsPEsConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(len(sensors))
+		sensorsPEsConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(sensors)
 
 		# distributed particle filter
 		self._distributedPFsForTopologies = [particle_filter.TargetTrackingParticleFilterWithDRNA(
@@ -228,7 +228,7 @@ class PartialObservations(Simulation):
 		aggregatedWeightsUpperBound = drnautil.supremumUpperBound(selectedTopologySettings['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
 		
 		sensorsPEsConnectorParameters = parameters['partial observations']['available sensors with PEs connectors'][parameters['partial observations']['sensors with PEs connector']]
-		sensorsPEsConnector = getattr(sensors_PEs_connector,sensorsPEsConnectorParameters['class'])(len(sensors),sensorsPEsConnectorParameters)
+		sensorsPEsConnector = getattr(sensors_PEs_connector,sensorsPEsConnectorParameters['class'])(sensors,sensorsPEsConnectorParameters)
 		
 		# a distributed PF with partial observations, in which the estimates are computed using only the PEs with the higher number of active sensors
 		self._PFs.append(
