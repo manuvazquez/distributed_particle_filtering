@@ -335,3 +335,118 @@ class PartialObservations(Simulation):
 					if self._painterSettings["display particles evolution?"]:
 						
 						self._painter.updateParticlesPositions(state.position(pf.getState()),identifier='#{}'.format(iPF),color=color)
+
+class Mposterior(Simulation):
+	
+	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs):
+		
+		# let the super class do its thing...
+		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
+		
+		# the FIRST topology in the parameters file is selected
+		selectedTopologySettings = self._topologiesSettings[0]
+		selectedTopology = getattr(topology,selectedTopologySettings['class'])(selectedTopologySettings['number of PEs'],self._K,self._DRNAsettings["exchanged particles maximum percentage"],selectedTopologySettings['parameters'],
+											 PRNG=PRNGs["topology pseudo random numbers generator"])
+		
+		# plain (centralized) particle filter
+		self._PFs = [particle_filter.CentralizedTargetTrackingParticleFilter(self._K*selectedTopology.getNumberOfPEs(),resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)]
+		
+		# the color and label for the centralized PF are added to the corresponding lists
+		self._PFsColors = ['black']
+		self._PFsLabels = ['Centralized']
+		
+		sensorsPEsConnectorParameters = parameters['partial observations']['available sensors with PEs connectors'][parameters['partial observations']['sensors with PEs connector']]
+		sensorsPEsConnector = getattr(sensors_PEs_connector,sensorsPEsConnectorParameters['class'])(sensors,sensorsPEsConnectorParameters)
+		
+		# a distributed PF with partial observations, in which the estimates are computed using only the PEs with the higher number of active sensors
+		self._PFs.append(
+			particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
+				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+				sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()),PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
+			)
+		)
+		self._PFsColors.append('cyan')
+		self._PFsLabels.append('DPF')
+		
+		# the position estimates
+		self._PFs_pos = np.empty((2,self._nTimeInstants,parameters["number of frames"],len(self._PFs)))
+		
+		assert len(self._PFsColors) == len(self._PFsLabels) == len(self._PFs)
+		
+	def saveData(self,targetPosition):
+		
+		# let the super class do its thing...
+		super().saveData(targetPosition)
+		
+		# the mean of the error (euclidean distance) incurred by the PFs
+		PF_error = np.sqrt((np.subtract(self._PFs_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
+		
+		# a dictionary encompassing all the data to be saved
+		dataToBeSaved = dict(
+				targetPosition = targetPosition[:,:,:self._iFrame],
+				PF_pos = self._PFs_pos[:,:,:self._iFrame,:]
+			)
+		
+		# data is saved
+		#np.savez('res_' + self._outputFile + '.npz',**dataToBeSaved)
+		scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
+		print('results saved in "{}"'.format('res_' + self._outputFile))
+		
+		plot.PFs(range(self._nTimeInstants),PF_error,
+		   self._painterSettings["file name prefix for the PFs with partial observations vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
+			[{'label':l,'color':c} for l,c in zip(self._PFsLabels,self._PFsColors)])
+		
+	def processFrame(self,targetPosition,targetVelocity,observations):
+		
+		# let the super class do its thing...
+		super().processFrame(targetPosition,targetVelocity,observations)
+		
+		for pf in self._PFs:
+			
+			# initialization of the particle filters
+			pf.initialize()
+		
+		if self._painterSettings['display evolution?']:
+			
+			# if this is not the first iteration...
+			if hasattr(self,'_painter'):
+				
+				# ...then, the previous figure is closed
+				self._painter.close()
+
+			# this object will handle graphics...
+			self._painter = plot.RectangularRoomPainter(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],self._sensorsPositions,sleepTime=self._painterSettings["sleep time between updates"])
+
+			# ...e.g., draw the sensors
+			self._painter.setup()
+
+		for iTime in range(self._nTimeInstants):
+
+			print('---------- iFrame = {}, iTime = {}'.format(repr(self._iFrame),repr(iTime)))
+
+			print('position:\n',targetPosition[:,iTime:iTime+1])
+			print('velocity:\n',targetVelocity[:,iTime:iTime+1])
+			
+			# particle filters are updated
+			for iPF,(pf,label) in enumerate(zip(self._PFs,self._PFsLabels)):
+				
+				# initialization of the particle filters
+				pf.step(observations[iTime])
+				
+				self._PFs_pos[:,iTime:iTime+1,self._iFrame,iPF] = state.position(pf.computeMean())
+				
+				print('position estimated by {}\n'.format(label),self._PFs_pos[:,iTime:iTime+1,self._iFrame,iPF])
+			
+			if self._painterSettings["display evolution?"]:
+
+				# the plot is updated with the position of the target...
+				self._painter.updateTargetPosition(targetPosition[:,iTime:iTime+1])
+				
+				# ...those estimated by the PFs
+				for iPF,(pf,color) in enumerate(zip(self._PFs,self._PFsColors)):
+					
+					self._painter.updateEstimatedPosition(self._PFs_pos[:,iTime:iTime+1,self._iFrame,iPF],identifier='#{}'.format(iPF),color=color)
+					
+					if self._painterSettings["display particles evolution?"]:
+						
+						self._painter.updateParticlesPositions(state.position(pf.getState()),identifier='#{}'.format(iPF),color=color)

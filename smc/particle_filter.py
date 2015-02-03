@@ -3,6 +3,18 @@ import math
 
 import state
 
+# this is required (due to a bug?) for import rpy2
+import readline
+
+import rpy2.robjects as robjects
+
+# in order to load an R package
+from rpy2.robjects.packages import importr
+
+# for automatic conversion from numpy arrays to R data types
+import rpy2.robjects.numpy2ri
+rpy2.robjects.numpy2ri.activate()
+
 class ParticleFilter:
 	
 	def __init__(self,nParticles,resamplingAlgorithm,resamplingCriterion):
@@ -192,7 +204,7 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 class DistributedTargetTrackingParticleFilter(ParticleFilter):
 	
 	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
-			  PFsClass=EmbeddedTargetTrackingParticleFilter):
+			  PFsClass=CentralizedTargetTrackingParticleFilter,PFsInitialAggregatedWeight=1.0):
 		
 		super().__init__(topology.getNumberOfPEs()*nParticlesPerPE,resamplingAlgorithm,resamplingCriterion)
 		
@@ -208,7 +220,7 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 		# the particle filters are built (each one associated with a different set of sensors)
 		self._PEs = [PFsClass(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,
 													[s for iSensor,s in enumerate(sensors) if iSensor in PEsSensorsConnections[iPe]],
-													aggregatedWeight=1.0/self._nPEs) for iPe in range(self._nPEs)]
+													aggregatedWeight=PFsInitialAggregatedWeight) for iPe in range(self._nPEs)]
 		
 		# ...time instants, according to the geometry of the network
 		self._topology = topology
@@ -250,7 +262,7 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
 			  PFsClass=EmbeddedTargetTrackingParticleFilter):
 		
-		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass)
+		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass,PFsInitialAggregatedWeight=1.0/topology.getNumberOfPEs())
 		
 		# a exchange of particles among PEs will happen every...
 		self._exchangePeriod = exchangePeriod
@@ -345,7 +357,7 @@ class ActivationsAwareEmbeddedTargetTrackingParticleFilter(EmbeddedTargetTrackin
 		
 		super().__init__(nParticles,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,aggregatedWeight)
 		
-		# attribute mean to be accessed
+		# attribute meant to be accessed
 		self.function = function
 		
 	def step(self,observations):
@@ -418,3 +430,39 @@ class OnlyPEsWithMaxActiveSensorsTargetTrackingParticleFilterWithDRNA(TargetTrac
 			#code.interact(local=dict(globals(), **locals()))
 		
 		return np.multiply(np.hstack([self._PEs[iPE].computeMean() for iPE in iRelevantPEs]),normalizedAggregatedWeights).sum(axis=1)[np.newaxis].T
+
+
+class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTrackingParticleFilter):
+	
+	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
+			  PFsClass=CentralizedTargetTrackingParticleFilter):
+		
+		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass)
+
+		# the (R) Mposterior package is imported
+		self._Mposterior = importr('Mposterior')
+
+	def computeMean(self):
+		
+		# a list containing the "subset posterior distribution"s; each one is a matrix (numpy array) containing the samples of a PE
+		PEsParticles = [PE.getState().T for PE in self._PEs]
+		
+		#for i,PE in enumerate(PEsParticles):
+			#np.savetxt('PE{}.txt'.format(i),PE,delimiter=',')
+		
+		#import code
+		#code.interact(local=dict(globals(), **locals()))
+		
+		# R function implementing the "M posterior" algorithm is called
+		weiszfeldMedian = self._Mposterior.findWeiszfeldMedian(PEsParticles, sigma = 0.1, maxit = 100, tol = 1e-10)
+
+		# the weights assigned by the algorithm to each "subset posterior distribution"
+		weiszfeldWeights = np.array(weiszfeldMedian[1])
+		
+		# a numpy array containing all the particles (coming from all the PEs)
+		jointParticles = np.array(weiszfeldMedian[3]).T
+		
+		# the weight of each PE are scaled according to the "weiszfeldWeights" and, all of them are stacked together
+		jointWeights =	np.hstack([PE.getWeights()*weight for PE,weight in zip(self._PEs,weiszfeldWeights)])
+		
+		return np.multiply(jointParticles,jointWeights).sum(axis=1)[np.newaxis].T
