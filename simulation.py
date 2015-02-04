@@ -358,7 +358,7 @@ class Mposterior(Simulation):
 		sensorsPEsConnectorParameters = parameters['partial observations']['available sensors with PEs connectors'][parameters['partial observations']['sensors with PEs connector']]
 		sensorsPEsConnector = getattr(sensors_PEs_connector,sensorsPEsConnectorParameters['class'])(sensors,sensorsPEsConnectorParameters)
 		
-		# a distributed PF with partial observations, in which the estimates are computed using only the PEs with the higher number of active sensors
+		# several "isolated" PFs whose distributions are combined by means of the M-posterior algorithm
 		self._PFs.append(
 			particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
 				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
@@ -366,7 +366,31 @@ class Mposterior(Simulation):
 			)
 		)
 		self._PFsColors.append('cyan')
-		self._PFsLabels.append('DPF')
+		self._PFsLabels.append('M-posterior')
+		
+		aggregatedWeightsUpperBound = drnautil.supremumUpperBound(selectedTopologySettings['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
+		
+		# a distributed PF with DRNA
+		self._PFs.append(
+			particle_filter.TargetTrackingParticleFilterWithDRNA(
+				self._DRNAsettings["exchange period"],selectedTopology,aggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
+				prior,transitionKernel,sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs())
+			)
+		)
+		
+		self._PFsColors.append('green')
+		self._PFsLabels.append('DRNA')
+		
+		# a "distributed" PF in which each PE does its computation independently of the rest
+		self._PFs.append(
+			particle_filter.DistributedTargetTrackingParticleFilter(
+				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+				sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()),PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
+			)
+		)
+		
+		self._PFsColors.append('pink')
+		self._PFsLabels.append('Plain DPF')
 		
 		# the position estimates
 		self._PFs_pos = np.empty((2,self._nTimeInstants,parameters["number of frames"],len(self._PFs)))

@@ -234,7 +234,7 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 			
 			PE.initialize()
 
-		# because of the normalization period, we must keep track of the elapsed (discreet) time instants
+		# we keep track of the elapsed (discreet) time instants
 		self._n = 0
 
 	def step(self,observations):
@@ -255,6 +255,13 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 		
 		# the state from every PE is gathered together
 		return np.hstack([PE.getState() for PE in self._PEs])
+
+	def computeMean(self):
+	
+		# the particles from all the PEs are stacked (horizontally) in a single array
+		jointParticles = np.hstack([PE.getState() for PE in self._PEs])
+		
+		return jointParticles.mean(axis=1)[np.newaxis].T
 
 
 class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilter):
@@ -446,12 +453,6 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 		
 		# a list containing the "subset posterior distribution"s; each one is a matrix (numpy array) containing the samples of a PE
 		PEsParticles = [PE.getState().T for PE in self._PEs]
-		
-		#for i,PE in enumerate(PEsParticles):
-			#np.savetxt('PE{}.txt'.format(i),PE,delimiter=',')
-		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
 		
 		# R function implementing the "M posterior" algorithm is called
 		weiszfeldMedian = self._Mposterior.findWeiszfeldMedian(PEsParticles, sigma = 0.1, maxit = 100, tol = 1e-10)
