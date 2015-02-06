@@ -35,25 +35,25 @@ class Sensor(metaclass=abc.ABCMeta):
 
 class BinarySensor(Sensor):
 	
-	def __init__(self,position,threshold,probDetection=0.9,probFalseAlarm=0.01,PRNG=np.random.RandomState()):
+	def __init__(self,position,radius,probability_of_detection_within_the_radius=0.9,probability_of_false_alarm=0.01,PRNG=np.random.RandomState()):
 		
 		super().__init__(position,PRNG)
 		
 		# the distance within reach of the sensor
-		self._threshold = threshold
+		self._threshold = radius
 		
 		# the probability of (correct) detection
-		self._probDetection = probDetection
+		self._probDetection = probability_of_detection_within_the_radius
 		
 		# the probability of false alarm
-		self._probFalseAlarm = probFalseAlarm
+		self._probFalseAlarm = probability_of_false_alarm
 		
 		# for the sake of convenience when computing the likelihood: we keep an array with the probability mass funciton of the observations conditional on the target being close enough (it depends on the threshold)...
 		# self._pmfObservationsWhenClose[x] = p(observation=x | |<target position> - <sensor position>| < threshold)
-		self._pmfObservationsWhenClose = np.array([1-probDetection,probDetection])
+		self._pmfObservationsWhenClose = np.array([1-probability_of_detection_within_the_radius,probability_of_detection_within_the_radius])
 		
 		# ...and that of the observations conditional on the target being far
-		self._pmfObservationsWhenFar = np.array([1-probFalseAlarm,probFalseAlarm])
+		self._pmfObservationsWhenFar = np.array([1-probability_of_false_alarm,probability_of_false_alarm])
 	
 	def detect(self,targetPos):
 		
@@ -82,18 +82,18 @@ class BinarySensor(Sensor):
 
 class RSSsensor(Sensor):
 	
-	def __init__(self,position,txPower=1,pathLossExponent=2,noiseVariance=1,PRNG=np.random.RandomState()):
+	def __init__(self,position,transmitter_power=1,path_loss_exponent=2,noise_variance=1,PRNG=np.random.RandomState()):
 		
 		super().__init__(position,PRNG)
 		
 		# the power of the transmitter
-		self._txPower = txPower
+		self._txPower = transmitter_power
 		
 		# the path loss exponent (depending on the medium)
-		self._pathLossExponent = pathLossExponent
+		self._pathLossExponent = path_loss_exponent
 		
 		# the variance of the additive noise in the model
-		self._noiseStd = np.sqrt(noiseVariance)
+		self._noiseStd = np.sqrt(noise_variance)
 
 	def detect(self,targetPos):
 		

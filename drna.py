@@ -203,18 +203,25 @@ signal.signal(signal.SIGUSR1, sigusr1_handler)
 # ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
 
 # an object for computing the positions of the sensors is created and used
-sensorsPositions = sensor.EquispacedOnRectangleSensorLayer(roomSettings["bottom left corner"],roomSettings["top right corner"]).getPositions(sensorsSettings["number"])
+sensorsPositions = sensor.EquispacedOnRectangleSensorLayer(roomSettings['bottom left corner'],roomSettings['top right corner']).getPositions(sensorsSettings['number'])
 
-# the actual number of sensor might not be equal to that requested
-sensorsSettings["number"] = sensorsPositions.shape[1]
+# the actual number of sensors might not be equal to that requested
+sensorsSettings['number'] = sensorsPositions.shape[1]
 
-# we build the array of sensors
-#sensors = [sensor.BinarySensor(sensorsPositions[:,i:i+1],sensorsSettings["radius"],
-						 #probDetection=sensorsSettings["probability of detection within the radius"],probFalseAlarm=sensorsSettings["probability of false alarm"],
-						 #PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]) for i in range(sensorsSettings["number"])]
+# the setting for specific type of sensor requested...
+sensorTypeSettings = sensorsSettings[sensorsSettings['type']]
 
-sensors = [sensor.RSSsensor(sensorsPositions[:,i:i+1],sensorsSettings["radius"],
-						 PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]) for i in range(sensorsSettings["number"])]
+# ...from which the class to be instantiated is figured out
+sensorClass = getattr(sensor,sensorTypeSettings['implementing class'])
+
+# the item of the dictionary specifying the "implementing class" is removed, so that only the parameters are left in the dictionary
+del sensorTypeSettings['implementing class']
+
+# the corresponding pseudo-random numbers generator is added to the dictionary
+sensorTypeSettings['PRNG'] = PRNGs['Sensors and Monte Carlo pseudo random numbers generator']
+
+# a list with the sensors for the different positions
+sensors = [sensorClass(sensorsPositions[:,i:i+1],**sensorTypeSettings) for i in range(sensorsSettings['number'])]
 
 # ----------------------------------------------------------------- dynamic model ------------------------------------------------------------------------
 
