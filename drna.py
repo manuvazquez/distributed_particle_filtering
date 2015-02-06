@@ -209,8 +209,11 @@ sensorsPositions = sensor.EquispacedOnRectangleSensorLayer(roomSettings["bottom 
 sensorsSettings["number"] = sensorsPositions.shape[1]
 
 # we build the array of sensors
-sensors = [sensor.Sensor(sensorsPositions[:,i:i+1],sensorsSettings["radius"],
-						 probDetection=sensorsSettings["probability of detection within the radius"],probFalseAlarm=sensorsSettings["probability of false alarm"],
+#sensors = [sensor.BinarySensor(sensorsPositions[:,i:i+1],sensorsSettings["radius"],
+						 #probDetection=sensorsSettings["probability of detection within the radius"],probFalseAlarm=sensorsSettings["probability of false alarm"],
+						 #PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]) for i in range(sensorsSettings["number"])]
+
+sensors = [sensor.RSSsensor(sensorsPositions[:,i:i+1],sensorsSettings["radius"],
 						 PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]) for i in range(sensorsSettings["number"])]
 
 # ----------------------------------------------------------------- dynamic model ------------------------------------------------------------------------
