@@ -208,20 +208,17 @@ sensorsPositions = sensor.EquispacedOnRectangleSensorLayer(roomSettings['bottom 
 # the actual number of sensors might not be equal to that requested
 sensorsSettings['number'] = sensorsPositions.shape[1]
 
-# the setting for specific type of sensor requested...
-sensorTypeSettings = sensorsSettings[sensorsSettings['type']]
+# the class to be instantiated is figured out from the settings for that particular sensor type
+sensorClass = getattr(sensor,sensorsSettings[sensorsSettings['type']]['implementing class'])
 
-# ...from which the class to be instantiated is figured out
-sensorClass = getattr(sensor,sensorTypeSettings['implementing class'])
-
-# the item of the dictionary specifying the "implementing class" is removed, so that only the parameters are left in the dictionary
-del sensorTypeSettings['implementing class']
+# (a copy of) the parameters for specific type of sensor requested...
+sensorParameters = sensorsSettings[sensorsSettings['type']]['parameters'].copy()
 
 # the corresponding pseudo-random numbers generator is added to the dictionary
-sensorTypeSettings['PRNG'] = PRNGs['Sensors and Monte Carlo pseudo random numbers generator']
+sensorParameters['PRNG'] = PRNGs['Sensors and Monte Carlo pseudo random numbers generator']
 
 # a list with the sensors for the different positions
-sensors = [sensorClass(sensorsPositions[:,i:i+1],**sensorTypeSettings) for i in range(sensorsSettings['number'])]
+sensors = [sensorClass(sensorsPositions[:,i:i+1],**sensorParameters) for i in range(sensorsSettings['number'])]
 
 # ----------------------------------------------------------------- dynamic model ------------------------------------------------------------------------
 

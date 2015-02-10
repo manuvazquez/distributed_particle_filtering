@@ -44,15 +44,19 @@
 		"type": "RSS",
 		"RSS": {
 			"implementing class": "RSSsensor",
-			"transmitter_power": 1,
-			"path_loss_exponent": 2,
-			"noise_variance": 1
+			"parameters": {
+				"transmitter_power": 1,
+				"path_loss_exponent": 2,
+				"noise_variance": 1
+			}
 		},
 		"Binary": {
 			"implementing class": "BinarySensor",
-			"radius": 7,
-			"probability_of_detection_within_the_radius": 0.9,
-			"probability_of_false_alarm": 0.01
+			"parameters": {
+				"radius": 7,
+				"probability_of_detection_within_the_radius": 0.9,
+				"probability_of_false_alarm": 0.01
+			}
 		}
 	},
 	"room": {
