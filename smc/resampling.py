@@ -6,7 +6,7 @@ class ResamplingAlgorithm:
 		
 		pass
 	
-	def getIndexes(self,weights):
+	def getIndexes(self,weights,n):
 		"""It returns the indexes of the particles that should be kept after resampling.
 		
 		Notice that it doesn't perform any "real" resampling"...the real work must be performed somewhere else.
@@ -21,9 +21,12 @@ class MultinomialResamplingAlgorithm(ResamplingAlgorithm):
 		
 		self._PRNG = PRNG
 		
-	def getIndexes(self,weights):
+	def getIndexes(self,weights,n=None):
 		
-		return self._PRNG.choice(range(weights.size), weights.size, p=weights)
+		if n==None:
+			n = weights.size
+		
+		return self._PRNG.choice(range(weights.size), n, p=weights)
 
 class ResamplingCriterion:
 	

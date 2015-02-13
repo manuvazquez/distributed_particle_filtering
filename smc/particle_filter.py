@@ -125,6 +125,41 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		
 		return (self._state[:,index:index+1].copy(),self._weights[index])
 	
+	def getSamples(self,indexes):
+		
+		"""Obtain (just) the samples at certain given indexes.
+		
+		This yeilds a "view" of the data, rather than a copy.
+		
+		Parameters
+		----------
+		indexes: 1-D ndarray
+			The indexes of the requested particles
+			
+		Returns
+		-------
+		samples: 2-D ndarray
+			The selected samples
+		"""
+		
+		return self._state[:,indexes]
+	
+	@property
+	def samples(self):
+		
+		return self._state
+	
+	@samples.setter
+	def samples(self,value):
+		
+		if value.shape==self._state.shape:
+			
+			self._state = value
+			
+		else:
+			
+			raise Exception('the number and/or dimensions of the samples are not equal to the current ones')
+	
 	def setParticle(self,index,particle):
 		
 		self._state[:,index:index+1] = particle[0]
@@ -174,6 +209,23 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 	def getWeights(self):
 		
 		return self._weights
+	
+	@property
+	def weights(self):
+		
+		return self._weights
+	
+	@weights.setter
+	def weights(self,value):
+		
+		if self._weights.shape==value.shape:
+			
+			self._weights==value
+			
+		else:
+			
+			raise Exception('the number of weights does not match the number of particles')
+			
 # =========================================================================================================
 
 class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilter):
@@ -448,14 +500,27 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 
 		# the (R) Mposterior package is imported
 		self._Mposterior = importr('Mposterior')
-
-	def computeMean(self):
+	
+	def Mposterior(self,posteriorDistributions):
 		
-		# a list containing the "subset posterior distribution"s; each one is a matrix (numpy array) containing the samples of a PE
-		PEsParticles = [PE.getState().T for PE in self._PEs]
+		"""Applies the Mposterior algorithm to weight the samples of a list of "subset posterior distribution"s.
+		
+		Parameters
+		----------
+		posteriorDistributions: list of tuples
+			A list in which each element is a tuple representing a "subset posterior distribution": the first element are the samples, and the second the associated weights
+		
+		Returns
+		-------
+		samples: tuple
+			The first element is a 2-D ndarray with all the samples, and the second the corresponding weights.
+		"""
+		
+		# the samples of all the "subset posterior distribution"s are extracted
+		samples = [posterior[0] for posterior in posteriorDistributions]
 		
 		# R function implementing the "M posterior" algorithm is called
-		weiszfeldMedian = self._Mposterior.findWeiszfeldMedian(PEsParticles, sigma = 0.1, maxit = 100, tol = 1e-10)
+		weiszfeldMedian = self._Mposterior.findWeiszfeldMedian(samples, sigma = 0.1, maxit = 100, tol = 1e-10)
 
 		# the weights assigned by the algorithm to each "subset posterior distribution"
 		weiszfeldWeights = np.array(weiszfeldMedian[1])
@@ -463,7 +528,65 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 		# a numpy array containing all the particles (coming from all the PEs)
 		jointParticles = np.array(weiszfeldMedian[3]).T
 		
-		# the weight of each PE are scaled according to the "weiszfeldWeights" and, all of them are stacked together
-		jointWeights =	np.hstack([PE.getWeights()*weight for PE,weight in zip(self._PEs,weiszfeldWeights)])
+		# the weight of each PE is scaled according to the "weiszfeldWeights" and, all of them are stacked together
+		jointWeights =	np.hstack([posterior[1]*weight for posterior,weight in zip(posteriorDistributions,weiszfeldWeights)])
+		
+		return (jointParticles,jointWeights)
+
+	def computeMean(self):
+		
+		# the distributions computed by every PE are gathered in a list of tuples (samples and weights)
+		posteriors = [(PE.getState().T,PE.getWeights()) for PE in self._PEs]
+		
+		# the Mposterior algorithm is used to obtain a a new distribution
+		jointParticles,jointWeights = self.Mposterior(posteriors)
 		
 		return np.multiply(jointParticles,jointWeights).sum(axis=1)[np.newaxis].T
+
+class DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(DistributedTargetTrackingParticleFilterWithMposterior):
+	
+	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,sharingPeriod,nSharedParticles,
+			  PFsClass=CentralizedTargetTrackingParticleFilter):
+		
+		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass)
+		
+		self._sharingPeriod = sharingPeriod
+		self._nSharedParticles = nSharedParticles
+		
+	def step(self,observations):
+		
+		super().step(observations)
+		
+		# if it is "sharing" particles time
+		if (self._n % self._sharingPeriod == 0):
+			
+			self.share()
+	
+	def share(self):
+		
+		# each PE draws a set of samples from its probability measure...to be shared with its neighbours
+		samplesToBeShared = [PE.getSamples(self._resamplingAlgorithm.getIndexes(PE.getWeights(),self._nSharedParticles)) for PE in self._PEs]
+		
+		# the list of neighbours of each PE
+		PEsNeighbours = self._topology.getNeighbours()
+		
+		# for every PE...
+		for iPE,(PE,neighbours) in enumerate(zip(self._PEs,PEsNeighbours)):
+			
+			# ...the particles shared by its neighbours (assumed to be uniformly distributed) are gathered...
+			subsetPosteriorDistributions = [(samplesToBeShared[i].T,np.full(self._nSharedParticles,1.0/self._nSharedParticles)) for i in neighbours]
+			
+			# ...along with its own (shared, already sampled) particles
+			subsetPosteriorDistributions.append((samplesToBeShared[iPE].T,np.full(self._nSharedParticles,1.0/self._nSharedParticles)))
+			
+			# M posterior on the posterior distributions collected above
+			jointParticles,jointWeights = self.Mposterior(subsetPosteriorDistributions)
+			
+			# the indexes of the particles to be kept
+			iNewParticles = self._resamplingAlgorithm.getIndexes(jointWeights,PE._nParticles)
+			
+			PE.samples = jointParticles[:,iNewParticles]
+			PE.weights = np.full(PE._nParticles,1.0/PE._nParticles)
+			
+			#import code
+			#code.interact(local=dict(globals(), **locals()))

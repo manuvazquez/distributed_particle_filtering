@@ -15,7 +15,8 @@
 			"number of PEs": 16,
 			"parameters": {
 				"geometry": [4,4],
-				"neighbours": [[-1,0],[1,0],[0,1],[0,-1]]
+				"neighbours": [[-1,0],[1,0],[0,1],[0,-1]],
+				"wraparound": false
 			}
 		},
 		{
@@ -98,6 +99,10 @@
 		"q": 4,
 		"epsilon": 0.1,
 		"normalization period": 5
+	},
+	"Mposterior": {
+		"sharing period": 10,
+		"number of particles shared by each PE": 10
 	},
 	"partial observations": {
 		"available sensors with PEs connectors": {

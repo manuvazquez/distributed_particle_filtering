@@ -365,6 +365,7 @@ class Mposterior(Simulation):
 				sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()),PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
 			)
 		)
+		
 		self._PFsColors.append('cyan')
 		self._PFsLabels.append('M-posterior')
 		
@@ -391,6 +392,19 @@ class Mposterior(Simulation):
 		
 		self._PFsColors.append('pink')
 		self._PFsLabels.append('Plain DPF')
+		
+		# a "distributed" PF in which each PE does its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
+		self._PFs.append(
+			particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
+				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+				sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()),
+				parameters['Mposterior']['sharing period'],parameters['Mposterior']['number of particles shared by each PE'],
+				PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
+			)
+		)
+		
+		self._PFsColors.append('brown')
+		self._PFsLabels.append('M-posterior with exchange')
 		
 		# the position estimates
 		self._PFs_pos = np.empty((2,self._nTimeInstants,parameters["number of frames"],len(self._PFs)))

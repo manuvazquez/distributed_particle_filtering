@@ -67,6 +67,18 @@ class Topology:
 	def getNumberOfPEs(self):
 		
 		return self._nPEs
+	
+	def getNeighbours(self):
+		
+		"""Get the list of neighbours of every PE.
+		
+		Returns
+		-------
+		samples: list of lists
+			Each list contains the indexes of the neighbours of the corresponding PE.
+		"""
+		
+		return self._neighbours
 
 class Customized(Topology):
 	
@@ -110,12 +122,21 @@ class Mesh(Topology):
 				# for every potential neighbour
 				for neighbourRelativePosition in potentialNeighboursRelativePosition:
 					
-					# we compute its position
-					#iNeighbour,jNeighbour = i+neighbourRelativePosition[0],j+neighbourRelativePosition[1]
-					iNeighbour,jNeighbour = (i+neighbourRelativePosition[0])%nRows,(j+neighbourRelativePosition[1])%nCols
+					# we compute its position...
 					
-					## if the position corresponds to that of a PE (i.e., it is within the PEs array)
-					#if (0 <= iNeighbour < nRows) and (0 <= jNeighbour < nCols):
+					# if the neighbours of a certain PE are allowed to "wrap around" the other side (either horizontally or vertically) of the mesh...
+					if topologySpecificParameters['wraparound']:
+					
+						iNeighbour,jNeighbour = (i+neighbourRelativePosition[0])%nRows,(j+neighbourRelativePosition[1])%nCols
+						
+					else:
+						
+						iNeighbour,jNeighbour = i+neighbourRelativePosition[0],j+neighbourRelativePosition[1]
+					
+						# if the position does not corresponds to that of a PE (i.e., it is NOT within the PEs array)
+						if not ( (0 <= iNeighbour < nRows) and (0 <= jNeighbour < nCols) ):
+							
+							continue
 						
 					# we add this neighbour to the list
 					currentPEneighbours.append(arrayedPEs[iNeighbour,jNeighbour])
