@@ -411,6 +411,9 @@ class Mposterior(Simulation):
 		
 		assert len(self._PFsColors) == len(self._PFsLabels) == len(self._PFs)
 		
+		# information about the simulated algorithms is added to the parameters...
+		parameters['algorithms'] = [{'name':name,'color':color} for name,color in zip(self._PFsLabels,self._PFsColors)]
+		
 	def saveData(self,targetPosition):
 		
 		# let the super class do its thing...

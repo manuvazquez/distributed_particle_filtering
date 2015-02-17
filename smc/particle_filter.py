@@ -125,7 +125,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		
 		return (self._state[:,index:index+1].copy(),self._weights[index])
 	
-	def getSamples(self,indexes):
+	def getSamplesAt(self,indexes):
 		
 		"""Obtain (just) the samples at certain given indexes.
 		
@@ -204,11 +204,6 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		
 		# the normalized weights are used to resample
 		self.resample(self._weights)
-	
-	
-	def getWeights(self):
-		
-		return self._weights
 	
 	@property
 	def weights(self):
@@ -536,7 +531,7 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 	def computeMean(self):
 		
 		# the distributions computed by every PE are gathered in a list of tuples (samples and weights)
-		posteriors = [(PE.getState().T,PE.getWeights()) for PE in self._PEs]
+		posteriors = [(PE.getState().T,PE.weights) for PE in self._PEs]
 		
 		# the Mposterior algorithm is used to obtain a a new distribution
 		jointParticles,jointWeights = self.Mposterior(posteriors)
@@ -565,7 +560,7 @@ class DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(Di
 	def share(self):
 		
 		# each PE draws a set of samples from its probability measure...to be shared with its neighbours
-		samplesToBeShared = [PE.getSamples(self._resamplingAlgorithm.getIndexes(PE.getWeights(),self._nSharedParticles)) for PE in self._PEs]
+		samplesToBeShared = [PE.getSamplesAt(self._resamplingAlgorithm.getIndexes(PE.weights,self._nSharedParticles)) for PE in self._PEs]
 		
 		# the list of neighbours of each PE
 		PEsNeighbours = self._topology.getNeighbours()
