@@ -488,13 +488,16 @@ class OnlyPEsWithMaxActiveSensorsTargetTrackingParticleFilterWithDRNA(TargetTrac
 
 class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTrackingParticleFilter):
 	
-	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
+	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,
 			  PFsClass=CentralizedTargetTrackingParticleFilter):
 		
 		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass)
 
-		# the (R) Mposterior package is imported
+		# the (R) Mposterior package is imported...
 		self._Mposterior = importr('Mposterior')
+		
+		# ...and the parameters to be passed to the required function are kept
+		self._findWeiszfeldMedianParameters = findWeiszfeldMedianParameters
 	
 	def Mposterior(self,posteriorDistributions):
 		
@@ -515,7 +518,7 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 		samples = [posterior[0] for posterior in posteriorDistributions]
 		
 		# R function implementing the "M posterior" algorithm is called
-		weiszfeldMedian = self._Mposterior.findWeiszfeldMedian(samples, sigma = 0.1, maxit = 100, tol = 1e-10)
+		weiszfeldMedian = self._Mposterior.findWeiszfeldMedian(samples,**self._findWeiszfeldMedianParameters)
 
 		# the weights assigned by the algorithm to each "subset posterior distribution"
 		weiszfeldWeights = np.array(weiszfeldMedian[1])
@@ -540,10 +543,10 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 
 class DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(DistributedTargetTrackingParticleFilterWithMposterior):
 	
-	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,sharingPeriod,nSharedParticles,
+	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,sharingPeriod,nSharedParticles,
 			  PFsClass=CentralizedTargetTrackingParticleFilter):
 		
-		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass)
+		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,PFsClass=PFsClass)
 		
 		self._sharingPeriod = sharingPeriod
 		self._nSharedParticles = nSharedParticles
@@ -582,6 +585,3 @@ class DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(Di
 			
 			PE.samples = jointParticles[:,iNewParticles]
 			PE.weights = np.full(PE._nParticles,1.0/PE._nParticles)
-			
-			#import code
-			#code.interact(local=dict(globals(), **locals()))

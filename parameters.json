@@ -87,7 +87,6 @@
 		"file name prefix for the MSE vs number of PEs plot": "MSEvsM",
 		"file name prefix for the euclidean distance vs number of PEs plot": "errorVsM",
 		"file name prefix for the aggregated weights supremum vs number of PEs plot": "supremumVsM",
-		"file name prefix for the PFs with partial observations vs time plot": "partialObservations",
 		"display evolution?": false,
 		"display particles evolution?": false,
 		"use display server if available?": false
@@ -102,23 +101,34 @@
 	},
 	"Mposterior": {
 		"sharing period": 10,
-		"number of particles shared by each PE": 10
+		"number of particles shared by each PE": 10,
+		"findWeiszfeldMedian parameters": {
+			"sigma": 0.1,
+			"maxit": 100,
+			"tol": 1e-10
+		},
+		"file name prefix for the estimation error vs time plot": "errorVsTime"
 	},
-	"partial observations": {
-		"available sensors with PEs connectors": {
-			"every sensor connected to every PE": {
-				"class": "EverySensorWithEveryPEConnector"
-			},
-			"fixed number of PEs per sensor": {
-				"class": "SensorOrientedConnector",
+	"sensors-PEs connectors": {
+		"type": "every sensor connected to every PE",
+		"every sensor connected to every PE": {
+			"implementing class": "EverySensorWithEveryPEConnector",
+			"parameters": {}
+		},
+		"fixed number of PEs per sensor": {
+			"implementing class": "SensorOrientedConnector",
+			"parameters": {
 				"number of PEs per sensor": 4
-			},
-			"sensors connected to the closest PEs": {
-				"class": "SensorsPositionsBasedConnector",
-				"number of uniform samples": 100
 			}
 		},
-		"sensors with PEs connector": "every sensor connected to every PE",
+		"sensors connected to the closest PEs": {
+			"implementing class": "SensorsPositionsBasedConnector",
+			"parameters": {
+				"number of uniform samples": 100
+			}
+		}
+	},
+	"ActiveSensors": {
 		"functions of #1s": [
 			{
 				"definition": "1",
@@ -140,7 +150,8 @@
 				"color when plotting": "purple",
 				"label": "DRNA (2x+1)"
 			}
-		]
+		],
+		"file name prefix for the estimation error vs time plot": "errorVsTime"
 	},
 	"load sensors and Monte Carlo pseudo random numbers generator?": false,
 	"Sensors and Monte Carlo pseudo random numbers generator": "SensorsAndMonteCarloRandom.RandomState",

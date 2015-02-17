@@ -206,12 +206,14 @@ class Convergence(Simulation):
 						self._painter.updateParticlesPositions(state.position(pf.getState()),identifier='centralized',color=self._painterSettings["color for the centralized PF"])
 						self._painter.updateParticlesPositions(state.position(distributedPf.getState()),identifier='distributed',color=self._painterSettings["color for the distributed PF"])
 
-class PartialObservations(Simulation):
+class ActiveSensors(Simulation):
 	
 	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs):
 		
 		# let the super class do its thing...
 		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
+		
+		self._simulationParameters = parameters['ActiveSensors']
 		
 		# the FIRST topology in the parameters file is selected
 		selectedTopologySettings = self._topologiesSettings[0]
@@ -227,8 +229,11 @@ class PartialObservations(Simulation):
 		
 		aggregatedWeightsUpperBound = drnautil.supremumUpperBound(selectedTopologySettings['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
 		
-		sensorsPEsConnectorParameters = parameters['partial observations']['available sensors with PEs connectors'][parameters['partial observations']['sensors with PEs connector']]
-		sensorsPEsConnector = getattr(sensors_PEs_connector,sensorsPEsConnectorParameters['class'])(sensors,sensorsPEsConnectorParameters)
+		# a dictionary with the parameters of the selected sensors-PEs connector...
+		sensorsPEsConnectorParameters = parameters['sensors-PEs connectors'][parameters['sensors-PEs connectors']['type']]
+		
+		# ...containing information about which class to instantiate along with its specific parameters
+		sensorsPEsConnector = getattr(sensors_PEs_connector,sensorsPEsConnectorParameters['implementing class'])(sensors,sensorsPEsConnectorParameters['parameters'])
 		
 		# a distributed PF with partial observations, in which the estimates are computed using only the PEs with the higher number of active sensors
 		self._PFs.append(
@@ -241,7 +246,7 @@ class PartialObservations(Simulation):
 		self._PFsLabels.append('DRNA (PEs with maximum #active sensors)')
 		
 		# a distributed PF is added to the list for each of the functions defined in the parameters file
-		for f in parameters['partial observations']['functions of #1s']:
+		for f in self._simulationParameters['functions of #1s']:
 			
 			self._PFs.append(
 				particle_filter.ActivationsAwareTargetTrackingParticleFilterWithDRNA(
@@ -278,7 +283,7 @@ class PartialObservations(Simulation):
 		print('results saved in "{}"'.format('res_' + self._outputFile))
 		
 		plot.PFs(range(self._nTimeInstants),PF_error,
-		   self._painterSettings["file name prefix for the PFs with partial observations vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
+		   self._simulationParameters["file name prefix for the estimation error vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
 			[{'label':l,'color':c} for l,c in zip(self._PFsLabels,self._PFsColors)])
 		
 	def processFrame(self,targetPosition,targetVelocity,observations):
@@ -343,6 +348,8 @@ class Mposterior(Simulation):
 		# let the super class do its thing...
 		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
 		
+		self._simulationParameters = parameters['Mposterior']
+		
 		# the FIRST topology in the parameters file is selected
 		selectedTopologySettings = self._topologiesSettings[0]
 		selectedTopology = getattr(topology,selectedTopologySettings['class'])(selectedTopologySettings['number of PEs'],self._K,self._DRNAsettings["exchanged particles maximum percentage"],selectedTopologySettings['parameters'],
@@ -355,14 +362,18 @@ class Mposterior(Simulation):
 		self._PFsColors = ['black']
 		self._PFsLabels = ['Centralized']
 		
-		sensorsPEsConnectorParameters = parameters['partial observations']['available sensors with PEs connectors'][parameters['partial observations']['sensors with PEs connector']]
-		sensorsPEsConnector = getattr(sensors_PEs_connector,sensorsPEsConnectorParameters['class'])(sensors,sensorsPEsConnectorParameters)
+		# a dictionary with the parameters of the selected sensors-PEs connector...
+		sensorsPEsConnectorParameters = parameters['sensors-PEs connectors'][parameters['sensors-PEs connectors']['type']]
+		
+		# ...containing information about which class to instantiate along with its specific parameters
+		sensorsPEsConnector = getattr(sensors_PEs_connector,sensorsPEsConnectorParameters['implementing class'])(sensors,sensorsPEsConnectorParameters['parameters'])
 		
 		# several "isolated" PFs whose distributions are combined by means of the M-posterior algorithm
 		self._PFs.append(
 			particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
 				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()),PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
+				sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],
+				PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
 			)
 		)
 		
@@ -397,8 +408,8 @@ class Mposterior(Simulation):
 		self._PFs.append(
 			particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()),
-				parameters['Mposterior']['sharing period'],parameters['Mposterior']['number of particles shared by each PE'],
+				sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],
+				self._simulationParameters['sharing period'],self._simulationParameters['number of particles shared by each PE'],
 				PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
 			)
 		)
@@ -434,7 +445,7 @@ class Mposterior(Simulation):
 		print('results saved in "{}"'.format('res_' + self._outputFile))
 		
 		plot.PFs(range(self._nTimeInstants),PF_error,
-		   self._painterSettings["file name prefix for the PFs with partial observations vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
+		   self._simulationParameters["file name prefix for the estimation error vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
 			[{'label':l,'color':c} for l,c in zip(self._PFsLabels,self._PFsColors)])
 		
 	def processFrame(self,targetPosition,targetVelocity,observations):
