@@ -417,6 +417,22 @@ class Mposterior(Simulation):
 		self._PFsColors.append('brown')
 		self._PFsLabels.append('M-posterior with exchange')
 		
+		# several "isolated" PFs whose distributions are combined by means of the M-posterior algorithm...but only a few particles from each PE are used
+		self._PFs.append(
+			particle_filter.DistributedTargetTrackingParticleFilterWithComplexityConstrainedMposterior(
+				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+				sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],
+				self._simulationParameters['number of particles from each PE for computing the final estimate'],
+				PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
+			)
+		)
+		
+		self._PFsColors.append('magenta')
+		self._PFsLabels.append('Complexity-constrained M-posterior')
+	
+		
+		# ---------------------
+		
 		# the position estimates
 		self._PFs_pos = np.empty((2,self._nTimeInstants,parameters["number of frames"],len(self._PFs)))
 		
