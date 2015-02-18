@@ -82,7 +82,7 @@ class BinarySensor(Sensor):
 
 class RSSsensor(Sensor):
 	
-	def __init__(self,position,transmitter_power=1,path_loss_exponent=2,noise_variance=1,PRNG=np.random.RandomState()):
+	def __init__(self,position,transmitter_power=1,path_loss_exponent=2,noise_variance=1,minimum_amount_of_power=1e-5,PRNG=np.random.RandomState()):
 		
 		super().__init__(position,PRNG)
 		
@@ -94,12 +94,15 @@ class RSSsensor(Sensor):
 		
 		# the variance of the additive noise in the model
 		self._noiseStd = np.sqrt(noise_variance)
+		
+		# minimum amount of power the sensor is able to measure
+		self._minimumPower = minimum_amount_of_power
 
 	def detect(self,targetPos):
 		
 		distance = np.linalg.norm((self.position - targetPos))
 		
-		return 10*np.log10(self._txPower/distance**self._pathLossExponent) + self._PRNG.randn()*self._noiseStd;
+		return 10*np.log10(self._txPower/distance**self._pathLossExponent + self._minimumPower) + self._PRNG.randn()*self._noiseStd;
 
 	def likelihood(self,observation,positions):
 		

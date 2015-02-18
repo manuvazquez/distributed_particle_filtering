@@ -47,8 +47,9 @@
 			"implementing class": "RSSsensor",
 			"parameters": {
 				"transmitter_power": 1,
-				"path_loss_exponent": 2,
-				"noise_variance": 1
+				"path_loss_exponent": 3,
+				"noise_variance": 1,
+				"minimum_amount_of_power": 1e-5
 			}
 		},
 		"Binary": {
