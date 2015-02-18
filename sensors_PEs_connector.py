@@ -19,6 +19,24 @@ class SensorsPEsConnector(metaclass=abc.ABCMeta):
 		
 		return
 
+	def computePEsPositions(self,sensorsPositions,nPEs,nPoints):
+		
+		# the bottom leftmost and top right most position of the sensors are obtained...
+		bottomLeftMostPosition = sensorsPositions.min(axis=1)
+		topRightMostPosition = sensorsPositions.max(axis=1)
+		
+		# the seed of the Pseudo Random Numbers Generator to be used below (so that the positions obtained for the PEs stay the same through different runs)
+		PRNG = numpy.random.RandomState(1234567)
+		
+		# ...is generated from a uniform distribution whose bounds are given by the rectangular space spanned by the sensors
+		points = np.vstack((PRNG.uniform(bottomLeftMostPosition[0],topRightMostPosition[0],(1,nPoints)),PRNG.uniform(bottomLeftMostPosition[1],topRightMostPosition[1],(1,nPoints))))
+		
+		# "nPEs" centroids for the above coordinates are computed using K-Means; initial random centroids are passed to the function so it does not generate them with its own random generator
+		PEsPositions,_ = scipy.cluster.vq.kmeans(points.T,points.T[PRNG.choice(points.shape[1],nPEs),:])
+		
+		# the transpose of the obtained positions is returned so that, just like the sensors positions, every column contains the two coordinates for a position
+		return PEsPositions.T
+
 class EverySensorWithEveryPEConnector(SensorsPEsConnector):
 	
 	def getConnections(self,nPEs):
@@ -50,52 +68,21 @@ class SensorOrientedConnector(SensorsPEsConnector):
 		# we only "look" at the nodes from "self._nSensors" onwards, since the previous ones correspond to the sensors
 		return [sorted(graph.neighbors(iPE+self._nSensors)) for iPE in range(nPEs)]
 
-class SensorsPositionsBasedConnector(SensorsPEsConnector):
+class ProximityBasedConnector(SensorsPEsConnector):
 	
 	def getConnections(self,nPEs):
 		
 		sensorsPositions = np.hstack([s.position for s in self._sensors])
 		
-		# the bottom leftmost and top right most position of the sensors are obtained...
-		bottomLeftMostPosition = sensorsPositions.min(axis=1)
-		topRightMostPosition = sensorsPositions.max(axis=1)
-		
 		# a number of samples proportional to the number of PEs...
 		nPoints = self._parameters['number of uniform samples']*nPEs
 		
-		# the seed of the Pseudo Random Numbers Generator to be used below (so that the positions obtained for the PEs stay the same through different runs)
-		PRNG = numpy.random.RandomState(1234567)
-		
-		# ...is generated from a uniform distribution whose bounds are given by the rectangular space spanned by the sensors
-		points = np.vstack((PRNG.uniform(bottomLeftMostPosition[0],topRightMostPosition[0],(1,nPoints)),PRNG.uniform(bottomLeftMostPosition[1],topRightMostPosition[1],(1,nPoints))))
-		
-		# "nPEs" centroids for the above coordinates are computed using K-Means; initial random centroids are passed to the function so it does not generate them with its own random generator
-		PEsPositions,_ = scipy.cluster.vq.kmeans(points.T,points.T[PRNG.choice(points.shape[1],nPEs),:])
-		
-		# more convenient so that (just like the sensors positions), every column contains the two coordinates for a position
-		PEsPositions = PEsPositions.T
+		PEsPositions = self.computePEsPositions(sensorsPositions,nPEs,nPoints)
 		
 		# the distance from each PE (whose position has been computed above) to each sensor [<PE>,<sensor>]
 		distances = np.sqrt((np.subtract(PEsPositions[:,:,np.newaxis],sensorsPositions[:,np.newaxis,:])**2).sum(axis=0))
 		
 		# for each sensor, the index of the PE which is closest to it
 		iClosestPEtoSensors = distances.argmin(axis=0)
-		
-		#import matplotlib.pylab as plt
-		#plt.ion()
-		#figure = plt.figure()
-		#ax = figure.gca()
-		#figure.hold(True)
-		##ax.plot(points[0,:],points[1,:],linewidth=0,marker='+',color='blue')
-		#ax.plot(sensorsPositions[0,:],sensorsPositions[1,:],linewidth=0,marker='+',color='blue')
-		#ax.plot(PEsPositions[0,:],PEsPositions[1,:],linewidth=0,marker='d',color='red')
-		
-		#for iSensor,iPE in enumerate(iClosestPEtoSensors):
-			#ax.plot([sensorsPositions[0,iSensor],PEsPositions[0,iPE]],[sensorsPositions[1,iSensor],PEsPositions[1,iPE]],linewidth=2)
-		
-		#figure.show()
-		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
 		
 		return [list(np.where(iClosestPEtoSensors==iPE)[0]) for iPE in range(nPEs)]

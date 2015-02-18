@@ -368,6 +368,10 @@ class Mposterior(Simulation):
 		# ...containing information about which class to instantiate along with its specific parameters
 		sensorsPEsConnector = getattr(sensors_PEs_connector,sensorsPEsConnectorParameters['implementing class'])(sensors,sensorsPEsConnectorParameters['parameters'])
 		
+		sensorsPositions = np.hstack([s.position for s in sensors])
+		PEsPositions = sensorsPEsConnector.computePEsPositions(sensorsPositions,selectedTopology.getNumberOfPEs(),sensorsPEsConnectorParameters['parameters']['number of uniform samples']*selectedTopology.getNumberOfPEs())
+		plot.PEsSensorsConnections(sensorsPositions,PEsPositions,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()))
+		
 		# several "isolated" PFs whose distributions are combined by means of the M-posterior algorithm
 		self._PFs.append(
 			particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(

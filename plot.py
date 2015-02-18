@@ -237,6 +237,32 @@ def trajectory(filename,iTrajectory=0,nTimeInstants=-1,ticksFontSize=12):
 	
 	painter.save()
 
+def PEsSensorsConnections(sensorsPositions,PEsPositions,connections,figureId='connections',outputFile='PEs_sensors_connections.eps'):
+	
+	# a new pair of axes is set up
+	ax,fig = setupAxes(figureId)
+	
+	fig.hold(True)
+	
+	ax.plot(sensorsPositions[0,:],sensorsPositions[1,:],linewidth=0,marker='+',color='blue')
+	ax.plot(PEsPositions[0,:],PEsPositions[1,:],linewidth=0,marker='s',color='red')
+	
+	# in "connections", for every PE there is a list of sensors associated
+	for iPE,sensorsIndexes in enumerate(connections):
+		
+		# for every sensor associated with the PE being processed
+		for iSensor in sensorsIndexes:
+		
+			ax.plot([sensorsPositions[0,iSensor],PEsPositions[0,iPE]],[sensorsPositions[1,iSensor],PEsPositions[1,iPE]],linewidth=2,linestyle='--')
+
+	fig.show()
+	
+	if outputFile:
+
+		plt.savefig(outputFile)
+	
+	return ax,fig
+	
 class RoomPainter:
 	
 	def __init__(self,sensorsPositions,sleepTime=0.5):
