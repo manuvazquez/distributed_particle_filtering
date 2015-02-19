@@ -3,6 +3,7 @@ import numpy as np
 import scipy.io
 
 from smc import particle_filter
+import smc.estimator
 import topology
 import drnautil
 import sensors_PEs_connector
@@ -424,12 +425,14 @@ class Mposterior(Simulation):
 		self._PFsColors.append('brown')
 		self._PFsLabels.append('M-posterior with exchange')
 		
+		# a Mposterior-based estimator for a DPF, which only takes into account a sample of the particles of each PE
+		MposteriorSubsetEstimator = smc.estimator.MposteriorSubset(self._simulationParameters['number of particles from each PE for computing the final estimate'])
+		
 		# several "isolated" PFs whose distributions are combined by means of the M-posterior algorithm...but only a few particles from each PE are used
 		self._PFs.append(
-			particle_filter.DistributedTargetTrackingParticleFilterWithComplexityConstrainedMposterior(
+			particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
 				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],
-				self._simulationParameters['number of particles from each PE for computing the final estimate'],
+				sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],estimator=MposteriorSubsetEstimator,
 				PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
 			)
 		)
@@ -440,11 +443,10 @@ class Mposterior(Simulation):
 
 		# a "distributed" PF in which each PE does its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
 		self._PFs.append(
-			particle_filter.DistributedTargetTrackingParticleFilterWithComplexityConstrainedParticleExchangingMposterior(
+			particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
 				sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],
-				self._simulationParameters['sharing period'],self._simulationParameters['number of particles shared by each PE'],
-				self._simulationParameters['number of particles from each PE for computing the final estimate'],
+				self._simulationParameters['sharing period'],self._simulationParameters['number of particles shared by each PE'],estimator=MposteriorSubsetEstimator,
 				PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
 			)
 		)
