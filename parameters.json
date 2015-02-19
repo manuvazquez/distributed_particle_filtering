@@ -112,7 +112,6 @@
 		"file name prefix for the estimation error vs time plot": "errorVsTime"
 	},
 	"sensors-PEs connectors": {
-		"type": "every sensor connected to every PE",
 		"every sensor connected to every PE": {
 			"implementing class": "EverySensorWithEveryPEConnector",
 			"parameters": {}
