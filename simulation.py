@@ -387,18 +387,6 @@ class Mposterior(Simulation):
 		self._PFsColors = ['black']
 		self._PFsLabels = ['Centralized']
 		
-		# several "isolated" PFs whose distributions are combined by means of the M-posterior algorithm
-		self._PFs.append(
-			particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorWithTheClosestPEConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],
-				PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
-			)
-		)
-		
-		self._PFsColors.append('cyan')
-		self._PFsLabels.append('M-posterior')
-		
 		# a distributed PF with DRNA
 		self._PFs.append(
 			particle_filter.TargetTrackingParticleFilterWithDRNA(
@@ -421,6 +409,18 @@ class Mposterior(Simulation):
 		self._PFsColors.append('pink')
 		self._PFsLabels.append('Plain DPF')
 		
+		# several "isolated" PFs whose distributions are combined by means of the M-posterior algorithm
+		self._PFs.append(
+			particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
+				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+				sensors,sensorWithTheClosestPEConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],
+				PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
+			)
+		)
+		
+		self._PFsColors.append('cyan')
+		self._PFsLabels.append('M-posterior')
+		
 		# a "distributed" PF in which each PE does its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
 		self._PFs.append(
 			particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
@@ -432,7 +432,7 @@ class Mposterior(Simulation):
 		)
 		
 		self._PFsColors.append('brown')
-		self._PFsLabels.append('M-posterior with exchange')
+		self._PFsLabels.append('Particle exchanching M-posterior')
 		
 		# a Mposterior-based estimator for a DPF, which only takes into account a sample of the particles of each PE
 		MposteriorSubsetEstimator = smc.estimator.MposteriorSubset(self._simulationParameters['number of particles from each PE for computing the final estimate'])
@@ -461,7 +461,7 @@ class Mposterior(Simulation):
 		)
 		
 		self._PFsColors.append('gray')
-		self._PFsLabels.append('Complexity-constrained M-posterior with exchange')
+		self._PFsLabels.append('Complexity-constrained Particle exchanching M-posterior')
 
 		# ================================================================================
 		
