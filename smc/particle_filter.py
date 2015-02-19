@@ -605,3 +605,23 @@ class DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(Di
 			
 			PE.samples = jointParticles[:,iNewParticles]
 			PE.weights = np.full(PE._nParticles,1.0/PE._nParticles)
+
+class DistributedTargetTrackingParticleFilterWithComplexityConstrainedParticleExchangingMposterior(DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior):
+	
+	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,sharingPeriod,nSharedParticles,nParticlesPerPEatFusionCenter,
+			  PFsClass=CentralizedTargetTrackingParticleFilter):
+		
+		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,sharingPeriod,nSharedParticles,PFsClass)
+		
+		self._nParticlesPerPEatFusionCenter = nParticlesPerPEatFusionCenter
+			
+	def computeMean(self):
+		
+		# the distributions computed by every PE are gathered in a list of tuples (samples and weights)
+		posteriors = [(PE.getSamplesAt(self._resamplingAlgorithm.getIndexes(PE.weights,self._nParticlesPerPEatFusionCenter)).T,
+				 np.full(self._nParticlesPerPEatFusionCenter,1.0/self._nParticlesPerPEatFusionCenter)) for PE in self._PEs]
+		
+		# the Mposterior algorithm is used to obtain a a new distribution
+		jointParticles,jointWeights = self.Mposterior(posteriors)
+		
+		return np.multiply(jointParticles,jointWeights).sum(axis=1)[np.newaxis].T

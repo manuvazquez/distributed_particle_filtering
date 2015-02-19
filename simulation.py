@@ -386,11 +386,14 @@ class Mposterior(Simulation):
 		
 		aggregatedWeightsUpperBound = drnautil.supremumUpperBound(selectedTopologySettings['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
 		
+		# a connector that connects every sensor to every PE
+		everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(sensors)
+		
 		# a distributed PF with DRNA
 		self._PFs.append(
 			particle_filter.TargetTrackingParticleFilterWithDRNA(
 				self._DRNAsettings["exchange period"],selectedTopology,aggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
-				prior,transitionKernel,sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs())
+				prior,transitionKernel,sensors,everySensorWithEveryPEConnector.getConnections(selectedTopology.getNumberOfPEs())
 			)
 		)
 		
@@ -434,7 +437,21 @@ class Mposterior(Simulation):
 		self._PFsColors.append('magenta')
 		self._PFsLabels.append('Complexity-constrained M-posterior')
 	
+
+		# a "distributed" PF in which each PE does its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
+		self._PFs.append(
+			particle_filter.DistributedTargetTrackingParticleFilterWithComplexityConstrainedParticleExchangingMposterior(
+				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+				sensors,sensorsPEsConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],
+				self._simulationParameters['sharing period'],self._simulationParameters['number of particles shared by each PE'],
+				self._simulationParameters['number of particles from each PE for computing the final estimate'],
+				PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
+			)
+		)
 		
+		self._PFsColors.append('gray')
+		self._PFsLabels.append('Complexity-constrained M-posterior with exchange')
+
 		# ---------------------
 		
 		# the position estimates
