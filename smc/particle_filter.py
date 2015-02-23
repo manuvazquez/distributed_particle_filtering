@@ -130,7 +130,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		
 		"""Obtain (just) the samples at certain given indexes.
 		
-		This yeilds a "view" of the data, rather than a copy.
+		This yields a "view" of the data, rather than a copy.
 		
 		Parameters
 		----------
@@ -344,7 +344,12 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 			for PE in self._PEs:
 				
 				PE.updateAggregatedWeight()
+			
+			# if every aggregated weight is zero, something must be done
+			if self.fixEveryWeightIsZero():
 				
+				print('aggregated weights add up to...resetting...')
+			
 			if self.degeneratedAggregatedWeights():
 				print('after exchanging, aggregated weights are still degenerated => assumption 4 is not being satisfied!!')
 				print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
@@ -386,15 +391,48 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 	def getAggregatedWeights(self):
 		
 		return np.array([PE.getAggregatedWeight() for PE in self._PEs])
-	
-	def degeneratedAggregatedWeights(self):
+
+	def fixEveryWeightIsZero(self):
+		
+		"""It checks whether every weight of every PE is zero and, if so, fixes it.
+			
+		Returns
+		-------
+		fixEveryWeightIsZero: bool
+			Fix was needed
+		"""
 
 		if self.getAggregatedWeights().sum()==0:
 			
-			print('aggregated weights add up to 0!!')
+			# every PE will be assigned an equal aggregated weight
+			aggregatedWeight = 1.0/self._topology.getNumberOfPEs()
 			
-			import code
-			code.interact(local=dict(globals(), **locals()))
+			# for every PE in this DPF...
+			for PE in self._PEs:
+				
+				# the aggregated weight is set...
+				PE._aggregatedWeight = aggregatedWeight
+				
+				# ...along with the individual weights within the PE
+				PE.fill(aggregatedWeight/PE._nParticles)
+				
+			# a fix was needed
+			return True
+		
+		# no fix needed
+		return False
+	
+	def degeneratedAggregatedWeights(self):
+		
+		"""It checks whether the aggregated weights are degenerated.
+		
+		It assumes that the aggregated weights are not all zero.
+		
+		Returns
+		-------
+		degeneratedAggregatedWeights: bool
+			The aggregated weights are all zero.
+		"""
 
 		normalizedWeights = self.getAggregatedWeights() / self.getAggregatedWeights().sum()
 
