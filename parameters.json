@@ -103,7 +103,6 @@
 	"Mposterior": {
 		"sharing period": 10,
 		"number of particles shared by each PE": 10,
-		"number of particles from each PE for computing the final estimate": 10,
 		"findWeiszfeldMedian parameters": {
 			"sigma": 0.1,
 			"maxit": 100,

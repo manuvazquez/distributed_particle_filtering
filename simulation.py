@@ -409,18 +409,6 @@ class Mposterior(Simulation):
 		self._PFsColors.append('pink')
 		self._PFsLabels.append('Plain DPF')
 		
-		# several "isolated" PFs whose distributions are combined by means of the M-posterior algorithm
-		self._PFs.append(
-			particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorWithTheClosestPEConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],
-				PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
-			)
-		)
-		
-		self._PFsColors.append('cyan')
-		self._PFsLabels.append('M-posterior')
-		
 		# a "distributed" PF in which each PE does its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
 		self._PFs.append(
 			particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
@@ -432,36 +420,22 @@ class Mposterior(Simulation):
 		)
 		
 		self._PFsColors.append('brown')
-		self._PFsLabels.append('Particle exchanching M-posterior')
+		self._PFsLabels.append('M-posterior')
 		
-		# a Mposterior-based estimator for a DPF, which only takes into account a sample of the particles of each PE
-		MposteriorSubsetEstimator = smc.estimator.MposteriorSubset(self._simulationParameters['number of particles from each PE for computing the final estimate'])
-		
-		# several "isolated" PFs whose distributions are combined by means of the M-posterior algorithm...but only a few particles from each PE are used
-		self._PFs.append(
-			particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorWithTheClosestPEConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],estimator=MposteriorSubsetEstimator,
-				PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
+		for nParticlesForFusion,color in zip([5,10],['magenta','gray']):
+			
+			# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
+			self._PFs.append(
+				particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
+					selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+					sensors,sensorWithTheClosestPEConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],
+					self._simulationParameters['sharing period'],self._simulationParameters['number of particles shared by each PE'],estimator=smc.estimator.MposteriorSubset(nParticlesForFusion),
+					PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
+				)
 			)
-		)
-		
-		self._PFsColors.append('magenta')
-		self._PFsLabels.append('Complexity-constrained M-posterior')
-	
-
-		# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
-		self._PFs.append(
-			particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
-				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorWithTheClosestPEConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],
-				self._simulationParameters['sharing period'],self._simulationParameters['number of particles shared by each PE'],estimator=MposteriorSubsetEstimator,
-				PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
-			)
-		)
-		
-		self._PFsColors.append('gray')
-		self._PFsLabels.append('Complexity-constrained Particle exchanching M-posterior')
+			
+			self._PFsColors.append(color)
+			self._PFsLabels.append('M-posterior' + ' ({} particles for fusion)'.format(nParticlesForFusion))
 		
 		geometricMedianEstimator = smc.estimator.GeometricMedian()
 		
