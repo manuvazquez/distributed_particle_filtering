@@ -406,10 +406,10 @@ class Mposterior(Simulation):
 		self._PFsColors.append('green')
 		self._PFsLabels.append('DRNA')
 		
-		# a "distributed" PF in which each PE does its computation independently of the rest (this DPF doesn't care about the topology...so either one of the above defined is fine)
+		# a "distributed" PF in which each PE does its computation independently of the rest
 		self._PFs.append(
 			particle_filter.DistributedTargetTrackingParticleFilter(
-				DRNAExchangePercentageTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+				nPEs,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
 				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
 			)
 		)

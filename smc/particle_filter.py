@@ -251,13 +251,13 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 
 class DistributedTargetTrackingParticleFilter(ParticleFilter):
 	
-	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
+	def __init__(self,nPEs,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
 			  PFsClass=CentralizedTargetTrackingParticleFilter,PFsInitialAggregatedWeight=1.0):
 		
-		super().__init__(topology.getNumberOfPEs()*nParticlesPerPE,resamplingAlgorithm,resamplingCriterion)
+		super().__init__(nPEs*nParticlesPerPE,resamplingAlgorithm,resamplingCriterion)
 		
 		# it is handy to keep the number of PEs in a variable
-		self._nPEs = topology.getNumberOfPEs()
+		self._nPEs = nPEs
 		
 		# a list of lists, the first one containing the indices of the sensors "seen" by the first PE...and so on
 		self._PEsSensorsConnections = PEsSensorsConnections
@@ -270,9 +270,6 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 													[s for iSensor,s in enumerate(sensors) if iSensor in PEsSensorsConnections[iPe]],
 													aggregatedWeight=PFsInitialAggregatedWeight) for iPe in range(self._nPEs)]
 		
-		# ...time instants, according to the geometry of the network
-		self._topology = topology
-	
 	def initialize(self):
 		
 		super().initialize()
@@ -317,7 +314,8 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
 			  PFsClass=EmbeddedTargetTrackingParticleFilter):
 		
-		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass,PFsInitialAggregatedWeight=1.0/topology.getNumberOfPEs())
+		super().__init__(topology.getNumberOfPEs(),nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
+				   PFsClass=PFsClass,PFsInitialAggregatedWeight=1.0/topology.getNumberOfPEs())
 		
 		# a exchange of particles among PEs will happen every...
 		self._exchangePeriod = exchangePeriod
@@ -327,6 +325,9 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		
 		# period for the normalization of the aggregated weights
 		self._normalizationPeriod = normalizationPeriod
+		
+		# how the PEs are interconnected
+		self._topology = topology
 
 		# we get a unique exchange map from this network
 		self._exchangeMap,_ = self._topology.getExchangeTuples()
@@ -530,7 +531,10 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,estimator=smc.estimator.Mposterior(),
 			  PFsClass=CentralizedTargetTrackingParticleFilter):
 		
-		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass)
+		super().__init__(topology.getNumberOfPEs(),nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass)
+		
+		# how the PEs are interconnected
+		self._topology = topology
 
 		# the (R) Mposterior package is imported...
 		self._Mposterior = importr('Mposterior')
