@@ -33,7 +33,7 @@ class Simulation(metaclass=abc.ABCMeta):
 		# room  dimensions
 		self._roomSettings = parameters["room"]
 		
-		# different setups for the PEs; if a list of topologies is given...
+		# the settings for the topology or topologies given...if it is a list...
 		if isinstance(parameters['topologies']['type'],list):
 			# ...we have a list of settings
 			self._topologiesSettings = [parameters['topologies'][i] for i in parameters['topologies']['type']]
@@ -357,8 +357,13 @@ class Mposterior(Simulation):
 		
 		self._simulationParameters = parameters['Mposterior']
 		
-		selectedTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._topologiesSettings['number of PEs'],
-			self._K,self._DRNAsettings["exchanged particles maximum percentage"],self._topologiesSettings['parameters'],PRNG=PRNGs["topology pseudo random numbers generator"])
+		# for the sake of clarity...since this will be used many times
+		nPEs = self._topologiesSettings['number of PEs']
+		
+		# topologies for the DRNA and Mposterior (they only differ in the percentage of particles exchanged)
+		DRNAExchangePercentageTopology,MposteriorExchangePercentageTopology = [
+				getattr(topology,self._topologiesSettings['implementing class'])(nPEs,self._K,exchangePercentage,self._topologiesSettings['parameters'],PRNG=PRNGs["topology pseudo random numbers generator"])
+			for exchangePercentage in [self._DRNAsettings["exchanged particles maximum percentage"],self._simulationParameters["exchanged particles maximum percentage"]]]
 		
 		# a connector that connects every sensor to every PE
 		everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(sensors)
@@ -373,19 +378,18 @@ class Mposterior(Simulation):
 		sensorsPositions = np.hstack([s.position for s in sensors])
 		
 		# ...and those of the PEs
-		PEsPositions = sensorWithTheClosestPEConnector.computePEsPositions(sensorsPositions,selectedTopology.getNumberOfPEs(),
-																	 sensorWithTheClosestPEConnectorSettings['parameters']['number of uniform samples']*selectedTopology.getNumberOfPEs())
+		PEsPositions = sensorWithTheClosestPEConnector.computePEsPositions(sensorsPositions,nPEs,sensorWithTheClosestPEConnectorSettings['parameters']['number of uniform samples']*nPEs)
 		
 		# ...are used to plot the connections between them
-		plot.PEsSensorsConnections(sensorsPositions,PEsPositions,sensorWithTheClosestPEConnector.getConnections(selectedTopology.getNumberOfPEs()))
+		plot.PEsSensorsConnections(sensorsPositions,PEsPositions,sensorWithTheClosestPEConnector.getConnections(nPEs))
 		
 		# a parameter for the DRNA algorithm
-		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(self._topologiesSettings['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
+		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(nPEs,self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
 		
 		# ===================================================================== algorithms
 		
 		# plain (centralized) particle filter
-		self._PFs = [particle_filter.CentralizedTargetTrackingParticleFilter(self._K*selectedTopology.getNumberOfPEs(),resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)]
+		self._PFs = [particle_filter.CentralizedTargetTrackingParticleFilter(self._K*nPEs,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)]
 		
 		# the color and label for the centralized PF are added to the corresponding lists
 		self._PFsColors = ['black']
@@ -394,19 +398,19 @@ class Mposterior(Simulation):
 		# a distributed PF with DRNA
 		self._PFs.append(
 			particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"],selectedTopology,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
-				prior,transitionKernel,sensors,everySensorWithEveryPEConnector.getConnections(selectedTopology.getNumberOfPEs())
+				self._DRNAsettings["exchange period"],DRNAExchangePercentageTopology,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
+				prior,transitionKernel,sensors,everySensorWithEveryPEConnector.getConnections(nPEs)
 			)
 		)
 		
 		self._PFsColors.append('green')
 		self._PFsLabels.append('DRNA')
 		
-		# a "distributed" PF in which each PE does its computation independently of the rest
+		# a "distributed" PF in which each PE does its computation independently of the rest (this DPF doesn't care about the topology...so either one of the above defined is fine)
 		self._PFs.append(
 			particle_filter.DistributedTargetTrackingParticleFilter(
-				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorWithTheClosestPEConnector.getConnections(selectedTopology.getNumberOfPEs()),PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
+				DRNAExchangePercentageTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
 			)
 		)
 		
@@ -416,8 +420,8 @@ class Mposterior(Simulation):
 		# a "distributed" PF in which each PE does its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
 		self._PFs.append(
 			particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
-				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorWithTheClosestPEConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],
+				MposteriorExchangePercentageTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
 				self._simulationParameters['sharing period'],self._simulationParameters['number of particles shared by each PE'],
 				PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
 			)
@@ -431,8 +435,8 @@ class Mposterior(Simulation):
 			# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
 			self._PFs.append(
 				particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
-					selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-					sensors,sensorWithTheClosestPEConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],
+					MposteriorExchangePercentageTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+					sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
 					self._simulationParameters['sharing period'],self._simulationParameters['number of particles shared by each PE'],estimator=smc.estimator.MposteriorSubset(nParticlesForFusion),
 					PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
 				)
@@ -446,8 +450,8 @@ class Mposterior(Simulation):
 		# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
 		self._PFs.append(
 			particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
-				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorWithTheClosestPEConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],
+				MposteriorExchangePercentageTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
 				self._simulationParameters['sharing period'],self._simulationParameters['number of particles shared by each PE'],estimator=geometricMedianEstimator,
 				PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
 			)
