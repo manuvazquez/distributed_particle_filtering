@@ -1,5 +1,54 @@
 import abc
+
 import numpy as np
+import numpy.linalg
+
+import state
+
+def geometric_median(points,max_iterations=100,tolerance=0.001):
+
+	# initial estimate
+	estimate = np.median(points,axis=1)
+	
+	for i in range(max_iterations):
+		
+		# the norms for the vectors joining the previous estimate with every point
+		norms = numpy.linalg.norm(np.subtract(points,estimate[:,np.newaxis]),axis=0)
+		
+		# is any of the norms is zero?
+		is_zero = np.isclose(norms,0.0)
+		
+		# if one of the norm is zero (there should be one at most)
+		if np.any(is_zero):
+			
+			# we find out its position...
+			iZero, = np.where(is_zero)
+			
+			# ...and the estimate of the median is the corresponding point
+			estimate = points[:,iZero[0]]
+			
+			return estimate
+		
+		# this is used a couple of times below
+		invnorms = 1.0 / norms
+		
+		# a new estimate according to the Weiszfeld algorithm
+		new_estimate = np.multiply(points,invnorms[np.newaxis,:]).sum(axis=1)/invnorms.sum()
+	
+		# if the new estimate is close enough to the old one...
+		if numpy.linalg.norm(new_estimate-estimate)<tolerance:
+			
+			# ...it gets a pass
+			return new_estimate
+		
+		# ...otherwise, the new estimate becomes will be used in the next iteration
+		estimate = new_estimate
+		
+		#print('iteration {}: {}'.format(i,estimate))
+		
+	#print('total distance = {}'.format(numpy.linalg.norm(np.subtract(points,estimate[:,np.newaxis]))))
+		
+	return estimate
 
 class Estimator(metaclass=abc.ABCMeta):
 	
@@ -37,3 +86,26 @@ class MposteriorSubset(Mposterior):
 				 np.full(self._nParticles,1.0/self._nParticles)) for PE in DPF._PEs]
 		
 		return self.combinePosteriorDistributions(DPF,posteriors)
+
+class GeometricMedian(Estimator):
+	
+	def __init__(self,maxIterations=100,tolerance=0.001):
+		
+		self._maxIterations = maxIterations
+		self._tolerance = tolerance
+	
+	def estimate(self,DPF):
+		
+		# a 2D array is initialized to store the samples from the different PEs
+		samples = np.empty((state.nElements(),len(DPF._PEs)))
+		
+		# for every PE...
+		for iPE,PE in enumerate(DPF._PEs):
+			
+			# ...the index of the sample with the largest sample is obtained...
+			iMax = PE.weights.argmax()
+			
+			# ...and its corresponding sample extracted and stored in the array initialized above
+			samples[:,iPE:iPE+1] = PE.getSamplesAt([iMax])
+
+		return geometric_median(samples,max_iterations=self._maxIterations,tolerance=self._tolerance)[:,np.newaxis]

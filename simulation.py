@@ -450,7 +450,7 @@ class Mposterior(Simulation):
 		self._PFsLabels.append('Complexity-constrained M-posterior')
 	
 
-		# a "distributed" PF in which each PE does its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
+		# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
 		self._PFs.append(
 			particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
@@ -462,6 +462,21 @@ class Mposterior(Simulation):
 		
 		self._PFsColors.append('gray')
 		self._PFsLabels.append('Complexity-constrained Particle exchanching M-posterior')
+		
+		geometricMedianEstimator = smc.estimator.GeometricMedian()
+		
+		# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
+		self._PFs.append(
+			particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
+				selectedTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+				sensors,sensorWithTheClosestPEConnector.getConnections(selectedTopology.getNumberOfPEs()),self._simulationParameters['findWeiszfeldMedian parameters'],
+				self._simulationParameters['sharing period'],self._simulationParameters['number of particles shared by each PE'],estimator=geometricMedianEstimator,
+				PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
+			)
+		)
+		
+		self._PFsColors.append('pink')
+		self._PFsLabels.append('M-posterior + Geometric Median')
 
 		# ================================================================================
 		
