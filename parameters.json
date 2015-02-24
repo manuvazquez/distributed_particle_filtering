@@ -2,16 +2,17 @@
 	"number of frames": 10,
 	"number of time instants": 300,
 	"number of particles per PE": 200,
-	"topologies": [
-		{
-			"class": "ConstantDegreeSimpleGraph",
+	"topologies": {
+		"type": ["Constant degree simple graph","Mesh","Fully connected graph with some random links removed","Custom","Fully connected graph"],
+		"Constant degree simple graph": {
+			"implementing class": "ConstantDegreeSimpleGraph",
 			"number of PEs": 128,
 			"parameters": {
 				"number of neighbours as a percentage of the number of PEs": 0.5
 			}
 		},
-		{
-			"class": "Mesh",
+		"Mesh": {
+			"implementing class": "Mesh",
 			"number of PEs": 16,
 			"parameters": {
 				"geometry": [4,4],
@@ -19,27 +20,27 @@
 				"wraparound": false
 			}
 		},
-		{
-			"class": "FullyConnectedWithRandomLinksRemoved",
+		"Fully connected graph with some random links removed": {
+			"implementing class": "FullyConnectedWithRandomLinksRemoved",
 			"number of PEs": 16,
 			"parameters": {
 				"number of links to be removed": 30
 			}
 		},
-		{
-			"class": "Customized",
+		"Custom": {
+			"implementing class": "Customized",
 			"number of PEs": 16,
 			"parameters": {
 				"neighbourhoods": [[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]]
 			}
 		},
-		{
-			"class": "FullyConnected",
+		"Fully connected graph": {
+			"implementing class": "FullyConnected",
 			"number of PEs": 16,
 			"parameters": {
 			}
 		}
-	],
+	},
 	"sensors": {
 		"number": 16,
 		"type": "RSS",
@@ -103,6 +104,7 @@
 	"Mposterior": {
 		"sharing period": 10,
 		"number of particles shared by each PE": 10,
+		"exchanged particles maximum percentage": 0.15,
 		"findWeiszfeldMedian parameters": {
 			"sigma": 0.1,
 			"maxit": 100,

@@ -33,8 +33,14 @@ class Simulation(metaclass=abc.ABCMeta):
 		# room  dimensions
 		self._roomSettings = parameters["room"]
 		
-		# different setups for the PEs
-		self._topologiesSettings = parameters['topologies']
+		# different setups for the PEs; if a list of topologies is given...
+		if isinstance(parameters['topologies']['type'],list):
+			# ...we have a list of settings
+			self._topologiesSettings = [parameters['topologies'][i] for i in parameters['topologies']['type']]
+		# otherwise...
+		else:
+			# the "topology settings" object is just a dictionary
+			self._topologiesSettings = parameters['topologies'][parameters['topologies']['type']]
 		
 		# sensors positions are gathered
 		self._sensorsPositions = np.hstack([s.position for s in sensors])
@@ -61,7 +67,7 @@ class Convergence(Simulation):
 		# let the super class do its thing...
 		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
 		
-		topologies = [getattr(topology,t['class'])(t['number of PEs'],self._K,self._DRNAsettings["exchanged particles maximum percentage"],t['parameters'],
+		topologies = [getattr(topology,t['implementing class'])(t['number of PEs'],self._K,self._DRNAsettings["exchanged particles maximum percentage"],t['parameters'],
 											 PRNG=PRNGs["topology pseudo random numbers generator"]) for t in self._topologiesSettings]
 		
 		# we compute the upper bound for the supremum of the aggregated weights that should guarante convergence
@@ -218,7 +224,7 @@ class ActiveSensors(Simulation):
 		
 		# the FIRST topology in the parameters file is selected
 		selectedTopologySettings = self._topologiesSettings[0]
-		selectedTopology = getattr(topology,selectedTopologySettings['class'])(selectedTopologySettings['number of PEs'],self._K,self._DRNAsettings["exchanged particles maximum percentage"],selectedTopologySettings['parameters'],
+		selectedTopology = getattr(topology,selectedTopologySettings['implementing class'])(selectedTopologySettings['number of PEs'],self._K,self._DRNAsettings["exchanged particles maximum percentage"],selectedTopologySettings['parameters'],
 											 PRNG=PRNGs["topology pseudo random numbers generator"])
 		
 		# plain (centralized) particle filter
@@ -351,10 +357,8 @@ class Mposterior(Simulation):
 		
 		self._simulationParameters = parameters['Mposterior']
 		
-		# the FIRST topology in the parameters file is selected
-		selectedTopologySettings = self._topologiesSettings[0]
-		selectedTopology = getattr(topology,selectedTopologySettings['class'])(selectedTopologySettings['number of PEs'],self._K,self._DRNAsettings["exchanged particles maximum percentage"],selectedTopologySettings['parameters'],
-											 PRNG=PRNGs["topology pseudo random numbers generator"])
+		selectedTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._topologiesSettings['number of PEs'],
+			self._K,self._DRNAsettings["exchanged particles maximum percentage"],self._topologiesSettings['parameters'],PRNG=PRNGs["topology pseudo random numbers generator"])
 		
 		# a connector that connects every sensor to every PE
 		everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(sensors)
@@ -376,7 +380,7 @@ class Mposterior(Simulation):
 		plot.PEsSensorsConnections(sensorsPositions,PEsPositions,sensorWithTheClosestPEConnector.getConnections(selectedTopology.getNumberOfPEs()))
 		
 		# a parameter for the DRNA algorithm
-		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(selectedTopologySettings['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
+		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(self._topologiesSettings['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
 		
 		# ===================================================================== algorithms
 		
