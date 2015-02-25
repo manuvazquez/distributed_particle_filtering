@@ -583,13 +583,16 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 
 class DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(DistributedTargetTrackingParticleFilterWithMposterior):
 	
-	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,sharingPeriod,nSharedParticles,
+	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,sharingPeriod,
 			  estimator=smc.estimator.Mposterior(),PFsClass=CentralizedTargetTrackingParticleFilter):
 		
 		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,estimator=estimator,PFsClass=PFsClass)
 		
 		self._sharingPeriod = sharingPeriod
-		self._nSharedParticles = nSharedParticles
+		self._nSharedParticles = topology.nParticlesExchangedBetweenTwoNeighbours
+		
+		# we get a unique exchange map from this network
+		self._exchangeMap,self._neighboursWithParticles = self._topology.getExchangeTuples()
 		
 	def step(self,observations):
 		
@@ -601,6 +604,9 @@ class DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(Di
 			self.share()
 	
 	def share(self):
+		
+		#import code
+		#code.interact(local=dict(globals(), **locals()))
 		
 		# each PE draws a set of samples from its probability measure...to be shared with its neighbours
 		samplesToBeShared = [PE.getSamplesAt(self._resamplingAlgorithm.getIndexes(PE.weights,self._nSharedParticles)) for PE in self._PEs]

@@ -21,9 +21,6 @@ class Topology:
 
 	def getExchangeTuples(self):
 		
-		# accounting for the maximum number of neighbours a given PE can have, we compute...
-		nParticlesToBeExchangeBetweenTwoNeighbours = (self._nParticlesPerPE*self._exchangePercentage)//max([len(neighbourhood) for neighbourhood in self._neighbours])
-		
 		# an array to keep tabs of pairs of PEs already processed
 		alreadyProcessedPEs = np.zeros((self._nPEs,self._nPEs),dtype=bool)
 		
@@ -43,10 +40,10 @@ class Topology:
 				if not alreadyProcessedPEs[iPE,iNeighbour]:
 
 					# the particles to be exchanged are chosen randomly (with no replacement) for both, the considered PE...
-					iParticlesToExchangeWithinPE = self._PRNG.choice(self._iParticles[iNotSwappedYetParticles[iPE,:]],size=nParticlesToBeExchangeBetweenTwoNeighbours,replace=False)
+					iParticlesToExchangeWithinPE = self._PRNG.choice(self._iParticles[iNotSwappedYetParticles[iPE,:]],size=self.nParticlesExchangedBetweenTwoNeighbours,replace=False)
 					
 					# ...and the corresponding neighbour
-					iParticlesToExchangeWithinNeighbour = self._PRNG.choice(self._iParticles[iNotSwappedYetParticles[iNeighbour,:]],size=nParticlesToBeExchangeBetweenTwoNeighbours,replace=False)
+					iParticlesToExchangeWithinNeighbour = self._PRNG.choice(self._iParticles[iNotSwappedYetParticles[iNeighbour,:]],size=self.nParticlesExchangedBetweenTwoNeighbours,replace=False)
 
 					# new "exchange tuple"s are generated
 					exchangeTuples.extend([self._exchangeTuple(iPE=iPE,iParticleWithinPE=iParticleWithinPE,iNeighbour=iNeighbour,iParticleWithinNeighbour=iParticleWithinNeighbour)
@@ -79,6 +76,20 @@ class Topology:
 		"""
 		
 		return self._neighbours
+	
+	@property
+	def nParticlesExchangedBetweenTwoNeighbours(self):
+		
+		"""The number of particles that are to be exchanged between a couple of neighbours.
+		
+		Returns
+		-------
+		nParticlesExchangedBetweenTwoNeighbours: int
+			number of particles
+		"""
+		
+		# it is computed accounting for the maximum number of neighbours a given PE can have
+		return int((self._nParticlesPerPE*self._exchangePercentage)//max([len(neighbourhood) for neighbourhood in self._neighbours]))
 
 class Customized(Topology):
 	

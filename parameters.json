@@ -103,7 +103,6 @@
 	},
 	"Mposterior": {
 		"sharing period": 10,
-		"number of particles shared by each PE": 10,
 		"exchanged particles maximum percentage": 0.15,
 		"findWeiszfeldMedian parameters": {
 			"sigma": 0.1,
