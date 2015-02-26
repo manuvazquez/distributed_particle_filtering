@@ -388,6 +388,8 @@ class Mposterior(Simulation):
 		
 		# ===================================================================== algorithms
 		
+		# unused colors: pink
+		
 		# plain (centralized) particle filter
 		self._PFs = [particle_filter.CentralizedTargetTrackingParticleFilter(self._K*nPEs,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors)]
 		
@@ -398,7 +400,7 @@ class Mposterior(Simulation):
 		# a distributed PF with DRNA
 		self._PFs.append(
 			particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"],DRNAExchangePercentageTopology,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
+				self._DRNAsettings["exchange period"],MposteriorExchangePercentageTopology,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
 				prior,transitionKernel,sensors,everySensorWithEveryPEConnector.getConnections(nPEs)
 			)
 		)
@@ -410,17 +412,6 @@ class Mposterior(Simulation):
 		self._PFs.append(
 			particle_filter.TargetTrackingParticleFilterWithDRNA(
 				self._DRNAsettings["exchange period"],MposteriorExchangePercentageTopology,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
-				prior,transitionKernel,sensors,everySensorWithEveryPEConnector.getConnections(nPEs)
-			)
-		)
-		
-		self._PFsColors.append('blue')
-		self._PFsLabels.append('DRNA (Mposterior percentage)')
-		
-		# a distributed PF with DRNA
-		self._PFs.append(
-			particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"],DRNAExchangePercentageTopology,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
 				prior,transitionKernel,sensors,sensorWithTheClosestPEConnector.getConnections(nPEs)
 			)
 		)
@@ -436,7 +427,7 @@ class Mposterior(Simulation):
 			)
 		)
 		
-		self._PFsColors.append('pink')
+		self._PFsColors.append('blue')
 		self._PFsLabels.append('Plain DPF')
 		
 		# a "distributed" PF in which each PE does its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
