@@ -216,7 +216,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		
 		if self._weights.shape==value.shape:
 			
-			self._weights==value
+			self._weights=value
 			
 		else:
 			
@@ -267,9 +267,9 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 		
 		# the particle filters are built (each one associated with a different set of sensors)
 		self._PEs = [PFsClass(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,
-													[s for iSensor,s in enumerate(sensors) if iSensor in PEsSensorsConnections[iPe]],
-													aggregatedWeight=PFsInitialAggregatedWeight) for iPe in range(self._nPEs)]
-		
+													[s for iSensor,s in enumerate(sensors) if iSensor in connections],
+													aggregatedWeight=PFsInitialAggregatedWeight) for connections in  PEsSensorsConnections]
+
 	def initialize(self):
 		
 		super().initialize()
@@ -346,17 +346,20 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 				
 				PE.updateAggregatedWeight()
 			
-			# if every aggregated weight is zero, something must be done
-			if self.fixEveryWeightIsZero():
-				
-				print('aggregated weights add up to...resetting...')
-			
 			if self.degeneratedAggregatedWeights():
 				print('after exchanging, aggregated weights are still degenerated => assumption 4 is not being satisfied!!')
 				print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
 		
-		# in order to peform some checks...
+		# needed to perform the normalization below
 		aggregatedWeightsSum = self.getAggregatedWeights().sum()
+		
+		# if every aggregated weight is zero...
+		if aggregatedWeightsSum==0:
+			
+			print('aggregated weights add up to...resetting...')
+			
+			# ...we reinitialize the weights for all the particles of all the PEs
+			self.resetWeights()
 		
 		# the aggregated weights must be normalized every now and then to avoid computer precision issues
 		if self._n % self._normalizationPeriod == 0:
@@ -393,35 +396,22 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		
 		return np.array([PE.getAggregatedWeight() for PE in self._PEs])
 
-	def fixEveryWeightIsZero(self):
+	def resetWeights(self):
 		
-		"""It checks whether every weight of every PE is zero and, if so, fixes it.
-			
-		Returns
-		-------
-		fixEveryWeightIsZero: bool
-			Fix was needed
+		"""It sets every weight of every PE to the same value.
 		"""
-
-		if self.getAggregatedWeights().sum()==0:
-			
-			# every PE will be assigned an equal aggregated weight
-			aggregatedWeight = 1.0/self._topology.getNumberOfPEs()
-			
-			# for every PE in this DPF...
-			for PE in self._PEs:
-				
-				# the aggregated weight is set...
-				PE._aggregatedWeight = aggregatedWeight
-				
-				# ...along with the individual weights within the PE
-				PE.weights = np.full(PE._nParticles,aggregatedWeight/PE._nParticles)
-				
-			# a fix was needed
-			return True
 		
-		# no fix needed
-		return False
+		# every PE will be assigned the same aggregated weight:
+		aggregatedWeight = 1.0/self._nPEs
+		
+		# for every PE in this DPF...
+		for PE in self._PEs:
+			
+			# the aggregated weight is set...
+			PE._aggregatedWeight = aggregatedWeight
+			
+			# ...along with the individual weights within the PE
+			PE.weights = np.full(PE._nParticles,aggregatedWeight/PE._nParticles)
 	
 	def degeneratedAggregatedWeights(self):
 		
