@@ -415,7 +415,7 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 				PE._aggregatedWeight = aggregatedWeight
 				
 				# ...along with the individual weights within the PE
-				PE.fill(aggregatedWeight/PE._nParticles)
+				PE.weights = np.full(PE._nParticles,aggregatedWeight/PE._nParticles)
 				
 			# a fix was needed
 			return True

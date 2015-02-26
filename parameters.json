@@ -3,7 +3,7 @@
 	"number of time instants": 300,
 	"number of particles per PE": 200,
 	"topologies": {
-		"type": ["Constant degree simple graph","Mesh","Fully connected graph with some random links removed","Custom","Fully connected graph"],
+		"type": "Mesh",
 		"Constant degree simple graph": {
 			"implementing class": "ConstantDegreeSimpleGraph",
 			"number of PEs": 128,

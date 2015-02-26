@@ -414,8 +414,8 @@ class Mposterior(Simulation):
 			)
 		)
 		
-		self._PFsColors.append('green')
-		self._PFsLabels.append('DRNA (% = Mposterior)')
+		self._PFsColors.append('blue')
+		self._PFsLabels.append('DRNA (Mposterior percentage)')
 		
 		# a distributed PF with DRNA
 		self._PFs.append(
@@ -452,7 +452,7 @@ class Mposterior(Simulation):
 		self._PFsColors.append('brown')
 		self._PFsLabels.append('M-posterior')
 		
-		for nParticlesForFusion,color in zip([5,10],['blue','gray']):
+		for nParticlesForFusion,color in zip([10],['gray']):
 			
 			# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
 			self._PFs.append(
@@ -465,7 +465,7 @@ class Mposterior(Simulation):
 			)
 			
 			self._PFsColors.append(color)
-			self._PFsLabels.append('M-posterior' + ' ({} particles for fusion)'.format(nParticlesForFusion))
+			self._PFsLabels.append('M-posterior' + ' ({} particles for estimation)'.format(nParticlesForFusion))
 		
 		geometricMedianEstimator = smc.estimator.GeometricMedian()
 		
