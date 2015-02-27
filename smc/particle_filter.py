@@ -354,12 +354,13 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		aggregatedWeightsSum = self.getAggregatedWeights().sum()
 		
 		# if every aggregated weight is zero...
-		if aggregatedWeightsSum==0:
-			
-			print('aggregated weights add up to...resetting...')
+		if np.isclose(aggregatedWeightsSum,0):
 			
 			# ...we reinitialize the weights for all the particles of all the PEs
 			self.resetWeights()
+			
+			# ...and skip the normalization code below
+			return
 		
 		# the aggregated weights must be normalized every now and then to avoid computer precision issues
 		if self._n % self._normalizationPeriod == 0:
