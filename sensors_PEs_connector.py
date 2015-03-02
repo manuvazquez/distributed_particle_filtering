@@ -5,6 +5,24 @@ import numpy.random
 
 import networkx
 
+def computePEsPositions(sensorsPositions,nPEs,nPoints):
+	
+	# the bottom leftmost and top right most position of the sensors are obtained...
+	bottomLeftMostPosition = sensorsPositions.min(axis=1)
+	topRightMostPosition = sensorsPositions.max(axis=1)
+	
+	# the seed of the Pseudo Random Numbers Generator to be used below (so that the positions obtained for the PEs stay the same through different runs)
+	PRNG = numpy.random.RandomState(1234567)
+	
+	# ...is generated from a uniform distribution whose bounds are given by the rectangular space spanned by the sensors
+	points = np.vstack((PRNG.uniform(bottomLeftMostPosition[0],topRightMostPosition[0],(1,nPoints)),PRNG.uniform(bottomLeftMostPosition[1],topRightMostPosition[1],(1,nPoints))))
+	
+	# "nPEs" centroids for the above coordinates are computed using K-Means; initial random centroids are passed to the function so it does not generate them with its own random generator
+	PEsPositions,_ = scipy.cluster.vq.kmeans(points.T,points.T[PRNG.choice(points.shape[1],nPEs),:])
+	
+	# the transpose of the obtained positions is returned so that, just like the sensors positions, every column contains the two coordinates for a position
+	return PEsPositions.T
+
 class SensorsPEsConnector(metaclass=abc.ABCMeta):
 	
 	def __init__(self,sensors,parameters=None):
@@ -18,24 +36,6 @@ class SensorsPEsConnector(metaclass=abc.ABCMeta):
 	def getConnections(self,nPEs):
 		
 		return
-
-	def computePEsPositions(self,sensorsPositions,nPEs,nPoints):
-		
-		# the bottom leftmost and top right most position of the sensors are obtained...
-		bottomLeftMostPosition = sensorsPositions.min(axis=1)
-		topRightMostPosition = sensorsPositions.max(axis=1)
-		
-		# the seed of the Pseudo Random Numbers Generator to be used below (so that the positions obtained for the PEs stay the same through different runs)
-		PRNG = numpy.random.RandomState(1234567)
-		
-		# ...is generated from a uniform distribution whose bounds are given by the rectangular space spanned by the sensors
-		points = np.vstack((PRNG.uniform(bottomLeftMostPosition[0],topRightMostPosition[0],(1,nPoints)),PRNG.uniform(bottomLeftMostPosition[1],topRightMostPosition[1],(1,nPoints))))
-		
-		# "nPEs" centroids for the above coordinates are computed using K-Means; initial random centroids are passed to the function so it does not generate them with its own random generator
-		PEsPositions,_ = scipy.cluster.vq.kmeans(points.T,points.T[PRNG.choice(points.shape[1],nPEs),:])
-		
-		# the transpose of the obtained positions is returned so that, just like the sensors positions, every column contains the two coordinates for a position
-		return PEsPositions.T
 
 class EverySensorWithEveryPEConnector(SensorsPEsConnector):
 	
@@ -77,7 +77,7 @@ class ProximityBasedConnector(SensorsPEsConnector):
 		# a number of samples proportional to the number of PEs...
 		nPoints = self._parameters['number of uniform samples']*nPEs
 		
-		PEsPositions = self.computePEsPositions(sensorsPositions,nPEs,nPoints)
+		PEsPositions = computePEsPositions(sensorsPositions,nPEs,nPoints)
 		
 		# the distance from each PE (whose position has been computed above) to each sensor [<PE>,<sensor>]
 		distances = np.sqrt((np.subtract(PEsPositions[:,:,np.newaxis],sensorsPositions[:,np.newaxis,:])**2).sum(axis=0))
