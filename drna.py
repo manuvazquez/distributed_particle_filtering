@@ -251,7 +251,6 @@ mobile = target.Target(prior,transitionKernel,PRNG=PRNGs["Trajectory pseudo rand
 
 # a "simulation" object is created
 #sim = simulation.Convergence(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
-#sim = simulation.ActiveSensors(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
 sim = simulation.Mposterior(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
 
 #------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
