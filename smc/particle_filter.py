@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import abc
 
 import state
 import smc.estimator
@@ -16,7 +17,7 @@ from rpy2.robjects.packages import importr
 import rpy2.robjects.numpy2ri
 rpy2.robjects.numpy2ri.activate()
 
-class ParticleFilter:
+class ParticleFilter(metaclass=abc.ABCMeta):
 	
 	def __init__(self,nParticles,resamplingAlgorithm,resamplingCriterion):
 		
@@ -24,15 +25,18 @@ class ParticleFilter:
 		
 		self._resamplingAlgorithm = resamplingAlgorithm
 		self._resamplingCriterion = resamplingCriterion
-		
+	
+	@abc.abstractmethod
 	def initialize(self):
 
 		pass
-		
+	
+	@abc.abstractmethod
 	def step(self,observations):
 		
 		pass
 	
+	@abc.abstractmethod
 	def getState(self):
 		
 		pass
@@ -62,9 +66,6 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 	
 	def initialize(self):
 		
-		# let the parent do its thing...
-		super().initialize()
-		
 		# initial samples...
 		self._state = self._prior.sample(self._nParticles)
 		
@@ -72,8 +73,6 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		self._weights.fill(self._aggregatedWeight/self._nParticles)
 		
 	def step(self,observations):
-		
-		super().step(observations)
 		
 		assert len(observations) == len(self._sensors)
 		
@@ -272,8 +271,6 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 
 	def initialize(self):
 		
-		super().initialize()
-		
 		# all the PFs are initialized
 		for PE in self._PEs:
 			
@@ -283,8 +280,6 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 		self._n = 0
 
 	def step(self,observations):
-		
-		super().step(observations)
 		
 		# a step is taken in every PF (ideally, this would occur concurrently)
 		for iPe,PE in enumerate(self._PEs):
