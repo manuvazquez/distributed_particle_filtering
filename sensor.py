@@ -98,21 +98,22 @@ class RSSsensor(Sensor):
 		# minimum amount of power the sensor is able to measure
 		self._minimumPower = minimum_amount_of_power
 
+	def meanRSS(self,distances):
+		
+		return 10*np.log10(self._txPower/distances**self._pathLossExponent + self._minimumPower)
+
 	def detect(self,targetPos):
 		
 		distance = np.linalg.norm((self.position - targetPos))
 		
-		return 10*np.log10(self._txPower/distance**self._pathLossExponent + self._minimumPower) + self._PRNG.randn()*self._noiseStd;
+		return self.meanRSS(distance) + self._PRNG.randn()*self._noiseStd
 
 	def likelihood(self,observation,positions):
 		
 		# the distances to ALL the positions are computed
 		distances = np.linalg.norm(np.subtract(positions,self.position),axis=0)
 		
-		# the mean of the Gaussian random variable associated with each position (distance)
-		means = 10*np.log10(self._txPower/distances**self._pathLossExponent)
-		
-		return scipy.stats.norm.pdf(observation,means,self._noiseStd)
+		return scipy.stats.norm.pdf(observation,self.meanRSS(distances),self._noiseStd)
 
 class SensorLayer:
 	
