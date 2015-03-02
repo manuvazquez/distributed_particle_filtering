@@ -345,10 +345,6 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 			for PE in self._PEs:
 				
 				PE.updateAggregatedWeight()
-			
-			if self.degeneratedAggregatedWeights():
-				print('after exchanging, aggregated weights are still degenerated => assumption 4 is not being satisfied!!')
-				print(self.getAggregatedWeights() / self.getAggregatedWeights().sum())
 		
 		# needed to perform the normalization below
 		aggregatedWeightsSum = self.getAggregatedWeights().sum()
@@ -413,28 +409,6 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 			
 			# ...along with the individual weights within the PE
 			PE.weights = np.full(PE._nParticles,aggregatedWeight/PE._nParticles)
-	
-	def degeneratedAggregatedWeights(self):
-		
-		"""It checks whether the aggregated weights are degenerated.
-		
-		It assumes that the aggregated weights are not all zero.
-		
-		Returns
-		-------
-		degeneratedAggregatedWeights: bool
-			The aggregated weights are all zero.
-		"""
-
-		normalizedWeights = self.getAggregatedWeights() / self.getAggregatedWeights().sum()
-
-		if normalizedWeights.max() > self._aggregatedWeightsUpperBound:
-			
-			return True
-		
-		else:
-		
-			return False
 
 class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTrackingParticleFilter):
 	
