@@ -253,179 +253,98 @@ class Mposterior(Simulation):
 		
 		# ===================================================================== algorithms
 		
+		smc_PF_module = smc.log_particle_filter
+		smc_estimator_module = smc.log_estimator
+		
+		#smc_PF_module = smc.particle_filter
+		#smc_estimator_module = smc.estimator
+		
 		# unused colors: pink
 		
 		self._PFs = []
 		self._PFsColors = []
 		self._PFsLabels = []
 		
-		## plain (centralized) particle filter
-		#self._PFs.append(particle_filter.CentralizedTargetTrackingParticleFilter(self._K*nPEs,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors))
-		
-		## the color and label for the centralized PF are added to the corresponding lists
-		#self._PFsColors.append('black')
-		#self._PFsLabels.append('Centralized')
-
-		## a distributed PF with DRNA
-		#self._PFs.append(
-			#particle_filter.TargetTrackingParticleFilterWithDRNA(
-				#self._DRNAsettings["exchange period"],networkTopology,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
-				#prior,transitionKernel,sensors,everySensorWithEveryPEConnector.getConnections(nPEs)
-			#)
-		#)
-		
-		#self._PFsColors.append('green')
-		#self._PFsLabels.append('DRNA')
-		
-		## a distributed PF with DRNA
-		#self._PFs.append(
-			#particle_filter.TargetTrackingParticleFilterWithDRNA(
-				#self._DRNAsettings["exchange period"],networkTopology,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
-				#prior,transitionKernel,sensors,sensorWithTheClosestPEConnector.getConnections(nPEs)
-			#)
-		#)
-		
-		#self._PFsColors.append('magenta')
-		#self._PFsLabels.append('DRNA (partial)')
-		
-		## a "distributed" PF in which each PE does its computation independently of the rest
-		#self._PFs.append(
-			#particle_filter.DistributedTargetTrackingParticleFilter(
-				#nPEs,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				#sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
-			#)
-		#)
-		
-		#self._PFsColors.append('blue')
-		#self._PFsLabels.append('Plain DPF')
-		
-		## a "distributed" PF in which each PE does its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
-		#self._PFs.append(
-			#particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
-				#networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				#sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-				#self._simulationParameters['sharing period'],
-				#PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
-			#)
-		#)
-		
-		#self._PFsColors.append('brown')
-		#self._PFsLabels.append('M-posterior')
-		
-		#for nParticlesForFusion,color in zip([10],['gray']):
-			
-			## a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
-			#self._PFs.append(
-				#particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
-					#networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-					#sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-					#self._simulationParameters['sharing period'],estimator=smc.estimator.MposteriorSubset(nParticlesForFusion),
-					#PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
-				#)
-			#)
-			
-			#self._PFsColors.append(color)
-			#self._PFsLabels.append('M-posterior' + ' ({} particles for estimation)'.format(nParticlesForFusion))
-		
-		#geometricMedianEstimator = smc.estimator.GeometricMedian()
-		
-		## a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
-		#self._PFs.append(
-			#particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
-				#networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				#sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-				#self._simulationParameters['sharing period'],estimator=geometricMedianEstimator,
-				#PFsClass=particle_filter.CentralizedTargetTrackingParticleFilter
-			#)
-		#)
-		
-		#self._PFsColors.append('red')
-		#self._PFsLabels.append('M-posterior + Geometric Median')
-		
-		# -----------------------------------
-		
 		# plain (centralized) particle filter
-		self._PFs.append(log_particle_filter.CentralizedTargetTrackingParticleFilter(self._K*nPEs,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors))
+		self._PFs.append(smc_PF_module.CentralizedTargetTrackingParticleFilter(self._K*nPEs,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors))
 		
 		# the color and label for the centralized PF are added to the corresponding lists
 		self._PFsColors.append('black')
-		self._PFsLabels.append('Log Centralized')
+		self._PFsLabels.append('Centralized')
 		
 		# a distributed PF with DRNA
 		self._PFs.append(
-			log_particle_filter.TargetTrackingParticleFilterWithDRNA(
+			smc_PF_module.TargetTrackingParticleFilterWithDRNA(
 				self._DRNAsettings["exchange period"],networkTopology,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
-				prior,transitionKernel,sensors,everySensorWithEveryPEConnector.getConnections(nPEs),PFsClass=log_particle_filter.EmbeddedTargetTrackingParticleFilter
+				prior,transitionKernel,sensors,everySensorWithEveryPEConnector.getConnections(nPEs),PFsClass=smc_PF_module.EmbeddedTargetTrackingParticleFilter
 			)
 		)
 		
 		self._PFsColors.append('green')
-		self._PFsLabels.append('Log DRNA')
+		self._PFsLabels.append('DRNA')
 		
 		# a distributed PF with DRNA
 		self._PFs.append(
-			log_particle_filter.TargetTrackingParticleFilterWithDRNA(
+			smc_PF_module.TargetTrackingParticleFilterWithDRNA(
 				self._DRNAsettings["exchange period"],networkTopology,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
-				prior,transitionKernel,sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),PFsClass=log_particle_filter.EmbeddedTargetTrackingParticleFilter
+				prior,transitionKernel,sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),PFsClass=smc_PF_module.EmbeddedTargetTrackingParticleFilter
 			)
 		)
 		
 		self._PFsColors.append('magenta')
-		self._PFsLabels.append('Log DRNA (partial)')
+		self._PFsLabels.append('DRNA (partial)')
 		
 		# a "distributed" PF in which each PE does its computation independently of the rest
 		self._PFs.append(
-			particle_filter.DistributedTargetTrackingParticleFilter(
+			smc_PF_module.DistributedTargetTrackingParticleFilter(
 				nPEs,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),PFsClass=log_particle_filter.CentralizedTargetTrackingParticleFilter
+				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),PFsClass=smc_PF_module.CentralizedTargetTrackingParticleFilter
 			)
 		)
 		
 		self._PFsColors.append('blue')
-		self._PFsLabels.append('Log Plain DPF')
+		self._PFsLabels.append('Plain DPF')
 
 		# a "distributed" PF in which each PE does its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
 		self._PFs.append(
-			log_particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
+			smc_PF_module.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 				networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
 				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-				self._simulationParameters['sharing period'],estimator=smc.log_estimator.Mposterior(),
-				PFsClass=log_particle_filter.CentralizedTargetTrackingParticleFilter
+				self._simulationParameters['sharing period'],estimator=smc_estimator_module.Mposterior(),
+				PFsClass=smc_PF_module.CentralizedTargetTrackingParticleFilter
 			)
 		)
 		
 		self._PFsColors.append('brown')
-		self._PFsLabels.append('Log M-posterior')
+		self._PFsLabels.append('M-posterior')
 		
 		for nParticlesForFusion,color in zip([10],['gray']):
 			
 			# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
 			self._PFs.append(
-				log_particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
+				smc_PF_module.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 					networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
 					sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-					self._simulationParameters['sharing period'],estimator=smc.log_estimator.MposteriorSubset(nParticlesForFusion),
-					PFsClass=log_particle_filter.CentralizedTargetTrackingParticleFilter
+					self._simulationParameters['sharing period'],estimator=smc_estimator_module.MposteriorSubset(nParticlesForFusion),
+					PFsClass=smc_PF_module.CentralizedTargetTrackingParticleFilter
 				)
 			)
 			
 			self._PFsColors.append(color)
-			self._PFsLabels.append('Log M-posterior' + ' ({} particles for estimation)'.format(nParticlesForFusion))
-		
-		geometricMedianEstimator = smc.estimator.GeometricMedian()
+			self._PFsLabels.append('M-posterior' + ' ({} particles for estimation)'.format(nParticlesForFusion))
 		
 		# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
 		self._PFs.append(
-			log_particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
+			smc_PF_module.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 				networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
 				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-				self._simulationParameters['sharing period'],estimator=geometricMedianEstimator,
-				PFsClass=log_particle_filter.CentralizedTargetTrackingParticleFilter
+				self._simulationParameters['sharing period'],estimator=smc_estimator_module.GeometricMedian(),
+				PFsClass=smc_PF_module.CentralizedTargetTrackingParticleFilter
 			)
 		)
 		
 		self._PFsColors.append('red')
-		self._PFsLabels.append('Log M-posterior + Geometric Median')
+		self._PFsLabels.append('M-posterior + Geometric Median')
 
 		# ================================================================================
 		

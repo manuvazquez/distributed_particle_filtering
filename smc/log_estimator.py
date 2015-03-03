@@ -21,3 +21,8 @@ class MposteriorSubset(smc.estimator.MposteriorSubset):
 				 np.full(self._nParticles,1.0/self._nParticles)) for PE in DPF._PEs]
 		
 		return self.combinePosteriorDistributions(DPF,posteriors)
+
+# so that this module shares the same API as the "estimator" module
+class GeometricMedian(smc.estimator.GeometricMedian):
+	
+	pass

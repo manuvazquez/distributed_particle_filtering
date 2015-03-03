@@ -123,6 +123,11 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 
 # =========================================================================================================
 
+# so that this module shares the same API as the "particle_filter" module
+class DistributedTargetTrackingParticleFilter(particle_filter.DistributedTargetTrackingParticleFilter):
+	
+	pass
+
 class TargetTrackingParticleFilterWithDRNA(particle_filter.TargetTrackingParticleFilterWithDRNA):
 
 	def resetWeights(self):

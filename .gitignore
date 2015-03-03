@@ -4,4 +4,6 @@ changelog
 Lorenz3
 *.eps
 TODO
-doc
+docs
+*.RandomState
+.pdbrc
