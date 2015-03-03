@@ -178,7 +178,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		# if all the weights in this PF/PE are zero...
 		if self._aggregatedWeight==0:
 			
-			# ...then we return an all-zeros estimate, though any should do since this estimate must contribute zero
+			# ...then an all-zeros estimate is returned...though any should do since this estimate must contribute zero
 			return np.zeros((state.nElements,1))
 		
 		normalizedWeights = self._weights / self._aggregatedWeight
@@ -315,9 +315,6 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		# a exchange of particles among PEs will happen every...
 		self._exchangePeriod = exchangePeriod
 
-		# useful for checking how well the algorithm is doing
-		self._aggregatedWeightsUpperBound = aggregatedWeightsUpperBound
-		
 		# period for the normalization of the aggregated weights
 		self._normalizationPeriod = normalizationPeriod
 		
@@ -510,3 +507,4 @@ class DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(Di
 			
 			PE.samples = jointParticles[:,iNewParticles]
 			PE.weights = np.full(PE._nParticles,1.0/PE._nParticles)
+			PE.updateAggregatedWeight()
