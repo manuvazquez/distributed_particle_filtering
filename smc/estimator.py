@@ -97,7 +97,7 @@ class GeometricMedian(Estimator):
 	def estimate(self,DPF):
 		
 		# a 2D array is initialized to store the samples from the different PEs
-		samples = np.empty((state.nElements(),len(DPF._PEs)))
+		samples = np.empty((state.nElements,len(DPF._PEs)))
 		
 		# for every PE...
 		for iPE,PE in enumerate(DPF._PEs):

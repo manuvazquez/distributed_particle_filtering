@@ -8,9 +8,7 @@ import numpy as np
 #	[ vel_y ]
 
 # so that only this module needs to know about implementation details...
-def nElements():
-	
-	return 4
+nElements = 4
 
 def position(state):
 	"""It extracts the position elements out of the state vector.

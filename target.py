@@ -32,7 +32,7 @@ class Target:
 		self._state = self._prior.sample(PRNG=self._PRNG)
 		
 		# a trajectory with the requested number of time instants...plus the initial one
-		computedTrajectory = np.empty((state.nElements(),nTimeInstants))
+		computedTrajectory = np.empty((state.nElements,nTimeInstants))
 		
 		# initial state is set
 		computedTrajectory[:,0:1] = self._state

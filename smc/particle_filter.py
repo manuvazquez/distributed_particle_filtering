@@ -179,7 +179,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		if self._aggregatedWeight==0:
 			
 			# ...then we return an all-zeros estimate, though any should do since this estimate must contribute zero
-			return np.zeros((self._state.shape[0],1))
+			return np.zeros((state.nElements,1))
 		
 		normalizedWeights = self._weights / self._aggregatedWeight
 
