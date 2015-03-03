@@ -253,11 +253,13 @@ class Mposterior(Simulation):
 		
 		# ===================================================================== algorithms
 		
-		smc_PF_module = smc.log_particle_filter
-		smc_estimator_module = smc.log_estimator
+		# the logarithm of the weights of the particles is stored...
+		#smc_PF_module = smc.log_particle_filter
+		#smc_estimator_module = smc.log_estimator
 		
-		#smc_PF_module = smc.particle_filter
-		#smc_estimator_module = smc.estimator
+		# ...or the weight as is
+		smc_PF_module = smc.particle_filter
+		smc_estimator_module = smc.estimator
 		
 		# unused colors: pink
 		
@@ -332,6 +334,19 @@ class Mposterior(Simulation):
 			
 			self._PFsColors.append(color)
 			self._PFsLabels.append('M-posterior' + ' ({} particles for estimation)'.format(nParticlesForFusion))
+			
+		# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
+		self._PFs.append(
+			smc_PF_module.DistributedTargetTrackingParticleFilterWithDeterministicParticleExchangingMposterior(
+				networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
+				self._simulationParameters['sharing period'],estimator=smc_estimator_module.MposteriorSubset(10),
+				PFsClass=smc_PF_module.CentralizedTargetTrackingParticleFilter
+			)
+		)
+		
+		self._PFsColors.append('cyan')
+		self._PFsLabels.append('M-posterior (deterministic exchange)' + ' ({} particles for estimation)'.format(nParticlesForFusion))
 		
 		# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
 		self._PFs.append(

@@ -508,3 +508,23 @@ class DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(Di
 			PE.samples = jointParticles[:,iNewParticles]
 			PE.weights = np.full(PE._nParticles,1.0/PE._nParticles)
 			PE.updateAggregatedWeight()
+
+class DistributedTargetTrackingParticleFilterWithDeterministicParticleExchangingMposterior(DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior):
+	
+	def share(self):
+
+		for PE,neighboursWithParticles in zip(self._PEs,self._neighboursWithParticles):
+			
+			subsetPosteriorDistributions = [(self._PEs[neighbour_particles[0]].getSamplesAt(neighbour_particles[1]).T,np.full(self._nSharedParticles,1.0/self._nSharedParticles)) for neighbour_particles in neighboursWithParticles]
+			
+			subsetPosteriorDistributions.append((PE.getSamplesAt(range(self._nSharedParticles)).T,np.full(self._nSharedParticles,1.0/self._nSharedParticles)))
+			
+			# M posterior on the posterior distributions collected above
+			jointParticles,jointWeights = self.Mposterior(subsetPosteriorDistributions)
+			
+			# the indexes of the particles to be kept
+			iNewParticles = self._resamplingAlgorithm.getIndexes(jointWeights,PE._nParticles)
+			
+			PE.samples = jointParticles[:,iNewParticles]
+			PE.weights = np.full(PE._nParticles,1.0/PE._nParticles)
+			PE.updateAggregatedWeight()
