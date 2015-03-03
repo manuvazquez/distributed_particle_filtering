@@ -19,7 +19,18 @@ class Topology:
 		# a named tuple for a more intutive access to a "exchange tuple"
 		self._exchangeTuple = collections.namedtuple('ExchangeTuple',['iPE','iParticleWithinPE','iNeighbour','iParticleWithinNeighbour'])
 
+		# these are ultimately what characterizes the topology, and are "None" until "deploy" is called
+		self._exchangeTuples,self._neighboursWithParticles = None,None
+
 	def getExchangeTuples(self):
+		
+		if self._exchangeTuples==None:
+			
+			self.deploy()
+		
+		return self._exchangeTuples,self._neighboursWithParticles
+
+	def deploy(self):
 		
 		# an array to keep tabs of pairs of PEs already processed
 		alreadyProcessedPEs = np.zeros((self._nPEs,self._nPEs),dtype=bool)
@@ -28,10 +39,10 @@ class Topology:
 		iNotSwappedYetParticles = np.ones((self._nPEs,self._nParticlesPerPE),dtype=bool)
 		
 		# named tuples as defined above, each representing a exchange
-		exchangeTuples = []
+		self._exchangeTuples = []
 		
 		# a list in which the i-th element is also a list containing tuples of the form (<neighbour index>,<(numpy) array with the indices of particles to be exchanged with that neighbour>)
-		neighboursWithParticles = [[] for i in range(self._nPEs)]
+		self._neighboursWithParticles = [[] for i in range(self._nPEs)]
 		
 		for iPE,neighboursPE in enumerate(self._neighbours):
 			
@@ -46,7 +57,7 @@ class Topology:
 					iParticlesToExchangeWithinNeighbour = self._PRNG.choice(self._iParticles[iNotSwappedYetParticles[iNeighbour,:]],size=self.nParticlesExchangedBetweenTwoNeighbours,replace=False)
 
 					# new "exchange tuple"s are generated
-					exchangeTuples.extend([self._exchangeTuple(iPE=iPE,iParticleWithinPE=iParticleWithinPE,iNeighbour=iNeighbour,iParticleWithinNeighbour=iParticleWithinNeighbour)
+					self._exchangeTuples.extend([self._exchangeTuple(iPE=iPE,iParticleWithinPE=iParticleWithinPE,iNeighbour=iNeighbour,iParticleWithinNeighbour=iParticleWithinNeighbour)
 							for iParticleWithinPE,iParticleWithinNeighbour in zip(iParticlesToExchangeWithinPE,iParticlesToExchangeWithinNeighbour)])
 					
 					# these PEs (the one considered in the main loop and the neighbour being processed) should not exchange the selected particles (different in each case) with other PEs
@@ -56,10 +67,10 @@ class Topology:
 					# we "mark" this pair of PEs as already processed (only "alreadyProcessedPEs[iNeighbour,iPe]" should be accessed later on, though...)
 					alreadyProcessedPEs[iNeighbour,iPE] = alreadyProcessedPEs[iPE,iNeighbour] = True
 					
-					neighboursWithParticles[iPE].append((iNeighbour,iParticlesToExchangeWithinPE))
-					neighboursWithParticles[iNeighbour].append((iPE,iParticlesToExchangeWithinNeighbour))
+					self._neighboursWithParticles[iPE].append((iNeighbour,iParticlesToExchangeWithinPE))
+					self._neighboursWithParticles[iNeighbour].append((iPE,iParticlesToExchangeWithinNeighbour))
 		
-		return exchangeTuples,neighboursWithParticles
+		return self._exchangeTuples,self._neighboursWithParticles
 	
 	def getNumberOfPEs(self):
 		

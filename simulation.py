@@ -230,6 +230,9 @@ class Mposterior(Simulation):
 		networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(nPEs,self._K,self._simulationParameters["exchanged particles maximum percentage"],
 																					 self._topologiesSettings['parameters'],PRNG=PRNGs["topology pseudo random numbers generator"])
 		
+		# the topology is "deployed" so that all the particle exchanging algorithms exchange the same particles
+		networkTopology.deploy()
+		
 		# a connector that connects every sensor to every PE
 		everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(sensors)
 		
