@@ -4,6 +4,7 @@ import abc
 
 import state
 import smc.estimator
+import smc.exchange
 
 # this is required (due to a bug?) for import rpy2
 import readline
@@ -460,7 +461,7 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 class DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(DistributedTargetTrackingParticleFilterWithMposterior):
 	
 	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,sharingPeriod,
-			  estimator=smc.estimator.Mposterior(),PFsClass=CentralizedTargetTrackingParticleFilter):
+			  estimator=smc.estimator.Mposterior(),exchangeManager=smc.exchange.RandomExchange(),PFsClass=CentralizedTargetTrackingParticleFilter):
 		
 		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,estimator=estimator,PFsClass=PFsClass)
 		
@@ -470,61 +471,14 @@ class DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(Di
 		# we get a unique exchange map from this network
 		self._exchangeMap,self._neighboursWithParticles = self._topology.getExchangeTuples()
 		
+		# this object is responsible for the sharing step
+		self._exchangeManager = exchangeManager
+		
 	def step(self,observations):
 		
 		super().step(observations)
 		
-		# if it is "sharing" particles time
+		# if it is sharing particles time
 		if (self._n % self._sharingPeriod == 0):
 			
-			self.share()
-	
-	def share(self):
-		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
-		
-		# each PE draws a set of samples from its probability measure...to be shared with its neighbours
-		samplesToBeShared = [PE.getSamplesAt(self._resamplingAlgorithm.getIndexes(PE.weights,self._nSharedParticles)) for PE in self._PEs]
-		
-		# the list of neighbours of each PE
-		PEsNeighbours = self._topology.getNeighbours()
-		
-		# for every PE...
-		for iPE,(PE,neighbours) in enumerate(zip(self._PEs,PEsNeighbours)):
-			
-			# ...the particles shared by its neighbours (assumed to be uniformly distributed) are gathered...
-			subsetPosteriorDistributions = [(samplesToBeShared[i].T,np.full(self._nSharedParticles,1.0/self._nSharedParticles)) for i in neighbours]
-			
-			# ...along with its own (shared, already sampled) particles
-			subsetPosteriorDistributions.append((samplesToBeShared[iPE].T,np.full(self._nSharedParticles,1.0/self._nSharedParticles)))
-			
-			# M posterior on the posterior distributions collected above
-			jointParticles,jointWeights = self.Mposterior(subsetPosteriorDistributions)
-			
-			# the indexes of the particles to be kept
-			iNewParticles = self._resamplingAlgorithm.getIndexes(jointWeights,PE._nParticles)
-			
-			PE.samples = jointParticles[:,iNewParticles]
-			PE.weights = np.full(PE._nParticles,1.0/PE._nParticles)
-			PE.updateAggregatedWeight()
-
-class DistributedTargetTrackingParticleFilterWithDeterministicParticleExchangingMposterior(DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior):
-	
-	def share(self):
-
-		for PE,neighboursWithParticles in zip(self._PEs,self._neighboursWithParticles):
-			
-			subsetPosteriorDistributions = [(self._PEs[neighbour_particles[0]].getSamplesAt(neighbour_particles[1]).T,np.full(self._nSharedParticles,1.0/self._nSharedParticles)) for neighbour_particles in neighboursWithParticles]
-			
-			subsetPosteriorDistributions.append((PE.getSamplesAt(range(self._nSharedParticles)).T,np.full(self._nSharedParticles,1.0/self._nSharedParticles)))
-			
-			# M posterior on the posterior distributions collected above
-			jointParticles,jointWeights = self.Mposterior(subsetPosteriorDistributions)
-			
-			# the indexes of the particles to be kept
-			iNewParticles = self._resamplingAlgorithm.getIndexes(jointWeights,PE._nParticles)
-			
-			PE.samples = jointParticles[:,iNewParticles]
-			PE.weights = np.full(PE._nParticles,1.0/PE._nParticles)
-			PE.updateAggregatedWeight()
+			self._exchangeManager.share(self)

@@ -340,10 +340,10 @@ class Mposterior(Simulation):
 			
 		# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
 		self._PFs.append(
-			smc_PF_module.DistributedTargetTrackingParticleFilterWithDeterministicParticleExchangingMposterior(
+			smc_PF_module.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 				networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
 				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-				self._simulationParameters['sharing period'],estimator=smc_estimator_module.MposteriorSubset(10),
+				self._simulationParameters['sharing period'],estimator=smc_estimator_module.MposteriorSubset(10),exchangeManager=smc.exchange.DeterministicExchange(),
 				PFsClass=smc_PF_module.CentralizedTargetTrackingParticleFilter
 			)
 		)
