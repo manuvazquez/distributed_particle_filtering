@@ -2,9 +2,8 @@ import abc
 import numpy as np
 import scipy.io
 
-from smc import particle_filter,log_particle_filter
+from smc import particle_filter
 import smc.estimator
-import smc.log_estimator
 import topology
 import drnautil
 import sensors_PEs_connector
@@ -256,11 +255,7 @@ class Mposterior(Simulation):
 		
 		# ===================================================================== algorithms
 		
-		# the logarithm of the weights of the particles is stored...
-		#smc_PF_module = smc.log_particle_filter
-		#smc_estimator_module = smc.log_estimator
-		
-		# ...or the weight as is
+		# the modules to be used for PF and (PF-based) estimation
 		smc_PF_module = smc.particle_filter
 		smc_estimator_module = smc.estimator
 		
