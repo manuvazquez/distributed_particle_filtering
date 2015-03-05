@@ -24,13 +24,27 @@ class Topology:
 
 	def getExchangeTuples(self):
 		
+		"""Returns the connections between the different PEs at a particle level.
+		
+		Returns
+		-------
+		exchangeTuples: list
+			A list with tuples ("ExchangeTuple") of the form (<PE>,<particle within PE>,<neighbour>,<particle within neighbour>).
+		exchangeTuples: list
+			A list of lists, one per PE, in which every list contains tuples of the form (<neighbour>,<list of particles exchanged with the neighbour).
+		"""
+		
 		if self._exchangeTuples==None:
 			
 			self.deploy()
-		
+			
 		return self._exchangeTuples,self._neighboursWithParticles
 
 	def deploy(self):
+		
+		"""Sets up the connections between the different PEs at a particle level.
+		
+		"""
 		
 		# an array to keep tabs of pairs of PEs already processed
 		alreadyProcessedPEs = np.zeros((self._nPEs,self._nPEs),dtype=bool)

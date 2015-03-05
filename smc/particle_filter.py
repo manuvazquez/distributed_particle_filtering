@@ -299,10 +299,10 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 
 	def computeMean(self):
 	
-		# the particles from all the PEs are stacked (horizontally) in a single array
-		jointParticles = np.hstack([PE.getState() for PE in self._PEs])
+		# the means from all the PEs are stacked (horizontally) in a single array
+		jointMeans = np.hstack([PE.computeMean() for PE in self._PEs])
 		
-		return jointParticles.mean(axis=1)[np.newaxis].T
+		return jointMeans.mean(axis=1)[:,np.newaxis]
 
 
 class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilter):

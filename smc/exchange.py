@@ -36,9 +36,6 @@ class RandomExchange(SharingManager):
 	
 	def share(self,DPF):
 		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
-		
 		# each PE draws a set of samples from its probability measure...to be shared with its neighbours
 		samplesToBeShared = [PE.getSamplesAt(DPF._resamplingAlgorithm.getIndexes(PE.weights,DPF._nSharedParticles)) for PE in DPF._PEs]
 		
@@ -46,13 +43,13 @@ class RandomExchange(SharingManager):
 		PEsNeighbours = DPF._topology.getNeighbours()
 		
 		# for every PE...
-		for iPE,(PE,neighbours) in enumerate(zip(DPF._PEs,PEsNeighbours)):
+		for PE,neighbours,thisPEsamples in zip(DPF._PEs,PEsNeighbours,samplesToBeShared):
 			
 			# ...the particles shared by its neighbours (assumed to be uniformly distributed) are gathered...
 			subsetPosteriorDistributions = [(samplesToBeShared[i].T,np.full(DPF._nSharedParticles,1.0/DPF._nSharedParticles)) for i in neighbours]
 			
 			# ...along with its own (shared, already sampled) particles
-			subsetPosteriorDistributions.append((samplesToBeShared[iPE].T,np.full(DPF._nSharedParticles,1.0/DPF._nSharedParticles)))
+			subsetPosteriorDistributions.append((thisPEsamples.T,np.full(DPF._nSharedParticles,1.0/DPF._nSharedParticles)))
 			
 			# M posterior on the posterior distributions collected above
 			jointParticles,jointWeights = DPF.Mposterior(subsetPosteriorDistributions)
