@@ -259,18 +259,11 @@ class Mposterior(Simulation):
 		smc_PF_module = smc.particle_filter
 		smc_estimator_module = smc.estimator
 		
-		# unused colors: pink
+		# unused colors: red
 		
 		self._PFs = []
 		self._PFsColors = []
 		self._PFsLabels = []
-		
-		# plain (centralized) particle filter
-		self._PFs.append(smc_PF_module.CentralizedTargetTrackingParticleFilter(self._K*nPEs,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors))
-		
-		# the color and label for the centralized PF are added to the corresponding lists
-		self._PFsColors.append('black')
-		self._PFsLabels.append('Centralized')
 		
 		# a distributed PF with DRNA
 		self._PFs.append(
@@ -280,7 +273,7 @@ class Mposterior(Simulation):
 			)
 		)
 		
-		self._PFsColors.append('green')
+		self._PFsColors.append('black')
 		self._PFsLabels.append('DRNA')
 		
 		# a distributed PF with DRNA
@@ -317,21 +310,6 @@ class Mposterior(Simulation):
 		
 		self._PFsColors.append('brown')
 		self._PFsLabels.append('M-posterior')
-		
-		for nParticlesForFusion,color in zip([10],['gray']):
-			
-			# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
-			self._PFs.append(
-				smc_PF_module.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
-					networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-					sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-					self._simulationParameters['sharing period'],estimator=smc_estimator_module.MposteriorSubset(nParticlesForFusion),
-					PFsClass=smc_PF_module.CentralizedTargetTrackingParticleFilter
-				)
-			)
-			
-			self._PFsColors.append(color)
-			self._PFsLabels.append('M-posterior' + ' ({} particles for estimation)'.format(nParticlesForFusion))
 			
 		# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
 		self._PFs.append(
@@ -344,20 +322,7 @@ class Mposterior(Simulation):
 		)
 		
 		self._PFsColors.append('cyan')
-		self._PFsLabels.append('M-posterior with det. exchange' + ' ({} particles for estimation)'.format(nParticlesForFusion))
-		
-		# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
-		self._PFs.append(
-			smc_PF_module.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
-				networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-				self._simulationParameters['sharing period'],estimator=smc_estimator_module.GeometricMedian(),
-				PFsClass=smc_PF_module.CentralizedTargetTrackingParticleFilter
-			)
-		)
-		
-		self._PFsColors.append('red')
-		self._PFsLabels.append('M-posterior + Geometric Median')
+		self._PFsLabels.append('M-posterior with det. exchange (10 particles)')
 		
 		# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
 		self._PFs.append(
@@ -369,8 +334,23 @@ class Mposterior(Simulation):
 			)
 		)
 		
-		self._PFsColors.append('pink')
+		self._PFsColors.append('green')
 		self._PFsLabels.append('M-posterior with det. exchange + Geometric Median')
+		
+		#for iPE,color in zip(range(nPEs),['olive','gold','deepskyblue','gray']):
+		for iPE,color in zip([0],['olive']):
+			
+			self._PFs.append(
+				smc_PF_module.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
+					networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+					sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
+					self._simulationParameters['sharing period'],estimator=smc_estimator_module.SinglePE(iPE),exchangeManager=smc.exchange.DeterministicExchange(),
+					PFsClass=smc_PF_module.CentralizedTargetTrackingParticleFilter
+				)
+			)
+			
+			self._PFsColors.append(color)
+			self._PFsLabels.append('M-posterior - PE \#{}'.format(iPE))
 
 		# ================================================================================
 		

@@ -109,3 +109,13 @@ class GeometricMedian(Estimator):
 			samples[:,iPE:iPE+1] = PE.getSamplesAt([iMax])
 
 		return geometric_median(samples,max_iterations=self._maxIterations,tolerance=self._tolerance)[:,np.newaxis]
+
+class SinglePE(Estimator):
+	
+	def __init__(self,iPE):
+		
+		self._iPE = iPE
+		
+	def estimate(self,DPF):
+		
+		return DPF._PEs[self._iPE].computeMean()
