@@ -220,7 +220,7 @@ class Mposterior(Simulation):
 		# let the super class do its thing...
 		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
 		
-		self._simulationParameters = parameters['Mposterior']
+		self._simulationParameters = parameters['simulations']['Mposterior']
 		
 		# for the sake of clarity...since this will be used many times
 		nPEs = self._topologiesSettings['number of PEs']
@@ -298,18 +298,18 @@ class Mposterior(Simulation):
 		self._PFsColors.append('blue')
 		self._PFsLabels.append('Plain DPF')
 
-		# a "distributed" PF in which each PE does its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
-		self._PFs.append(
-			smc_PF_module.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
-				networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-				self._simulationParameters['sharing period'],estimator=smc_estimator_module.Mposterior(),
-				PFsClass=smc_PF_module.CentralizedTargetTrackingParticleFilter
-			)
-		)
+		## a "distributed" PF in which each PE does its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
+		#self._PFs.append(
+			#smc_PF_module.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
+				#networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+				#sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
+				#self._simulationParameters['sharing period'],estimator=smc_estimator_module.Mposterior(),
+				#PFsClass=smc_PF_module.CentralizedTargetTrackingParticleFilter
+			#)
+		#)
 		
-		self._PFsColors.append('brown')
-		self._PFsLabels.append('M-posterior')
+		#self._PFsColors.append('brown')
+		#self._PFsLabels.append('M-posterior')
 			
 		# a "distributed" PF in which each PE carries out its computation independently of the rest...but every now and then, M posterior is used to combine distributions of neighbours
 		self._PFs.append(

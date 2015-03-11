@@ -101,15 +101,17 @@
 		"epsilon": 0.1,
 		"normalization period": 5
 	},
-	"Mposterior": {
-		"sharing period": 10,
-		"exchanged particles maximum percentage": 0.15,
-		"findWeiszfeldMedian parameters": {
-			"sigma": 0.1,
-			"maxit": 100,
-			"tol": 1e-10
-		},
-		"file name prefix for the estimation error vs time plot": "errorVsTime"
+	"simulations": {
+		"Mposterior": {
+			"sharing period": 10,
+			"exchanged particles maximum percentage": 0.15,
+			"findWeiszfeldMedian parameters": {
+				"sigma": 0.1,
+				"maxit": 100,
+				"tol": 1e-10
+			},
+			"file name prefix for the estimation error vs time plot": "errorVsTime"
+		}
 	},
 	"sensors-PEs connectors": {
 		"every sensor connected to every PE": {

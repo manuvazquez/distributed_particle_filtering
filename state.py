@@ -99,7 +99,7 @@ class StraightTransitionKernel(TransitionKernel):
 		return np.vstack((position,velocity))
 	
 
-class BouncingWithinRectangleTransitionKernel(TransitionKernel):
+class UnboundedTransitionKernel(TransitionKernel):
 	
 	def __init__(self,bottomLeftCorner,topRightCorner,velocityVariance=0.5,noiseVariance=0.1,stepDuration=1,PRNG=np.random.RandomState()):
 		
@@ -117,10 +117,6 @@ class BouncingWithinRectangleTransitionKernel(TransitionKernel):
 		
 		# the pseudo random numbers generator
 		self._PRNG = PRNG
-		
-		# canonical vectors used in computations
-		self._iVector = np.array([[1.0],[0.0]])
-		self._jVector = np.array([[0.0],[1.0]])
 		
 		# top right, top left, bottom left, and bottom right corners stored as column vectors
 		self._corners = [topRightCorner[np.newaxis].T,np.array([[bottomLeftCorner[0]],[topRightCorner[1]]]),bottomLeftCorner[np.newaxis].T,np.array([[topRightCorner[0]],[bottomLeftCorner[1]]])]
@@ -141,11 +137,38 @@ class BouncingWithinRectangleTransitionKernel(TransitionKernel):
 		# step to be taken is obtained from the velocity and a noise component
 		step = velocity*self._stepDuration + PRNG.normal(0,math.sqrt(self._noiseVariance/2),(2,1))
 		
+		return np.vstack((state[0:2] + step,velocity))
+
+class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
+	
+	def __init__(self,bottomLeftCorner,topRightCorner,velocityVariance=0.5,noiseVariance=0.1,stepDuration=1,PRNG=np.random.RandomState()):
+		
+		# the parent's constructor is called
+		super().__init__(bottomLeftCorner,topRightCorner,velocityVariance,noiseVariance,stepDuration,PRNG)
+		
+		# canonical vectors used in computations
+		self._iVector = np.array([[1.0],[0.0]])
+		self._jVector = np.array([[0.0],[1.0]])
+		
+		# top right, top left, bottom left, and bottom right corners stored as column vectors
+		self._corners = [topRightCorner[np.newaxis].T,np.array([[bottomLeftCorner[0]],[topRightCorner[1]]]),bottomLeftCorner[np.newaxis].T,np.array([[topRightCorner[0]],[bottomLeftCorner[1]]])]
+		
+	def nextState(self,state,PRNG=None):
+		
 		# this may be updated in the while loop when bouncing off several walls
 		previousPos = state[0:2].copy()
 		
-		# a new "tentative" position is obtained from the previous one and the step
-		tentativeNewPos = previousPos + step
+		# the new (unbounded) state as computed by the parent class
+		unboundedState = super().nextState(state,PRNG)
+		
+		# the first two elements of the above state is the new (here tentative) position...
+		tentativeNewPos = unboundedState[:2]
+		
+		# ...whereas the last ones are the new velocity
+		velocity = unboundedState[2:]
+		
+		# the step "suggested" by the parent class is then given by the new tentative position and the starting 
+		step = tentativeNewPos - previousPos
 		
 		# to be used in the loop...
 		anglesWithCorners = np.empty(4)
@@ -213,3 +236,35 @@ class BouncingWithinRectangleTransitionKernel(TransitionKernel):
 				velocity = step/np.linalg.norm(step)*np.linalg.norm(velocity)
 
 		return np.vstack((tentativeNewPos,velocity))
+
+class OnEdgeResetTransitionKernel(UnboundedTransitionKernel):
+	
+	def __init__(self,bottomLeftCorner,topRightCorner,velocityVariance=0.5,noiseVariance=0.1,stepDuration=1,PRNG=np.random.RandomState(),resetVelocityVariance=0.01):
+		
+		# the parent's constructor is called
+		super().__init__(bottomLeftCorner,topRightCorner,velocityVariance,noiseVariance,stepDuration,PRNG)
+		
+		self._resetVelocityVariance = resetVelocityVariance
+		
+	def nextState(self,state,PRNG=None):
+		
+		# the new (unbounded) state as computed by the parent class
+		unboundedState = super().nextState(state,PRNG)
+		
+		# the first two elements of the above state is the new (here tentative) position...
+		tentativeNewPos = unboundedState[:2]
+		
+		# if the tentative position is within the bounds of the rectangle...
+		if (tentativeNewPos > self._corners[2]).all() and (tentativeNewPos < self._corners[0]).all():
+			
+			# it's already ok
+			return unboundedState
+		
+		# if for this particular call, no pseudo random numbers generator is received...
+		if PRNG is None:
+			# ...the corresponding class attribute is used
+			PRNG = self._PRNG
+		
+		velocity = PRNG.normal(0,math.sqrt(self._resetVelocityVariance/2),(2,1))
+		
+		return np.vstack((state[0:2],velocity))
