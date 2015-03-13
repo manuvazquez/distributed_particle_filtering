@@ -120,7 +120,7 @@ class Convergence(Simulation):
 							figureId='Euclidean distance vs Time')
 
 		# the aggregated weights are normalized at ALL TIMES, for EVERY frame and EVERY topology
-		normalizedAggregatedWeights = [np.rollaxis(np.divide(np.rollaxis(w[:,:,:self._iFrame],2,1),w[:,:,:self._iFrame].sum(axis=1)[:,:,np.newaxis]),2,1) for w in self._distributedPFaggregatedWeights]
+		normalizedAggregatedWeights = [np.divide(w[:,:,:self._iFrame],w[:,:,:self._iFrame].sum(axis=1)[:,np.newaxis,:]) for w in self._distributedPFaggregatedWeights]
 		
 		# ...the same data structured in a dictionary
 		normalizedAggregatedWeightsDic = {'normalizedAggregatedWeights_{}'.format(i):array for i,array in enumerate(normalizedAggregatedWeights)}

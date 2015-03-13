@@ -79,7 +79,7 @@ def PFs(x,y,outputFile,parameters,figureId='vs Time',axesProperties={}):
 	
 	return ax,fig
 
-def aggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregatedWeightsVsTime.eps',xticksStep=10):
+def aggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregatedWeightsVsTime.pdf',xticksStep=10):
 
 	# the corresponding axes are created
 	ax,_ = setupAxes('Aggregated Weights Evolution')
@@ -113,7 +113,7 @@ def aggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregated
 
 	plt.savefig(outputFile)
 
-def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggregatedWeightVsTime.eps',stepExchangePeriod=1,
+def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggregatedWeightVsTime.pdf',stepExchangePeriod=1,
 									supremumLineProperties={'label':'Supremum','linestyle':':'},
 									supremumAtExchangeStepsLineProperties={'label':'Exchange steps','linestyle':'.','marker':'D','color':'black'},
 									upperBoundLineProperties={'label':'$c^q/M^{q-\\varepsilon}$','linestyle':'dashed','color':'red','linewidth':2},
@@ -157,7 +157,7 @@ def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggrega
 	
 	return ax,fig
 
-def aggregatedWeightsSupremumVsNumberOfPEs(Ms,maxWeights,upperBounds=None,outputFile='maxAggregatedWeightVsM.eps',
+def aggregatedWeightsSupremumVsNumberOfPEs(Ms,maxWeights,upperBounds=None,outputFile='maxAggregatedWeightVsM.pdf',
 										   supremumLineProperties={},upperBoundLineProperties={'color':'red','label':'$c^q/M^{q-\\varepsilon}$','marker':'+','markersize':10,'markeredgewidth':2,'linestyle':':'},
 										   figureId='Aggregated Weights Supremum Vs M',axesProperties={}):
 	
@@ -237,7 +237,7 @@ def trajectory(filename,iTrajectory=0,nTimeInstants=-1,ticksFontSize=12):
 	
 	painter.save()
 
-def PEsSensorsConnections(sensorsPositions,PEsPositions,connections,figureId='connections',outputFile='PEs_sensors_connections.eps'):
+def PEsSensorsConnections(sensorsPositions,PEsPositions,connections,figureId='connections',outputFile='PEs_sensors_connections.pdf'):
 	
 	# a new pair of axes is set up
 	ax,fig = setupAxes(figureId)
@@ -352,7 +352,7 @@ class RoomPainter:
 		# plot now...
 		self._figure.canvas.draw()
 		
-	def save(self,outputFile='trajectory.eps'):
+	def save(self,outputFile='trajectory.pdf'):
 		
 		# just in case...the current figure is set to the proper value
 		plt.figure(self._figure.number)
@@ -411,7 +411,7 @@ class TightRectangularRoomPainter(RectangularRoomPainter):
 		# the font size of the ticks in both axes is set
 		self._ax.tick_params(axis='both',labelsize=self._ticksFontSize)
 		
-	def save(self,outputFile='trajectory.eps'):
+	def save(self,outputFile='trajectory.pdf'):
 		
 		# just in case...the current figure is set to the proper value
 		plt.figure(self._figure.number)

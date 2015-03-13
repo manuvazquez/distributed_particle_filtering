@@ -12,9 +12,23 @@ import socket
 import pickle
 import argparse
 
+#def info(type, value, tb):
+   #if hasattr(sys, 'ps1') or not sys.stderr.isatty():
+      ## we are in interactive mode or we don't have a tty-like device, so we call the default hook
+      #sys.__excepthook__(type, value, tb)
+   #else:
+      #import traceback, pdb
+      ## we are NOT in interactive mode, print the exception...
+      #traceback.print_exception(type, value, tb)
+      #print
+      ## ...then start the debugger in post-mortem mode.
+      #pdb.pm()
+
+#sys.excepthook = info
+
 # so that numpy takes a specified measure when an "error" occurs
 #np.seterr(divide='raise')
-#np.seterr(all='raise')
+np.seterr(all='raise')
 
 # keys used to identify the different pseudo random numbers generators (they must coincide with those in the parameters file...)
 PRNGsKeys = ["Sensors and Monte Carlo pseudo random numbers generator","Trajectory pseudo random numbers generator","topology pseudo random numbers generator"]
@@ -229,8 +243,15 @@ sensors = [sensorClass(sensorsPositions[:,i:i+1],**sensorParameters) for i in ra
 # a object that represents the prior distribution...
 prior = state.UniformBoundedPositionGaussianVelocityPrior(roomSettings["bottom left corner"],roomSettings["top right corner"],velocityVariance=priorDistributionSettings["velocity variance"],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
+## ...and a different one for the transition kernel
+#transitionKernel = state.BouncingWithinRectangleTransitionKernel(roomSettings["bottom left corner"],roomSettings["top right corner"],
+						#velocityVariance=stateTransitionSettings["velocity variance"],noiseVariance=stateTransitionSettings["position variance"],
+						#stepDuration=stateTransitionSettings['time step size'],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
+
 # ...and a different one for the transition kernel
-transitionKernel = state.BouncingWithinRectangleTransitionKernel(roomSettings["bottom left corner"],roomSettings["top right corner"],velocityVariance=stateTransitionSettings["velocity variance"],noiseVariance=stateTransitionSettings["position variance"],stepDuration=stateTransitionSettings['time step size'],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
+transitionKernel = state.OnEdgeResetTransitionKernel(roomSettings["bottom left corner"],roomSettings["top right corner"],
+						velocityVariance=stateTransitionSettings["velocity variance"],noiseVariance=stateTransitionSettings["position variance"],
+						stepDuration=stateTransitionSettings['time step size'],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ------------------------------------------------------------------- SMC stuff --------------------------------------------------------------------------
 
@@ -250,8 +271,8 @@ targetPosition = np.empty((2,nTimeInstants,parameters["number of frames"]))
 mobile = target.Target(prior,transitionKernel,PRNG=PRNGs["Trajectory pseudo random numbers generator"])
 
 # a "simulation" object is created
-#sim = simulation.Convergence(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
-sim = simulation.Mposterior(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
+sim = simulation.Convergence(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
+#sim = simulation.Mposterior(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
 
 #------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
 
