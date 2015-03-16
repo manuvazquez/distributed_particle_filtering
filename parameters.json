@@ -75,7 +75,18 @@
 	"state transition": {
 		"velocity variance": 0.01,
 		"position variance": 0.01,
-		"time step size": 1
+		"time step size": 1,
+		"type": "resetting target",
+		"bouncing target": {
+			"implementing class": "BouncingWithinRectangleTransitionKernel",
+			"parameters": {}
+		},
+		"resetting target": {
+			"implementing class": "OnEdgeResetTransitionKernel",
+			"parameters": {
+				"reset_velocity_variance": 0.01
+			}
+		}
 	},
 	"painter": {
 		"sleep time between updates": 0.01,

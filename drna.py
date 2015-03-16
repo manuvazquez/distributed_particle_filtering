@@ -240,18 +240,17 @@ sensors = [sensorClass(sensorsPositions[:,i:i+1],**sensorParameters) for i in ra
 
 # ----------------------------------------------------------------- dynamic model ------------------------------------------------------------------------
 
-# a object that represents the prior distribution...
+# a object that represents the prior distribution is instantiated...
 prior = state.UniformBoundedPositionGaussianVelocityPrior(roomSettings["bottom left corner"],roomSettings["top right corner"],velocityVariance=priorDistributionSettings["velocity variance"],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
-## ...and a different one for the transition kernel
-#transitionKernel = state.BouncingWithinRectangleTransitionKernel(roomSettings["bottom left corner"],roomSettings["top right corner"],
-						#velocityVariance=stateTransitionSettings["velocity variance"],noiseVariance=stateTransitionSettings["position variance"],
-						#stepDuration=stateTransitionSettings['time step size'],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
+# ...and a different one for the transition kernel belonging to class...
+transitionKernelSettings = stateTransitionSettings[stateTransitionSettings['type']]
 
-# ...and a different one for the transition kernel
-transitionKernel = state.OnEdgeResetTransitionKernel(roomSettings["bottom left corner"],roomSettings["top right corner"],
+# ...is instantiated here
+transitionKernel = getattr(state,transitionKernelSettings['implementing class'])(roomSettings["bottom left corner"],roomSettings["top right corner"],
 						velocityVariance=stateTransitionSettings["velocity variance"],noiseVariance=stateTransitionSettings["position variance"],
-						stepDuration=stateTransitionSettings['time step size'],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
+						stepDuration=stateTransitionSettings['time step size'],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"],
+						**transitionKernelSettings['parameters'])
 
 # ------------------------------------------------------------------- SMC stuff --------------------------------------------------------------------------
 

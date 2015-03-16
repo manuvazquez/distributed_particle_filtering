@@ -239,12 +239,12 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 
 class OnEdgeResetTransitionKernel(UnboundedTransitionKernel):
 	
-	def __init__(self,bottomLeftCorner,topRightCorner,velocityVariance=0.5,noiseVariance=0.1,stepDuration=1,PRNG=np.random.RandomState(),resetVelocityVariance=0.01):
+	def __init__(self,bottomLeftCorner,topRightCorner,velocityVariance=0.5,noiseVariance=0.1,stepDuration=1,PRNG=np.random.RandomState(),reset_velocity_variance=0.01):
 		
 		# the parent's constructor is called
 		super().__init__(bottomLeftCorner,topRightCorner,velocityVariance,noiseVariance,stepDuration,PRNG)
 		
-		self._resetVelocityVariance = resetVelocityVariance
+		self._resetVelocityVariance = reset_velocity_variance
 		
 	def nextState(self,state,PRNG=None):
 		
