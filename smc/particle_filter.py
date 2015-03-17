@@ -191,7 +191,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 	def avoidWeightDegeneracy(self):
 		
 		# if all the weights are zero...
-		if self._aggregatedWeight==0:
+		if np.isclose(self._aggregatedWeight,0):
 			
 			# ...then normalization makes no sense and we just initialize the weights again
 			self._weights.fill(1.0/self._nParticles)
@@ -238,7 +238,7 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 	def avoidWeightDegeneracy(self):
 		
 		# if all the weights are zero...
-		if self._aggregatedWeight==0:
+		if np.isclose(self._aggregatedWeight,0):
 			
 			# ...there is nothing we can do
 			return
