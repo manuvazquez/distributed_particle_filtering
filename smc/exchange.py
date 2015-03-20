@@ -29,7 +29,7 @@ class DeterministicExchange(SharingManager):
 			iNewParticles = DPF._resamplingAlgorithm.getIndexes(jointWeights,PE._nParticles)
 			
 			PE.samples = jointParticles[:,iNewParticles]
-			PE.weights = np.full(PE._nParticles,1.0/PE._nParticles)
+			PE.weights = np.full(PE._nParticles,-np.log(PE._nParticles))
 			PE.updateAggregatedWeight()
 
 class RandomExchange(SharingManager):
@@ -37,7 +37,7 @@ class RandomExchange(SharingManager):
 	def share(self,DPF):
 		
 		# each PE draws a set of samples from its probability measure...to be shared with its neighbours
-		samplesToBeShared = [PE.getSamplesAt(DPF._resamplingAlgorithm.getIndexes(PE.weights,DPF._nSharedParticles)) for PE in DPF._PEs]
+		samplesToBeShared = [PE.getSamplesAt(DPF._resamplingAlgorithm.getIndexes(np.exp(PE.weights),DPF._nSharedParticles)) for PE in DPF._PEs]
 		
 		# the list of neighbours of each PE
 		PEsNeighbours = DPF._topology.getNeighbours()
@@ -58,5 +58,5 @@ class RandomExchange(SharingManager):
 			iNewParticles = DPF._resamplingAlgorithm.getIndexes(jointWeights,PE._nParticles)
 			
 			PE.samples = jointParticles[:,iNewParticles]
-			PE.weights = np.full(PE._nParticles,1.0/PE._nParticles)
+			PE.weights = np.full(PE._nParticles,-np.log(PE._nParticles))
 			PE.updateAggregatedWeight()

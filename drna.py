@@ -28,7 +28,7 @@ import argparse
 
 # so that numpy takes a specified measure when an "error" occurs
 #np.seterr(divide='raise')
-np.seterr(all='raise')
+#np.seterr(all='raise')
 
 # keys used to identify the different pseudo random numbers generators (they must coincide with those in the parameters file...)
 PRNGsKeys = ["Sensors and Monte Carlo pseudo random numbers generator","Trajectory pseudo random numbers generator","topology pseudo random numbers generator"]

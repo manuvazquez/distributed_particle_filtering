@@ -142,31 +142,6 @@
 			}
 		}
 	},
-	"ActiveSensors": {
-		"functions of #1s": [
-			{
-				"definition": "1",
-				"color when plotting": "blue",
-				"label": "Regular DRNA"
-			},
-			{
-				"definition": "0.5*x+1",
-				"color when plotting": "green",
-				"label": "DRNA (0.5x+1)"
-			},
-			{
-				"definition": "x+1",
-				"color when plotting": "magenta",
-				"label": "DRNA (x+1)"
-			},
-			{
-				"definition": "2*x+1",
-				"color when plotting": "purple",
-				"label": "DRNA (2x+1)"
-			}
-		],
-		"file name prefix for the estimation error vs time plot": "errorVsTime"
-	},
 	"load sensors and Monte Carlo pseudo random numbers generator?": false,
 	"Sensors and Monte Carlo pseudo random numbers generator": "SensorsAndMonteCarloRandom.RandomState",
 	"load trajectory pseudo random numbers generator?": false,

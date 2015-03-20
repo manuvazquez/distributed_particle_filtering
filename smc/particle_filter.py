@@ -71,7 +71,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		self._state = self._prior.sample(self._nParticles)
 		
 		# the weights are assigned equal probabilities
-		self._weights.fill(self._aggregatedWeight/self._nParticles)
+		self._weights.fill(np.log(self._aggregatedWeight)-np.log(self._nParticles))
 		
 	def step(self,observations):
 		
@@ -82,13 +82,13 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 			[self._stateTransitionKernel.nextState(self._state[:,i:i+1]) for i in range(self._nParticles)])
 		
 		# for each sensor, we compute the likelihood of EVERY particle (position)
-		likelihoods = np.array([sensor.likelihood(obs,state.position(self._state)) for sensor,obs in zip(self._sensors,observations)])
+		loglikelihoods = np.log(np.array([sensor.likelihood(obs,state.position(self._state)) for sensor,obs in zip(self._sensors,observations)]))
 		
 		# for each particle, we compute the product of the likelihoods for all the sensors
-		likelihoodsProduct = likelihoods.prod(axis=0)
+		loglikelihoodsProduct = loglikelihoods.sum(axis=0)
 		
 		# the weights are updated
-		self._weights *= likelihoodsProduct
+		self._weights += loglikelihoodsProduct
 		
 		# the aggregated weight is kept up to date at all times
 		self.updateAggregatedWeight()
@@ -100,7 +100,10 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		
 		return self._state
 
-	def resample(self,normalizedWeights):
+	def resample(self,normalizedLogWeights):
+		
+		# the weights need to be converted to "natural" units
+		normalizedWeights = np.exp(normalizedLogWeights)
 		
 		# we check whether a resampling step is actually needed or not
 		if self._resamplingCriterion.isResamplingNeeded(normalizedWeights):
@@ -120,7 +123,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 			self._state = self._state[:,iParticlesToBeKept]
 			
 			# note that if the weights have been normalized ("standard" centralized particle filter), then "self._aggregatedWeight" is equal to 1
-			self._weights.fill(self._aggregatedWeight/self._nParticles)
+			self._weights.fill(np.log(self._aggregatedWeight)-np.log(self._nParticles))
 		
 	def getParticle(self,index):
 		
@@ -172,7 +175,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 	def updateAggregatedWeight(self):
 		
 		# the aggregated weight is simply the sum of the non-normalized weights
-		self._aggregatedWeight = self._weights.sum()
+		self._aggregatedWeight = np.exp(self._weights).sum()
 
 	def computeMean(self):
 		
@@ -182,23 +185,23 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 			# ...then an all-zeros estimate is returned...though any should do since this estimate must contribute zero
 			return np.zeros((state.nElements,1))
 		
-		normalizedWeights = self._weights / self._aggregatedWeight
+		normalizedLogWeights = self._weights - np.log(self._aggregatedWeight)
 
 		# element-wise multiplication of the state vectors and their correspondent weights...followed by addition => weighted mean
-		return np.multiply(self._state,normalizedWeights).sum(axis=1)[np.newaxis].T
+		return np.multiply(self._state,np.exp(normalizedLogWeights)).sum(axis=1)[np.newaxis].T
 
 	# this methods encapsulates the parts within the code of "step" which are different in this class and its children
 	def avoidWeightDegeneracy(self):
 		
 		# if all the weights are zero...
-		if np.isclose(self._aggregatedWeight,0):
+		if self._aggregatedWeight==0:
 			
 			# ...then normalization makes no sense and we just initialize the weights again
-			self._weights.fill(1.0/self._nParticles)
+			self._weights.fill(-np.log(self._nParticles))
 
 		else:
 		
-			self._weights /= self._aggregatedWeight
+			self._weights -= np.log(self._aggregatedWeight)
 			
 		# we forced this above
 		self._aggregatedWeight = 1.0
@@ -232,7 +235,7 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 	
 	def scaleWeights(self,factor):
 		
-		self._weights *= factor
+		self._weights += np.log(factor)
 		self._aggregatedWeight *= factor
 
 	def avoidWeightDegeneracy(self):
@@ -245,7 +248,7 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 		
 		else:
 			# the normalized weights are used to resample
-			self.resample(self._weights/self._aggregatedWeight)
+			self.resample(self._weights - np.log(self._aggregatedWeight))
 
 # =========================================================================================================
 
@@ -401,7 +404,7 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 			PE._aggregatedWeight = aggregatedWeight
 			
 			# ...along with the individual weights within the PE
-			PE.weights = np.full(PE._nParticles,aggregatedWeight/PE._nParticles)
+			PE.weights = np.full(PE._nParticles,-np.log(self._nPEs)-np.log(PE._nParticles))
 
 class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTrackingParticleFilter):
 	
