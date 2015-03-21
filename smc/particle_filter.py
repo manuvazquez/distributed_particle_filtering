@@ -233,10 +233,10 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 		
 		return self._aggregatedWeight
 	
-	def scaleWeights(self,factor):
+	def divideWeights(self,factor):
 		
-		self._logWeights += np.log(factor)
-		self._aggregatedWeight *= factor
+		self._logWeights -= np.log(factor)
+		self._aggregatedWeight /= factor
 
 	def avoidWeightDegeneracy(self):
 		
@@ -360,7 +360,7 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 			# ...to scale all the weights within ALL the PEs
 			for PE in self._PEs:
 				
-				PE.scaleWeights(1.0/aggregatedWeightsSum)
+				PE.divideWeights(aggregatedWeightsSum)
 
 	def exchangeParticles(self):
 
