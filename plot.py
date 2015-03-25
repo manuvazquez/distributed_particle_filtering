@@ -20,7 +20,9 @@ def setupAxes(figureId,clearFigure=True):
 	
 	return axes,fig
 
-def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,outputFile=None,centralizedPFparameters={'label':'Centralized PF'},distributedPFparameters={'label':'Distributed PF'},figureId='vs Time',axesProperties={}):
+def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,extraLine=None,outputFile=None,
+									  centralizedPFparameters={'label':'Centralized PF'},distributedPFparameters={'label':'Distributed PF'},extraLineParameters={},
+									  figureId='vs Time',axesProperties={}):
 
 	# a new pair of axes is set up
 	ax,fig = setupAxes(figureId)
@@ -28,6 +30,10 @@ def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,outputFile=N
 	ax.plot(x,centralizedPF,**centralizedPFparameters)
 
 	ax.plot(x,distributedPF,**distributedPFparameters)
+	
+	if extraLine is not None:
+		
+		ax.plot(x,extraLine,**extraLineParameters)
 
 	# the labes are shown
 	ax.legend()
