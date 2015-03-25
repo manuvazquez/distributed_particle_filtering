@@ -20,14 +20,12 @@ def setupAxes(figureId,clearFigure=True):
 	
 	return axes,fig
 
-def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,outputFile,centralizedPFparameters={'label':'Centralized PF'},distributedPFparameters={'label':'Distributed PF'},figureId='vs Time',axesProperties={}):
+def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,outputFile=None,centralizedPFparameters={'label':'Centralized PF'},distributedPFparameters={'label':'Distributed PF'},figureId='vs Time',axesProperties={}):
 
 	# a new pair of axes is set up
 	ax,fig = setupAxes(figureId)
 	
 	ax.plot(x,centralizedPF,**centralizedPFparameters)
-
-	ax.hold(True)
 
 	ax.plot(x,distributedPF,**distributedPFparameters)
 
@@ -53,9 +51,6 @@ def PFs(x,y,outputFile,parameters,figureId='vs Time',axesProperties={}):
 	
 	assert y.shape[0] == len(x)
 	assert y.shape[1] == len(parameters)
-	
-	# several plots in the same figure
-	ax.hold(True)
 	
 	for data,param in zip(y.T,parameters):
 		
@@ -242,8 +237,6 @@ def PEsSensorsConnections(sensorsPositions,PEsPositions,connections,figureId='co
 	# a new pair of axes is set up
 	ax,fig = setupAxes(figureId)
 	
-	fig.hold(True)
-	
 	ax.plot(sensorsPositions[0,:],sensorsPositions[1,:],linewidth=0,marker='+',color='blue')
 	ax.plot(PEsPositions[0,:],PEsPositions[1,:],linewidth=0,marker='s',color='red')
 	
@@ -297,8 +290,6 @@ class RoomPainter:
 		
 	def updateTargetPosition(self,position):
 		
-		plt.hold(True)
-		
 		# if this is not the first update (i.e., there exists a previous position)...
 		if self._previousPosition is not None:
 			# ...plot the step taken
@@ -320,8 +311,6 @@ class RoomPainter:
 		plt.pause(self._sleepTime)
 	
 	def updateEstimatedPosition(self,position,identifier='unnamed',color='blue'):
-		
-		plt.hold(True)
 		
 		# if this is not the first update (i.e., there exists a previous estimate)...
 		if identifier in self._previousEstimates:
