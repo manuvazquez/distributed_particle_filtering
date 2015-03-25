@@ -113,7 +113,9 @@
 		"normalization period": 5
 	},
 	"simulations": {
+		"type": "DRNA convergence",
 		"Mposterior": {
+			"implementing class": "Mposterior",
 			"sharing period": 10,
 			"exchanged particles maximum percentage": 0.15,
 			"findWeiszfeldMedian parameters": {
@@ -122,6 +124,9 @@
 				"tol": 1e-10
 			},
 			"file name prefix for the estimation error vs time plot": "errorVsTime"
+		},
+		"DRNA convergence": {
+			"implementing class": "Convergence"
 		}
 	},
 	"sensors-PEs connectors": {

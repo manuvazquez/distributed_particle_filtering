@@ -88,6 +88,9 @@ painterSettings = parameters["painter"]
 # DRNA related
 DRNAsettings = parameters["DRNA"]
 
+# type of simulation and the corresponding parameters
+simulationSettings = parameters['simulations']
+
 # we use the "agg" backend if the DISPLAY variable is not present (the program is running without a display server) or the parameters file says so
 useAgg = ('DISPLAY' not in os.environ) or (not painterSettings["use display server if available?"])
 
@@ -269,9 +272,11 @@ targetPosition = np.empty((2,nTimeInstants,parameters["number of frames"]))
 # the object representing the target
 mobile = target.Target(prior,transitionKernel,PRNG=PRNGs["Trajectory pseudo random numbers generator"])
 
-# a "simulation" object is created
-sim = simulation.Convergence(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
-#sim = simulation.Mposterior(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
+# the class of the "simulation" object to be created...
+simulationClass = getattr(simulation,simulationSettings[simulationSettings['type']]['implementing class'])
+
+# ...is used to instantiate the latter
+sim = simulationClass(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
 
 #------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
 
