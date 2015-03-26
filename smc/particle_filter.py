@@ -3,8 +3,8 @@ import math
 import abc
 
 import state
-import smc.estimator
-import smc.exchange
+import smc.mposterior.estimator
+import smc.mposterior.share
 
 # this is required (due to a bug?) for import rpy2
 import readline
@@ -408,7 +408,7 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 
 class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTrackingParticleFilter):
 	
-	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,estimator=smc.estimator.Mposterior(),
+	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,estimator=smc.mposterior.estimator.Mposterior(),
 			  PFsClass=CentralizedTargetTrackingParticleFilter):
 		
 		super().__init__(topology.getNumberOfPEs(),nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass)
@@ -464,7 +464,7 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 class DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(DistributedTargetTrackingParticleFilterWithMposterior):
 	
 	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,sharingPeriod,
-			  estimator=smc.estimator.Mposterior(),exchangeManager=smc.exchange.RandomExchange(),PFsClass=CentralizedTargetTrackingParticleFilter):
+			  estimator=smc.mposterior.estimator.Mposterior(),exchangeManager=smc.mposterior.share.RandomExchange(),PFsClass=CentralizedTargetTrackingParticleFilter):
 		
 		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,estimator=estimator,PFsClass=PFsClass)
 		
