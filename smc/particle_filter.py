@@ -114,11 +114,12 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 				
 			except ValueError:
 				
-				print("CentralizedTargetTrackingParticleFilter:resample: this shouldn't have happened...")
+				# this should mean the normalized weights don't add up EXACTLY to one...we renormalize them...
+				normalizedWeights /= normalizedWeights.sum()
 				
-				import code
-				code.interact(local=dict(globals(), **locals()))
-			
+				# ...and try again
+				iParticlesToBeKept = self._resamplingAlgorithm.getIndexes(normalizedWeights)
+				
 			# the above indexes are used to update the state
 			self._state = self._state[:,iParticlesToBeKept]
 			
@@ -241,7 +242,7 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 	def avoidWeightDegeneracy(self):
 		
 		# if all the weights are zero...
-		if np.isclose(self._aggregatedWeight,0):
+		if self._aggregatedWeight==0:
 			
 			# ...there is nothing we can do
 			return
