@@ -3,7 +3,7 @@ import math
 import abc
 
 import state
-import smc.mposterior.estimator
+import smc.estimator
 import smc.mposterior.share
 
 # this is required (due to a bug?) for import rpy2
@@ -256,7 +256,7 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 class DistributedTargetTrackingParticleFilter(ParticleFilter):
 	
 	def __init__(self,nPEs,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
-			  PFsClass=CentralizedTargetTrackingParticleFilter,PFsInitialAggregatedWeight=1.0):
+			  PFsClass=CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.Mean(),PFsInitialAggregatedWeight=1.0):
 		
 		super().__init__(nPEs*nParticlesPerPE,resamplingAlgorithm,resamplingCriterion)
 		
@@ -265,6 +265,9 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 		
 		# a list of lists, the first one containing the indices of the sensors "seen" by the first PE...and so on
 		self._PEsSensorsConnections = PEsSensorsConnections
+
+		# object used to combine the distributions of the different PEs
+		self._estimator = estimator		
 		
 		# number of particles per Pe
 		self._nParticlesPerPE = nParticlesPerPE
@@ -302,20 +305,16 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 		return np.hstack([PE.getState() for PE in self._PEs])
 
 	def computeMean(self):
-	
-		# the means from all the PEs are stacked (horizontally) in a single array
-		jointMeans = np.hstack([PE.computeMean() for PE in self._PEs])
 		
-		return jointMeans.mean(axis=1)[:,np.newaxis]
-
+		return self._estimator.estimate(self)
 
 class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilter):
 	
 	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
-			  PFsClass=EmbeddedTargetTrackingParticleFilter):
+			  PFsClass=EmbeddedTargetTrackingParticleFilter,estimator=smc.estimator.WeightedMean()):
 		
 		super().__init__(topology.getNumberOfPEs(),nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
-				   PFsClass=PFsClass,PFsInitialAggregatedWeight=1.0/topology.getNumberOfPEs())
+				   PFsClass=PFsClass,estimator=estimator,PFsInitialAggregatedWeight=1.0/topology.getNumberOfPEs())
 		
 		# a exchange of particles among PEs will happen every...
 		self._exchangePeriod = exchangePeriod
@@ -378,14 +377,6 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 			self._PEs[exchangeTuple.iPE].setParticle(exchangeTuple.iParticleWithinPE,particles[1])
 			self._PEs[exchangeTuple.iNeighbour].setParticle(exchangeTuple.iParticleWithinNeighbour,particles[0])
 	
-	def computeMean(self):
-		
-		# the aggregated weights are not necessarily normalized
-		normalizedAggregatedWeights = self.getAggregatedWeights()/self.getAggregatedWeights().sum()
-		
-		# notice that "computeMean" will return a numpy array the size of the state (rather than a scalar)
-		return np.multiply(np.hstack([PE.computeMean() for PE in self._PEs]),normalizedAggregatedWeights).sum(axis=1)[np.newaxis].T
-	
 	def getAggregatedWeights(self):
 		
 		return np.array([PE.getAggregatedWeight() for PE in self._PEs])
@@ -409,10 +400,10 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 
 class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTrackingParticleFilter):
 	
-	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,estimator=smc.mposterior.estimator.Mposterior(),
-			  PFsClass=CentralizedTargetTrackingParticleFilter):
+	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,
+			  PFsClass=CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.Mposterior()):
 		
-		super().__init__(topology.getNumberOfPEs(),nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass)
+		super().__init__(topology.getNumberOfPEs(),nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass,estimator=estimator)
 		
 		# how the PEs are interconnected
 		self._topology = topology
@@ -423,9 +414,6 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 		# ...and the parameters to be passed to the required function are kept
 		self._findWeiszfeldMedianParameters = findWeiszfeldMedianParameters
 		
-		# estimator used to combine the distributions of the different PEs
-		self._estimator = estimator
-	
 	def Mposterior(self,posteriorDistributions):
 		
 		"""Applies the Mposterior algorithm to weight the samples of a list of "subset posterior distribution"s.
@@ -458,16 +446,12 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 		
 		return (jointParticles,jointWeights)
 
-	def computeMean(self):
-		
-		return self._estimator.estimate(self)
-
 class DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(DistributedTargetTrackingParticleFilterWithMposterior):
 	
 	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,sharingPeriod,
-			  estimator=smc.mposterior.estimator.Mposterior(),exchangeManager=smc.mposterior.share.RandomExchange(),PFsClass=CentralizedTargetTrackingParticleFilter):
+			  exchangeManager=smc.mposterior.share.RandomExchange(),PFsClass=CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.Mposterior()):
 		
-		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,estimator=estimator,PFsClass=PFsClass)
+		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,PFsClass=PFsClass,estimator=estimator)
 		
 		self._sharingPeriod = sharingPeriod
 		self._nSharedParticles = topology.nParticlesExchangedBetweenTwoNeighbours

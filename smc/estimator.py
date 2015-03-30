@@ -57,6 +57,28 @@ class Estimator(metaclass=abc.ABCMeta):
 		
 		return
 
+class Mean(Estimator):
+	
+	def estimate(self,DPF):
+	
+		# the means from all the PEs are stacked (horizontally) in a single array
+		jointMeans = np.hstack([PE.computeMean() for PE in DPF._PEs])
+		
+		return jointMeans.mean(axis=1)[:,np.newaxis]
+
+
+class WeightedMean(Estimator):
+	
+	def estimate(self,DPF):
+		
+		aggregatedWeights = DPF.getAggregatedWeights()
+
+		# the aggregated weights are not necessarily normalized
+		normalizedAggregatedWeights = aggregatedWeights/aggregatedWeights.sum()
+		
+		# notice that "computeMean" will return a numpy array the size of the state (rather than a scalar)
+		return np.multiply(np.hstack([PE.computeMean() for PE in DPF._PEs]),normalizedAggregatedWeights).sum(axis=1)[:,np.newaxis]
+
 class Mposterior(Estimator):
 	
 	def combinePosteriorDistributions(self,DPF,posteriors):
@@ -73,7 +95,7 @@ class Mposterior(Estimator):
 		
 		return self.combinePosteriorDistributions(DPF,posteriors)
 
-class MposteriorSubset(Mposterior):
+class PartialMposterior(Mposterior):
 	
 	def __init__(self,nParticles):
 		
