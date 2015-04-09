@@ -78,26 +78,6 @@ class TransitionKernel:
 	def nextState(self,state):
 		
 		pass
-	
-class StraightTransitionKernel(TransitionKernel):
-	
-	def __init__(self,angle,stepDuration=1):
-		
-		# the parent's constructor is called
-		super().__init__(stepDuration)
-
-		self._angle = math.radians(angle)
-
-	def nextState(self,state):
-		
-		# the position is increased linearly sloping at the given angle
-		position = state[0:2] + np.array([[math.cos(self._angle)],[math.sin(self._angle)]])
-		
-		# the velocity stays the same...so
-		velocity = state[2:4]
-	
-		return np.vstack((position,velocity))
-	
 
 class UnboundedTransitionKernel(TransitionKernel):
 	

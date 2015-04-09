@@ -223,37 +223,67 @@ class Mposterior(Simulation):
 		self._simulationParameters = parameters['simulations']['Mposterior']
 		
 		# for the sake of clarity...since this will be used many times
-		nPEs = self._topologiesSettings['number of PEs']
-		
-		# topologies for the DRNA and Mposterior (they only differ in the percentage of particles exchanged)
-		networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(nPEs,self._K,self._simulationParameters["exchanged particles maximum percentage"],
-																					 self._topologiesSettings['parameters'],PRNG=PRNGs["topology pseudo random numbers generator"])
-		
-		# the topology is "deployed" so that all the particle exchanging algorithms exchange the same particles
-		networkTopology.deploy()
+		self._nPEs = self._topologiesSettings['number of PEs']
 		
 		# a connector that connects every sensor to every PE
-		everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(sensors)
+		self._everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(sensors)
 		
 		# the parameters given by the user for a connector that connects every sensor to the closest PE...
 		sensorWithTheClosestPEConnectorSettings = parameters['sensors-PEs connectors']['sensors connected to the closest PEs']
 		
 		# ...are used to build the corresponding 
-		sensorWithTheClosestPEConnector = getattr(sensors_PEs_connector,sensorWithTheClosestPEConnectorSettings['implementing class'])(sensors,sensorWithTheClosestPEConnectorSettings['parameters'])
+		self._sensorWithTheClosestPEConnector = getattr(sensors_PEs_connector,sensorWithTheClosestPEConnectorSettings['implementing class'])(sensors,sensorWithTheClosestPEConnectorSettings['parameters'])
 		
 		# the positions of the sensors...
 		sensorsPositions = np.hstack([s.position for s in sensors])
 		
 		# ...and those of the PEs
-		PEsPositions = sensors_PEs_connector.computePEsPositions(sensorsPositions,nPEs,sensorWithTheClosestPEConnectorSettings['parameters']['number of uniform samples']*nPEs)
+		PEsPositions = sensors_PEs_connector.computePEsPositions(sensorsPositions,self._nPEs,sensorWithTheClosestPEConnectorSettings['parameters']['number of uniform samples']*self._nPEs)
 		
 		# ...are used to plot the connections between them
-		plot.PEsSensorsConnections(sensorsPositions,PEsPositions,sensorWithTheClosestPEConnector.getConnections(nPEs))
+		plot.PEsSensorsConnections(sensorsPositions,PEsPositions,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs))
+		
+		# the algorithms to be tested in this simulation are added
+		self.addAlgorithms(resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,PRNGs)
+		
+		# the position estimates
+		self._PFs_pos = np.empty((2,self._nTimeInstants,parameters["number of frames"],len(self._PFs)))
+		
+		assert len(self._PFsColors) == len(self._PFsLabels) == len(self._PFs)
+		
+		# information about the simulated algorithms is added to the parameters...
+		parameters['algorithms'] = [{'name':name,'color':color} for name,color in zip(self._PFsLabels,self._PFsColors)]
+	
+	def addAlgorithms(self,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,PRNGs):
+		
+		"""Adds the algorithms to be tested by this simulation, defining the required parameters.
+		
+		Parameters
+		----------
+		resamplingAlgorithm: smc.ResamplingAlgorithm
+			Object implementing the resampling algorithm
+		resamplingCriterion: smc.ResamplingCriterion
+			Object implementing the resampling criterion, which decides whether to resample or not according to the weights
+		prior: state.Prior
+			Object implementing the prior probability for the state
+		transitionKernel: state.TransitionKernel
+			Object implementing the transition kernel for the state
+		sensors: list
+			A list with Sensor objects
+		PRNGs: dict
+			A dictionary with different RandomState objects
+		
+		"""
 		
 		# a parameter for the DRNA algorithm
-		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(nPEs,self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
+		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(self._nPEs,self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
 		
-		# ===================================================================== algorithms
+		# topologies for the DRNA and Mposterior (they only differ in the percentage of particles exchanged)
+		networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,self._simulationParameters["exchanged particles maximum percentage"],
+																					 self._topologiesSettings['parameters'],PRNG=PRNGs["topology pseudo random numbers generator"])
+		
+		# the topology is "deployed" so that all the particle exchanging algorithms exchange the same particles
+		networkTopology.deploy()
 		
 		self._PFs = []
 		self._PFsColors = []
@@ -263,7 +293,7 @@ class Mposterior(Simulation):
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
 				self._DRNAsettings["exchange period"],networkTopology,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
-				prior,transitionKernel,sensors,everySensorWithEveryPEConnector.getConnections(nPEs),PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
+				prior,transitionKernel,sensors,self._everySensorWithEveryPEConnector.getConnections(self._nPEs),PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
 		)
 		
@@ -274,7 +304,7 @@ class Mposterior(Simulation):
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
 				self._DRNAsettings["exchange period"],networkTopology,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,
-				prior,transitionKernel,sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
+				prior,transitionKernel,sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
 		)
 		
@@ -284,8 +314,8 @@ class Mposterior(Simulation):
 		# a "distributed" PF in which each PE does its computation independently of the rest
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilter(
-				nPEs,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter
+				self._nPEs,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+				sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter
 			)
 		)
 		
@@ -296,7 +326,7 @@ class Mposterior(Simulation):
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 				networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
+				sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
 				self._simulationParameters['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
 				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.Mposterior()
 			)
@@ -315,7 +345,7 @@ class Mposterior(Simulation):
 			self._PFs.append(
 				smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 					networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-					sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
+					sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
 					self._simulationParameters['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
 					PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.PartialMposterior(n)
 				)
@@ -328,7 +358,7 @@ class Mposterior(Simulation):
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 				networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
+				sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
 				self._simulationParameters['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
 				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.GeometricMedian()
 			)
@@ -341,7 +371,7 @@ class Mposterior(Simulation):
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 				networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
+				sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
 				self._simulationParameters['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
 				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.Mean()
 			)
@@ -356,7 +386,7 @@ class Mposterior(Simulation):
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 				networkTopology,self._K,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-				sensors,sensorWithTheClosestPEConnector.getConnections(nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
+				sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
 				self._simulationParameters['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
 				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.SinglePE(iPE)
 			)
@@ -364,24 +394,11 @@ class Mposterior(Simulation):
 		
 		self._PFsColors.append(color)
 		self._PFsLabels.append('M-posterior - PE \#{}'.format(iPE))
-
-		# ================================================================================
-		
-		# the position estimates
-		self._PFs_pos = np.empty((2,self._nTimeInstants,parameters["number of frames"],len(self._PFs)))
-		
-		assert len(self._PFsColors) == len(self._PFsLabels) == len(self._PFs)
-		
-		# information about the simulated algorithms is added to the parameters...
-		parameters['algorithms'] = [{'name':name,'color':color} for name,color in zip(self._PFsLabels,self._PFsColors)]
 		
 	def saveData(self,targetPosition):
 		
 		# let the super class do its thing...
 		super().saveData(targetPosition)
-		
-		# the mean of the error (euclidean distance) incurred by the PFs
-		PF_error = np.sqrt((np.subtract(self._PFs_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
 		
 		# a dictionary encompassing all the data to be saved
 		dataToBeSaved = dict(
@@ -393,6 +410,9 @@ class Mposterior(Simulation):
 		#np.savez('res_' + self._outputFile + '.npz',**dataToBeSaved)
 		scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
 		print('results saved in "{}"'.format('res_' + self._outputFile))
+		
+		# the mean of the error (euclidean distance) incurred by the PFs
+		PF_error = np.sqrt((np.subtract(self._PFs_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
 		
 		plot.PFs(range(self._nTimeInstants),PF_error,
 		   self._simulationParameters["file name prefix for the estimation error vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
