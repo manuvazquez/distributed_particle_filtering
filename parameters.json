@@ -125,6 +125,17 @@
 			},
 			"file name prefix for the estimation error vs time plot": "errorVsTime"
 		},
+		"Mposterior - exchange percentage": {
+			"implementing class": "Mposterior_exchange_percentage",
+			"sharing period": 10,
+			"exchanged particles maximum percentage": [0.02,0.05,0.1,0.15,0.25,0.50],
+			"findWeiszfeldMedian parameters": {
+				"sigma": 0.1,
+				"maxit": 100,
+				"tol": 1e-10
+			},
+			"file name prefix for the estimation error vs time plot": "errorVsTime"
+		},
 		"DRNA convergence": {
 			"implementing class": "Convergence"
 		}

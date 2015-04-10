@@ -114,7 +114,13 @@ class Topology:
 		"""
 		
 		# it is computed accounting for the maximum number of neighbours a given PE can have
-		return int((self._nParticlesPerPE*self._exchangePercentage)//max([len(neighbourhood) for neighbourhood in self._neighbours]))
+		res = int((self._nParticlesPerPE*self._exchangePercentage)//max([len(neighbourhood) for neighbourhood in self._neighbours]))
+		
+		if res is 0:
+			
+			raise Exception('no particles are to be shared by a PE with its neighbours')
+		
+		return res
 
 class Customized(Topology):
 	
