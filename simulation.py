@@ -221,6 +221,7 @@ class Mposterior(Simulation):
 		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
 		
 		self._simulationParameters = parameters['simulations'][parameters['simulations']['type']]
+		self._MposteriorSettings = parameters['Mposterior']
 		
 		# these parameters are kept for use in the "addAlgorithms" method below
 		self._resamplingAlgorithm = resamplingAlgorithm
@@ -277,7 +278,7 @@ class Mposterior(Simulation):
 		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(self._nPEs,self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
 		
 		# topology for the DRNA and Mposterior
-		networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,self._simulationParameters["exchanged particles maximum percentage"],
+		networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,self._MposteriorSettings["exchanged particles maximum percentage"],
 																					 self._topologiesSettings['parameters'],PRNG=self._PRNGs["topology pseudo random numbers generator"])
 		
 		# the topology is "deployed" so that all the particle exchanging algorithms exchange the same particles
@@ -320,8 +321,8 @@ class Mposterior(Simulation):
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 				networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
-				self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-				self._simulationParameters['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
+				self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._MposteriorSettings['findWeiszfeldMedian parameters'],
+				self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
 				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.Mposterior()
 			)
 		)
@@ -339,8 +340,8 @@ class Mposterior(Simulation):
 			self._PFs.append(
 				smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 					networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
-					self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-					self._simulationParameters['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
+					self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._MposteriorSettings['findWeiszfeldMedian parameters'],
+					self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
 					PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.PartialMposterior(n)
 				)
 			)
@@ -352,10 +353,10 @@ class Mposterior(Simulation):
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 				networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
-				self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-				self._simulationParameters['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
+				self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._MposteriorSettings['findWeiszfeldMedian parameters'],
+				self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
 				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,
-				estimator=smc.estimator.GeometricMedian(maxIterations=self._simulationParameters['findWeiszfeldMedian parameters']['maxit'],tolerance=self._simulationParameters['findWeiszfeldMedian parameters']['tol'])
+				estimator=smc.estimator.GeometricMedian(maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol'])
 			)
 		)
 		
@@ -366,8 +367,8 @@ class Mposterior(Simulation):
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 				networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
-				self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-				self._simulationParameters['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
+				self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._MposteriorSettings['findWeiszfeldMedian parameters'],
+				self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
 				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.Mean()
 			)
 		)
@@ -381,8 +382,8 @@ class Mposterior(Simulation):
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 				networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
-				self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-				self._simulationParameters['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
+				self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._MposteriorSettings['findWeiszfeldMedian parameters'],
+				self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
 				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.SinglePE(iPE)
 			)
 		)
@@ -489,8 +490,8 @@ class MposteriorExchangePercentage(Mposterior):
 			self._PFs.append(
 				smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 					networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
-					self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-					self._simulationParameters['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
+					self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._MposteriorSettings['findWeiszfeldMedian parameters'],
+					self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
 					PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.PartialMposterior(10)
 				)
 			)
@@ -502,7 +503,7 @@ class MposteriorGeometricMedian(Mposterior):
 	
 	def addAlgorithms(self):
 		
-		networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,self._simulationParameters["exchanged particles maximum percentage"],
+		networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,self._MposteriorSettings["exchanged particles maximum percentage"],
 																					 self._topologiesSettings['parameters'],PRNG=self._PRNGs["topology pseudo random numbers generator"])
 		
 		# a parameter for the DRNA algorithm
@@ -528,11 +529,11 @@ class MposteriorGeometricMedian(Mposterior):
 			self._PFs.append(
 				smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
 					networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
-					self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
-					self._simulationParameters['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
+					self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._MposteriorSettings['findWeiszfeldMedian parameters'],
+					self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
 					PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,
 					estimator=smc.estimator.StochasticGeometricMedian(
-						nParticles,maxIterations=self._simulationParameters['findWeiszfeldMedian parameters']['maxit'],tolerance=self._simulationParameters['findWeiszfeldMedian parameters']['tol'])
+						nParticles,maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol'])
 				)
 			)
 			
