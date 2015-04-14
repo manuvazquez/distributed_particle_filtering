@@ -498,4 +498,4 @@ class Mposterior_exchange_percentage(Mposterior):
 			)
 			
 			self._PFsColors.append(c)
-			self._PFsLabels.append('M-posterior exchaning {}\%'.format(p))
+			self._PFsLabels.append('M-posterior exchaning {} of the particles'.format(p))

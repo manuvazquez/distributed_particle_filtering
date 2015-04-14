@@ -121,14 +121,17 @@ class GeometricMedian(Estimator):
 		# a 2D array is initialized to store the samples from the different PEs
 		samples = np.empty((state.nElements,len(DPF._PEs)))
 		
-		# for every PE...
-		for iPE,PE in enumerate(DPF._PEs):
+		## for every PE...
+		#for iPE,PE in enumerate(DPF._PEs):
 			
-			# ...the index of the sample with the largest weight is obtained...
-			iMax = PE.logWeights.argmax()
+			## ...the index of the sample with the largest weight is obtained...
+			#iMax = PE.logWeights.argmax()
 			
-			# ...and its corresponding sample extracted and stored in the array initialized above
-			samples[:,iPE:iPE+1] = PE.getSamplesAt([iMax])
+			## ...and its corresponding sample extracted and stored in the array initialized above
+			#samples[:,iPE:iPE+1] = PE.getSamplesAt([iMax])
+		
+		# the first (0) sample of each PE is collected
+		samples = np.hstack([PE.getSamplesAt([0]) for PE in DPF._PEs])
 
 		return geometric_median(samples,max_iterations=self._maxIterations,tolerance=self._tolerance)[:,np.newaxis]
 
