@@ -251,7 +251,12 @@ class Mposterior(Simulation):
 		# ...are used to plot the connections between them
 		plot.PEsSensorsConnections(sensorsPositions,PEsPositions,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs))
 		
-		# the algorithms to be tested in this simulation are added
+		# the list of algorithms (objects) to be executed, along with their corresponding colors and labels are empty before...
+		self._PFs = []
+		self._PFsColors = []
+		self._PFsLabels = []
+		
+		# ...algorithms are added
 		self.addAlgorithms()
 		
 		# the position estimates
@@ -277,10 +282,6 @@ class Mposterior(Simulation):
 		
 		# the topology is "deployed" so that all the particle exchanging algorithms exchange the same particles
 		networkTopology.deploy()
-		
-		self._PFs = []
-		self._PFsColors = []
-		self._PFsLabels = []
 		
 		# a distributed PF with DRNA
 		self._PFs.append(
@@ -353,7 +354,8 @@ class Mposterior(Simulation):
 				networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 				self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
 				self._simulationParameters['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
-				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.GeometricMedian()
+				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,
+				estimator=smc.estimator.GeometricMedian(maxIterations=self._simulationParameters['findWeiszfeldMedian parameters']['maxit'],tolerance=self._simulationParameters['findWeiszfeldMedian parameters']['tol'])
 			)
 		)
 		
@@ -468,17 +470,13 @@ class Mposterior(Simulation):
 						
 						self._painter.updateParticlesPositions(state.position(pf.getState()),identifier='#{}'.format(iPF),color=color)
 
-class Mposterior_exchange_percentage(Mposterior):
+class MposteriorExchangePercentage(Mposterior):
 	
 	def addAlgorithms(self):
 		
 		"""Adds the algorithms to be tested by this simulation, defining the required parameters.
 		
 		"""
-		
-		self._PFs = []
-		self._PFsColors = []
-		self._PFsLabels = []
 		
 		# available colors
 		colors = ['red','blue','green','goldenrod','cyan','crimson','lime','cadetblue','magenta']
@@ -507,10 +505,6 @@ class MposteriorGeometricMedian(Mposterior):
 		networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,self._simulationParameters["exchanged particles maximum percentage"],
 																					 self._topologiesSettings['parameters'],PRNG=self._PRNGs["topology pseudo random numbers generator"])
 		
-		self._PFs = []
-		self._PFsColors = []
-		self._PFsLabels = []
-		
 		# a parameter for the DRNA algorithm
 		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(self._nPEs,self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
 		
@@ -536,7 +530,9 @@ class MposteriorGeometricMedian(Mposterior):
 					networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 					self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
 					self._simulationParameters['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
-					PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.StochasticGeometricMedian(nParticles)
+					PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,
+					estimator=smc.estimator.StochasticGeometricMedian(
+						nParticles,maxIterations=self._simulationParameters['findWeiszfeldMedian parameters']['maxit'],tolerance=self._simulationParameters['findWeiszfeldMedian parameters']['tol'])
 				)
 			)
 			

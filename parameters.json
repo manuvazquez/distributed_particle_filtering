@@ -125,8 +125,8 @@
 			},
 			"file name prefix for the estimation error vs time plot": "errorVsTime"
 		},
-		"Mposterior - exchange percentage": {
-			"implementing class": "Mposterior_exchange_percentage",
+		"Mposterior: exchange percentage": {
+			"implementing class": "MposteriorExchangePercentage",
 			"sharing period": 10,
 			"exchanged particles maximum percentage": [0.02,0.05,0.1,0.15,0.25,0.50],
 			"findWeiszfeldMedian parameters": {
@@ -136,7 +136,7 @@
 			},
 			"file name prefix for the estimation error vs time plot": "errorVsTime"
 		},
-		"Mposterior - geometric median": {
+		"Mposterior: geometric median": {
 			"implementing class": "MposteriorGeometricMedian",
 			"sharing period": 10,
 			"exchanged particles maximum percentage": 0.15,
