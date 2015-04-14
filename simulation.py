@@ -499,3 +499,46 @@ class Mposterior_exchange_percentage(Mposterior):
 			
 			self._PFsColors.append(c)
 			self._PFsLabels.append('M-posterior exchaning {} of the particles'.format(p))
+
+class MposteriorGeometricMedian(Mposterior):
+	
+	def addAlgorithms(self):
+		
+		networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,self._simulationParameters["exchanged particles maximum percentage"],
+																					 self._topologiesSettings['parameters'],PRNG=self._PRNGs["topology pseudo random numbers generator"])
+		
+		self._PFs = []
+		self._PFsColors = []
+		self._PFsLabels = []
+		
+		# a parameter for the DRNA algorithm
+		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(self._nPEs,self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
+		
+		# a distributed PF with DRNA
+		self._PFs.append(
+			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
+				self._DRNAsettings["exchange period"],networkTopology,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
+				self._prior,self._transitionKernel,self._sensors,self._everySensorWithEveryPEConnector.getConnections(self._nPEs),PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
+			)
+		)
+		
+		self._PFsColors.append('black')
+		self._PFsLabels.append('DRNA')
+		
+		# available colors
+		colors = ['red','blue','green','goldenrod','cyan','crimson','lime','cadetblue','magenta']
+		
+		for nParticles,col in zip(self._simulationParameters['number of particles for estimation'],colors):
+		
+			# DPF with M-posterior-based exchange using, at every time instant, 1 particle to compute an estimate via the geometric median
+			self._PFs.append(
+				smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
+					networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
+					self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._simulationParameters['findWeiszfeldMedian parameters'],
+					self._simulationParameters['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
+					PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.StochasticGeometricMedian(nParticles)
+				)
+			)
+			
+			self._PFsColors.append(col)
+			self._PFsLabels.append('M-posterior (Stochastic Geometric Median with {} particles)'.format(nParticles))

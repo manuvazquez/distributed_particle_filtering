@@ -136,6 +136,18 @@
 			},
 			"file name prefix for the estimation error vs time plot": "errorVsTime"
 		},
+		"Mposterior - geometric median": {
+			"implementing class": "MposteriorGeometricMedian",
+			"sharing period": 10,
+			"exchanged particles maximum percentage": 0.15,
+			"number of particles for estimation": [1,2,5,10,20,50],
+			"findWeiszfeldMedian parameters": {
+				"sigma": 0.1,
+				"maxit": 100,
+				"tol": 1e-10
+			},
+			"file name prefix for the estimation error vs time plot": "errorVsTime"
+		},
 		"DRNA convergence": {
 			"implementing class": "Convergence"
 		}

@@ -135,6 +135,21 @@ class GeometricMedian(Estimator):
 
 		return geometric_median(samples,max_iterations=self._maxIterations,tolerance=self._tolerance)[:,np.newaxis]
 
+class StochasticGeometricMedian(Mposterior):
+	
+	def __init__(self,nParticles,maxIterations=100,tolerance=0.001):
+		
+		self._nParticles = nParticles
+		self._maxIterations = maxIterations
+		self._tolerance = tolerance
+	
+	def estimate(self,DPF):
+
+		# a number of samples is drawn from the distribution of each PE (all equally weighted) to build a list of tuples (samples and weights)
+		samples = np.hstack([PE.getSamplesAt(DPF._resamplingAlgorithm.getIndexes(np.exp(PE.logWeights),self._nParticles)) for PE in DPF._PEs])
+		
+		return geometric_median(samples,max_iterations=self._maxIterations,tolerance=self._tolerance)[:,np.newaxis]
+
 class SinglePE(Estimator):
 	
 	def __init__(self,iPE):
