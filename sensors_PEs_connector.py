@@ -70,6 +70,12 @@ class SensorOrientedConnector(SensorsPEsConnector):
 
 class ProximityBasedConnector(SensorsPEsConnector):
 	
+	def __init__(self,sensors,PEsPositions,parameters=None):
+		
+		super().__init__(sensors,parameters)
+		
+		self._PEsPositions = PEsPositions
+	
 	def getConnections(self,nPEs):
 		
 		sensorsPositions = np.hstack([s.position for s in self._sensors])
@@ -77,10 +83,8 @@ class ProximityBasedConnector(SensorsPEsConnector):
 		# a number of samples proportional to the number of PEs...
 		nPoints = self._parameters['number of uniform samples']*nPEs
 		
-		PEsPositions = computePEsPositions(sensorsPositions,nPEs,nPoints)
-		
 		# the distance from each PE (whose position has been computed above) to each sensor [<PE>,<sensor>]
-		distances = np.sqrt((np.subtract(PEsPositions[:,:,np.newaxis],sensorsPositions[:,np.newaxis,:])**2).sum(axis=0))
+		distances = np.sqrt((np.subtract(self._PEsPositions[:,:,np.newaxis],sensorsPositions[:,np.newaxis,:])**2).sum(axis=0))
 		
 		# for each sensor, the index of the PE which is closest to it
 		iClosestPEtoSensors = distances.argmin(axis=0)

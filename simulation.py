@@ -237,19 +237,19 @@ class Mposterior(Simulation):
 		# a connector that connects every sensor to every PE
 		self._everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(sensors)
 		
-		# the parameters given by the user for a connector that connects every sensor to the closest PE...
+		# the parameters given by the user for a connector that connects every sensor to the closest PE
 		sensorWithTheClosestPEConnectorSettings = parameters['sensors-PEs connectors']['sensors connected to the closest PEs']
-		
-		# ...are used to build the corresponding 
-		self._sensorWithTheClosestPEConnector = getattr(sensors_PEs_connector,sensorWithTheClosestPEConnectorSettings['implementing class'])(sensors,sensorWithTheClosestPEConnectorSettings['parameters'])
 		
 		# the positions of the sensors...
 		sensorsPositions = np.hstack([s.position for s in sensors])
 		
-		# ...and those of the PEs
+		# ...and those of the PEs...
 		PEsPositions = sensors_PEs_connector.computePEsPositions(sensorsPositions,self._nPEs,sensorWithTheClosestPEConnectorSettings['parameters']['number of uniform samples']*self._nPEs)
 		
-		# ...are used to plot the connections between them
+		# ...are used to build the corresponding connector
+		self._sensorWithTheClosestPEConnector = getattr(sensors_PEs_connector,sensorWithTheClosestPEConnectorSettings['implementing class'])(sensors,PEsPositions,sensorWithTheClosestPEConnectorSettings['parameters'])
+		
+		# ...are plot the connections between them
 		plot.PEsSensorsConnections(sensorsPositions,PEsPositions,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs))
 		
 		# the list of algorithms (objects) to be executed, along with their corresponding colors and labels are empty before...
@@ -474,10 +474,6 @@ class Mposterior(Simulation):
 class MposteriorExchangePercentage(Mposterior):
 	
 	def addAlgorithms(self):
-		
-		"""Adds the algorithms to be tested by this simulation, defining the required parameters.
-		
-		"""
 		
 		# available colors
 		colors = ['red','blue','green','goldenrod','cyan','crimson','lime','cadetblue','magenta']
