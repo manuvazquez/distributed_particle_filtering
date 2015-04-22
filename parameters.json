@@ -155,7 +155,7 @@
 		"sensors connected to the closest PEs": {
 			"implementing class": "ProximityBasedConnector",
 			"parameters": {
-				"number of uniform samples": 100
+				"number of uniform samples": 10000
 			}
 		}
 	},

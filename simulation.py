@@ -244,7 +244,8 @@ class Mposterior(Simulation):
 		sensorsPositions = np.hstack([s.position for s in sensors])
 		
 		# ...and those of the PEs...
-		PEsPositions = sensors_PEs_connector.computePEsPositions(sensorsPositions,self._nPEs,sensorWithTheClosestPEConnectorSettings['parameters']['number of uniform samples']*self._nPEs)
+		PEsPositions = sensors_PEs_connector.computePEsPositions(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
+														   self._nPEs,sensorWithTheClosestPEConnectorSettings['parameters']['number of uniform samples']*self._nPEs)
 		
 		# ...are used to build the corresponding connector
 		self._sensorWithTheClosestPEConnector = getattr(sensors_PEs_connector,sensorWithTheClosestPEConnectorSettings['implementing class'])(sensors,PEsPositions,sensorWithTheClosestPEConnectorSettings['parameters'])

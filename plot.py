@@ -246,6 +246,10 @@ def PEsSensorsConnections(sensorsPositions,PEsPositions,connections,figureId='co
 	ax.plot(sensorsPositions[0,:],sensorsPositions[1,:],linewidth=0,marker='+',color='blue')
 	ax.plot(PEsPositions[0,:],PEsPositions[1,:],linewidth=0,marker='s',color='red')
 	
+	for iPE,pos in enumerate(PEsPositions.T):
+		
+		ax.annotate('#{}'.format(iPE),xy=tuple(pos))
+	
 	# in "connections", for every PE there is a list of sensors associated
 	for iPE,sensorsIndexes in enumerate(connections):
 		
