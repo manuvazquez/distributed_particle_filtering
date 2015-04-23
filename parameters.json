@@ -39,6 +39,13 @@
 			"number of PEs": 16,
 			"parameters": {
 			}
+		},
+		"Based on the PEs positions": {
+			"implementing class": "Physical",
+			"number of PEs": 9,
+			"parameters": {
+				"ranges of vision for right, up, left and down": [[-45,45],[45,135],[135,-135],[-135,-45]]
+			}
 		}
 	},
 	"sensors": {

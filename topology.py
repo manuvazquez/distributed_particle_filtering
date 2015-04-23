@@ -227,3 +227,50 @@ class FullyConnectedWithRandomLinksRemoved(FullyConnected):
 			
 			# ...and viceversa
 			self._neighbours[neighbour].remove(PE)
+
+class Physical(Topology):
+	
+	def __init__(self,nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=np.random.RandomState()):
+		
+		super().__init__(nPEs,nParticlesPerPE,exchangePercentage,topologySpecificParameters,PRNG=PRNG)
+		
+		import operator
+		
+		# for the sake of clarity...
+		PEsPositions = topologySpecificParameters['PEs positions']
+		
+		# a list of sets, each one meant to store the neighbours of the corresponding PE
+		res = [set() for i in range(PEsPositions.shape[1])]
+		
+		for iPE in range(PEsPositions.shape[1]):
+			
+			# the difference vectors between the position of the current PE and the positions of ALL the PEs, which allow to compute...
+			diff = PEsPositions - PEsPositions[:,iPE:iPE+1]
+			
+			# ...the angles
+			angles = np.degrees(np.arctan2(diff[1,:],diff[0,:]))
+			
+			# ...and the distances
+			distances = np.linalg.norm(diff,axis=0)
+			
+			# we need to use the "and" operator for all the comparisons except the one for the left, which requires the "or"
+			for (low,up),op in zip(topologySpecificParameters['ranges of vision for right, up, left and down'],
+						  [operator.and_,operator.and_,operator.or_,operator.and_]):
+			
+				# the index of the PEs that are within the range of angles specified
+				iPEsWithinRange, = np.where(op(angles >= low,angles<=up) & (distances>0))
+				
+				# if any PE found within that "range of vision"
+				if iPEsWithinRange.size:
+				
+					# the neighbour is chosen to be that which is closer to the current PE
+					iNeighbour = iPEsWithinRange[np.argmin(distances[iPEsWithinRange])]
+					
+					# it is added to the list of neighbours of the current PE...
+					res[iPE].add(iNeighbour)
+					
+					# ...and the current PE to the list of neighbours of the selected neighbour (if it wasn't yet)
+					res[iNeighbour].add(iPE)
+					
+		print(res)
+		self._neighbours = [list(s) for s in res]

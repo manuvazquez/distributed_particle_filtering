@@ -265,7 +265,7 @@ def PEsSensorsConnections(sensorsPositions,PEsPositions,connections,figureId='co
 		plt.savefig(outputFile)
 	
 	return ax,fig
-	
+
 class RoomPainter:
 	
 	def __init__(self,sensorsPositions,sleepTime=0.5):

@@ -247,6 +247,12 @@ class Mposterior(Simulation):
 		PEsPositions = sensors_PEs_connector.computePEsPositions(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
 														   self._nPEs,sensorWithTheClosestPEConnectorSettings['parameters']['number of uniform samples']*self._nPEs)
 		
+		# the positions of the PEs are added as a parameters...technically they are "derived" parameters since they are completely determined by: 
+		#	- the corners of the room
+		#	- the positions of the sensors which, in turn, also depend on the corners of the room and the number of sensors
+		#	- the number of PEs
+		self._topologiesSettings['parameters']['PEs positions'] = PEsPositions
+		
 		# ...are used to build the corresponding connector
 		self._sensorWithTheClosestPEConnector = getattr(sensors_PEs_connector,sensorWithTheClosestPEConnectorSettings['implementing class'])(sensors,PEsPositions,sensorWithTheClosestPEConnectorSettings['parameters'])
 		
