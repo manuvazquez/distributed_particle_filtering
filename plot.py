@@ -266,6 +266,24 @@ def PEsSensorsConnections(sensorsPositions,PEsPositions,connections,figureId='co
 	
 	return ax,fig
 
+def PEsSensorsAndPEsPEsConnections(sensorsPositions,PEsPositions,connections,PEsPEsConnections,figureId='connections',outputFile='PEs_sensors_connections.pdf'):
+	
+	ax,fig = PEsSensorsConnections(sensorsPositions,PEsPositions,connections,figureId,outputFile)
+	
+	for iPE,iNeighbours in enumerate(PEsPEsConnections):
+		
+		for i in iNeighbours:
+			
+			ax.plot([PEsPositions[0,iPE],PEsPositions[0,i]],[PEsPositions[1,iPE],PEsPositions[1,i]],linewidth=1,linestyle=':',color='gray')
+	
+	fig.show()
+	
+	if outputFile:
+
+		plt.savefig(outputFile)
+	
+	return ax,fig
+
 class RoomPainter:
 	
 	def __init__(self,sensorsPositions,sleepTime=0.5):
