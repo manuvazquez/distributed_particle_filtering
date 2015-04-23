@@ -398,7 +398,7 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 			# ...along with the individual weights within the PE
 			PE.logWeights = np.full(PE._nParticles,-np.log(self._nPEs)-np.log(PE._nParticles))
 
-class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTrackingParticleFilter):
+class PlainDistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTrackingParticleFilter):
 	
 	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,
 			  PFsClass=CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.Mposterior()):
@@ -446,7 +446,7 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 		
 		return (jointParticles,jointWeights)
 
-class DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(DistributedTargetTrackingParticleFilterWithMposterior):
+class DistributedTargetTrackingParticleFilterWithMposterior(PlainDistributedTargetTrackingParticleFilterWithMposterior):
 	
 	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,sharingPeriod,
 			  exchangeManager=smc.mposterior.share.RandomExchange(),PFsClass=CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.Mposterior()):

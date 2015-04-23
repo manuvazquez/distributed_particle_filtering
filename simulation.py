@@ -309,7 +309,7 @@ class Mposterior(Simulation):
 		)
 		
 		self._PFsColors.append('magenta')
-		self._PFsLabels.append('DRNA (partial)')
+		self._PFsLabels.append('DRNA (partial observations)')
 		
 		# a "distributed" PF in which each PE does its computation independently of the rest
 		self._PFs.append(
@@ -324,7 +324,7 @@ class Mposterior(Simulation):
 
 		# DPF with M-posterior-based exchange using, at every time instant, all the particles to compute, via M-posterior algorithm, an estimate (NOT all the particles are exchanged at every time instant, though)
 		self._PFs.append(
-			smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
+			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
 				self._networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 				self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._MposteriorSettings['findWeiszfeldMedian parameters'],
 				self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
@@ -333,7 +333,7 @@ class Mposterior(Simulation):
 		)
 		
 		self._PFsColors.append('darkred')
-		self._PFsLabels.append('M-posterior')
+		self._PFsLabels.append('M-posterior (M-posterior with ALL particles -> mean)')
 		
 		
 		# DPFs with M-posterior-based exchange using, at every time instant, different numbers of particles to compute an estimate via M-posterior algorithm
@@ -343,7 +343,7 @@ class Mposterior(Simulation):
 		for n,c in zip(nParticles,colors):
 		
 			self._PFs.append(
-				smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
+				smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
 					self._networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 					self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._MposteriorSettings['findWeiszfeldMedian parameters'],
 					self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
@@ -352,11 +352,11 @@ class Mposterior(Simulation):
 			)
 			
 			self._PFsColors.append(c)
-			self._PFsLabels.append('M-posterior ({} particles)'.format(n))
+			self._PFsLabels.append('M-posterior (M-posterior with {} particles -> mean)'.format(n))
 		
 		# DPF with M-posterior-based exchange using, at every time instant, 1 particle to compute an estimate via the geometric median
 		self._PFs.append(
-			smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
+			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
 				self._networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 				self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._MposteriorSettings['findWeiszfeldMedian parameters'],
 				self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
@@ -366,11 +366,11 @@ class Mposterior(Simulation):
 		)
 		
 		self._PFsColors.append('green')
-		self._PFsLabels.append('M-posterior (Geometric Median)')
+		self._PFsLabels.append('M-posterior (geometric median with ALL particles)')
 		
 		# DPF with M-posterior-based exchange yielding, at every time instant, an estimate that is the average of the means of all the PEs
 		self._PFs.append(
-			smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
+			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
 				self._networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 				self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._MposteriorSettings['findWeiszfeldMedian parameters'],
 				self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
@@ -385,7 +385,7 @@ class Mposterior(Simulation):
 		iPE,color = 0,'olive'
 			
 		self._PFs.append(
-			smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
+			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
 				self._networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 				self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._MposteriorSettings['findWeiszfeldMedian parameters'],
 				self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
@@ -394,7 +394,7 @@ class Mposterior(Simulation):
 		)
 		
 		self._PFsColors.append(color)
-		self._PFsLabels.append('M-posterior - PE \#{}'.format(iPE))
+		self._PFsLabels.append('M-posterior (mean with particles from PE \#{})'.format(iPE))
 		
 	def saveData(self,targetPosition):
 		
@@ -489,7 +489,7 @@ class MposteriorExchangePercentage(Mposterior):
 			self._networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,p,self._topologiesSettings['parameters'],PRNG=self._PRNGs["topology pseudo random numbers generator"])
 			
 			self._PFs.append(
-				smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
+				smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
 					self._networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 					self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._MposteriorSettings['findWeiszfeldMedian parameters'],
 					self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
@@ -498,7 +498,7 @@ class MposteriorExchangePercentage(Mposterior):
 			)
 			
 			self._PFsColors.append(c)
-			self._PFsLabels.append('M-posterior exchaning {} of the particles'.format(p))
+			self._PFsLabels.append('M-posterior with {} particles per PE (M-posterior with {} particles -> mean)'.format(p))
 
 class MposteriorGeometricMedian(Mposterior):
 	
@@ -525,7 +525,7 @@ class MposteriorGeometricMedian(Mposterior):
 		
 			# DPF with M-posterior-based exchange using, at every time instant, 1 particle to compute an estimate via the geometric median
 			self._PFs.append(
-				smc.particle_filter.DistributedTargetTrackingParticleFilterWithParticleExchangingMposterior(
+				smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
 					self._networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 					self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._MposteriorSettings['findWeiszfeldMedian parameters'],
 					self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
@@ -536,4 +536,4 @@ class MposteriorGeometricMedian(Mposterior):
 			)
 			
 			self._PFsColors.append(col)
-			self._PFsLabels.append('M-posterior (Stochastic Geometric Median with {} particles)'.format(nParticles))
+			self._PFsLabels.append('M-posterior (Stochastic Geometric Median with {} particles from each PE)'.format(nParticles))
