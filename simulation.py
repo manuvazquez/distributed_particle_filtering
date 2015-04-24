@@ -333,12 +333,14 @@ class Mposterior(Simulation):
 		)
 		
 		self._PFsColors.append('darkred')
-		self._PFsLabels.append('M-posterior (M-posterior with ALL particles -> mean)')
+		self._PFsLabels.append('M-posterior (M-posterior with ALL particles - mean)')
 		
 		
 		# DPFs with M-posterior-based exchange using, at every time instant, different numbers of particles to compute an estimate via M-posterior algorithm
-		nParticles = [5,10,20,50,100]
-		colors = ['goldenrod','cyan','crimson','lime','cadetblue']
+		#nParticles = [5,10,20,50,100]
+		#colors = ['goldenrod','cyan','crimson','lime','cadetblue']
+		nParticles = [5,100]
+		colors = ['goldenrod','cadetblue']
 		
 		for n,c in zip(nParticles,colors):
 		
@@ -352,7 +354,7 @@ class Mposterior(Simulation):
 			)
 			
 			self._PFsColors.append(c)
-			self._PFsLabels.append('M-posterior (M-posterior with {} particles -> mean)'.format(n))
+			self._PFsLabels.append('M-posterior (M-posterior with {} particles - mean)'.format(n))
 		
 		# DPF with M-posterior-based exchange using, at every time instant, 1 particle to compute an estimate via the geometric median
 		self._PFs.append(
@@ -366,7 +368,7 @@ class Mposterior(Simulation):
 		)
 		
 		self._PFsColors.append('green')
-		self._PFsLabels.append('M-posterior (geometric median with ALL particles)')
+		self._PFsLabels.append('M-posterior (geometric median with 1 particle from each PE)')
 		
 		# DPF with M-posterior-based exchange yielding, at every time instant, an estimate that is the average of the means of all the PEs
 		self._PFs.append(
@@ -381,7 +383,7 @@ class Mposterior(Simulation):
 		self._PFsColors.append('red')
 		self._PFsLabels.append('M-posterior (Mean)')
 		
-		# DPF with M-posterior-based exchange that gets its estimates from the first PE
+		# DPF with M-posterior-based exchange that gets its estimates from the mean of the particles in the first PE
 		iPE,color = 0,'olive'
 			
 		self._PFs.append(
@@ -389,12 +391,27 @@ class Mposterior(Simulation):
 				self._networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 				self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._MposteriorSettings['findWeiszfeldMedian parameters'],
 				self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
-				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.SinglePE(iPE)
+				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.SinglePEmean(iPE)
 			)
 		)
 		
 		self._PFsColors.append(color)
 		self._PFsLabels.append('M-posterior (mean with particles from PE \#{})'.format(iPE))
+		
+		# DPF with M-posterior-based exchange that gets its estimates from the geometric median of the particles in the first PE
+		iPE,color = 0,'crimson'
+			
+		self._PFs.append(
+			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
+				self._networkTopology,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
+				self._sensors,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._MposteriorSettings['findWeiszfeldMedian parameters'],
+				self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
+				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,estimator=smc.estimator.SinglePEgeometricMedian(iPE)
+			)
+		)
+		
+		self._PFsColors.append(color)
+		self._PFsLabels.append('M-posterior (geometric median with particles from PE \#{})'.format(iPE))
 		
 	def saveData(self,targetPosition):
 		
@@ -455,7 +472,7 @@ class Mposterior(Simulation):
 			# particle filters are updated
 			for iPF,(pf,label) in enumerate(zip(self._PFs,self._PFsLabels)):
 				
-				# initialization of the particle filters
+				# a step of the particle filter
 				pf.step(observations[iTime])
 				
 				self._PFs_pos[:,iTime:iTime+1,self._iFrame,iPF] = state.position(pf.computeMean())
@@ -498,7 +515,7 @@ class MposteriorExchangePercentage(Mposterior):
 			)
 			
 			self._PFsColors.append(c)
-			self._PFsLabels.append('M-posterior with {} particles per PE (M-posterior with {} particles -> mean)'.format(p))
+			self._PFsLabels.append('M-posterior with {} particles per PE (M-posterior with {} particles - mean)'.format(p))
 
 class MposteriorGeometricMedian(Mposterior):
 	

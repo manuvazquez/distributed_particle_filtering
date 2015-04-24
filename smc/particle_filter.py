@@ -81,6 +81,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		self._state = np.hstack(
 			[self._stateTransitionKernel.nextState(self._state[:,i:i+1]) for i in range(self._nParticles)])
 		
+		# TODO: this may cause a "divide by zero" warning when a likelihood is very small
 		# for each sensor, we compute the likelihood of EVERY particle (position)
 		loglikelihoods = np.log(np.array([sensor.likelihood(obs,state.position(self._state)) for sensor,obs in zip(self._sensors,observations)]))
 		

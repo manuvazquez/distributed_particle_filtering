@@ -118,8 +118,8 @@ class GeometricMedian(Estimator):
 	
 	def estimate(self,DPF):
 		
-		# a 2D array is initialized to store the samples from the different PEs
-		samples = np.empty((state.nElements,len(DPF._PEs)))
+		## a 2D array is initialized to store the samples from the different PEs
+		#samples = np.empty((state.nElements,len(DPF._PEs)))
 		
 		## for every PE...
 		#for iPE,PE in enumerate(DPF._PEs):
@@ -150,7 +150,7 @@ class StochasticGeometricMedian(Mposterior):
 		
 		return geometric_median(samples,max_iterations=self._maxIterations,tolerance=self._tolerance)[:,np.newaxis]
 
-class SinglePE(Estimator):
+class SinglePEmean(Estimator):
 	
 	def __init__(self,iPE):
 		
@@ -159,3 +159,16 @@ class SinglePE(Estimator):
 	def estimate(self,DPF):
 		
 		return DPF._PEs[self._iPE].computeMean()
+	
+class SinglePEgeometricMedian(SinglePEmean):
+	
+	def __init__(self,iPE,maxIterations=100,tolerance=0.001):
+		
+		super().__init__(iPE)
+		
+		self._maxIterations = maxIterations
+		self._tolerance = tolerance
+
+	def estimate(self,DPF):
+		
+		return geometric_median(DPF._PEs[self._iPE].samples,max_iterations=self._maxIterations,tolerance=self._tolerance)[:,np.newaxis]
