@@ -52,123 +52,123 @@ def geometric_median(points,max_iterations=100,tolerance=0.001):
 
 class Estimator(metaclass=abc.ABCMeta):
 	
+	def __init__(self,DPF):
+		
+		self._DPF = DPF
+	
 	@abc.abstractmethod
-	def estimate(self,DPF):
+	def estimate(self):
 		
 		return
 
 class Mean(Estimator):
 	
-	def estimate(self,DPF):
+	def estimate(self):
 	
 		# the means from all the PEs are stacked (horizontally) in a single array
-		jointMeans = np.hstack([PE.computeMean() for PE in DPF._PEs])
+		jointMeans = np.hstack([PE.computeMean() for PE in self._DPF._PEs])
 		
 		return jointMeans.mean(axis=1)[:,np.newaxis]
 
 
 class WeightedMean(Estimator):
 	
-	def estimate(self,DPF):
+	def estimate(self):
 		
-		aggregatedWeights = DPF.getAggregatedWeights()
+		aggregatedWeights = self._DPF.getAggregatedWeights()
 
 		# the aggregated weights are not necessarily normalized
 		normalizedAggregatedWeights = aggregatedWeights/aggregatedWeights.sum()
 		
 		# notice that "computeMean" will return a numpy array the size of the state (rather than a scalar)
-		return np.multiply(np.hstack([PE.computeMean() for PE in DPF._PEs]),normalizedAggregatedWeights).sum(axis=1)[:,np.newaxis]
+		return np.multiply(np.hstack([PE.computeMean() for PE in self._DPF._PEs]),normalizedAggregatedWeights).sum(axis=1)[:,np.newaxis]
 
 class Mposterior(Estimator):
 	
-	def combinePosteriorDistributions(self,DPF,posteriors):
+	def combinePosteriorDistributions(self,posteriors):
 		
 		# the Mposterior algorithm is used to obtain a a new distribution
-		jointParticles,jointWeights = DPF.Mposterior(posteriors)
+		jointParticles,jointWeights = self._DPF.Mposterior(posteriors)
 		
 		return np.multiply(jointParticles,jointWeights).sum(axis=1)[np.newaxis].T
 	
-	def estimate(self,DPF):
+	def estimate(self):
 		
 		# the (FULL) distributions computed by every PE are gathered in a list of tuples (samples and weights)
-		posteriors = [(PE.getState().T,np.exp(PE.logWeights)) for PE in DPF._PEs]
+		posteriors = [(PE.getState().T,np.exp(PE.logWeights)) for PE in self._DPF._PEs]
 		
-		return self.combinePosteriorDistributions(DPF,posteriors)
+		return self.combinePosteriorDistributions(posteriors)
 
 class PartialMposterior(Mposterior):
 	
-	def __init__(self,nParticles):
+	def __init__(self,DPF,nParticles):
+		
+		super().__init__(DPF)
 		
 		self._nParticles = nParticles
 	
-	def estimate(self,DPF):
+	def estimate(self):
 
 		# a number of samples is drawn from the distribution of each PE (all equally weighted) to build a list of tuples (samples and weights)
-		posteriors = [(PE.getSamplesAt(DPF._resamplingAlgorithm.getIndexes(np.exp(PE.logWeights),self._nParticles)).T,
-				 np.full(self._nParticles,1.0/self._nParticles)) for PE in DPF._PEs]
+		posteriors = [(PE.getSamplesAt(self._DPF._resamplingAlgorithm.getIndexes(np.exp(PE.logWeights),self._nParticles)).T,
+				 np.full(self._nParticles,1.0/self._nParticles)) for PE in self._DPF._PEs]
 		
-		return self.combinePosteriorDistributions(DPF,posteriors)
+		return self.combinePosteriorDistributions(posteriors)
 
 class GeometricMedian(Estimator):
 	
-	def __init__(self,maxIterations=100,tolerance=0.001):
+	def __init__(self,DPF,maxIterations=100,tolerance=0.001):
+		
+		super().__init__(DPF)
 		
 		self._maxIterations = maxIterations
 		self._tolerance = tolerance
 	
-	def estimate(self,DPF):
-		
-		## a 2D array is initialized to store the samples from the different PEs
-		#samples = np.empty((state.nElements,len(DPF._PEs)))
-		
-		## for every PE...
-		#for iPE,PE in enumerate(DPF._PEs):
-			
-			## ...the index of the sample with the largest weight is obtained...
-			#iMax = PE.logWeights.argmax()
-			
-			## ...and its corresponding sample extracted and stored in the array initialized above
-			#samples[:,iPE:iPE+1] = PE.getSamplesAt([iMax])
+	def estimate(self):
 		
 		# the first (0) sample of each PE is collected
-		samples = np.hstack([PE.getSamplesAt([0]) for PE in DPF._PEs])
+		samples = np.hstack([PE.getSamplesAt([0]) for PE in self._DPF._PEs])
 
 		return geometric_median(samples,max_iterations=self._maxIterations,tolerance=self._tolerance)[:,np.newaxis]
 
 class StochasticGeometricMedian(Mposterior):
 	
-	def __init__(self,nParticles,maxIterations=100,tolerance=0.001):
+	def __init__(self,DPF,nParticles,maxIterations=100,tolerance=0.001):
+		
+		super().__init__(DPF)
 		
 		self._nParticles = nParticles
 		self._maxIterations = maxIterations
 		self._tolerance = tolerance
 	
-	def estimate(self,DPF):
+	def estimate(self):
 
 		# a number of samples is drawn from the distribution of each PE (all equally weighted) to build a list of tuples (samples and weights)
-		samples = np.hstack([PE.getSamplesAt(DPF._resamplingAlgorithm.getIndexes(np.exp(PE.logWeights),self._nParticles)) for PE in DPF._PEs])
+		samples = np.hstack([PE.getSamplesAt(self._DPF._resamplingAlgorithm.getIndexes(np.exp(PE.logWeights),self._nParticles)) for PE in self._DPF._PEs])
 		
 		return geometric_median(samples,max_iterations=self._maxIterations,tolerance=self._tolerance)[:,np.newaxis]
 
 class SinglePEmean(Estimator):
 	
-	def __init__(self,iPE):
+	def __init__(self,DPF,iPE):
+		
+		super().__init__(DPF)
 		
 		self._iPE = iPE
 		
-	def estimate(self,DPF):
+	def estimate(self):
 		
-		return DPF._PEs[self._iPE].computeMean()
+		return self._DPF._PEs[self._iPE].computeMean()
 	
 class SinglePEgeometricMedian(SinglePEmean):
 	
-	def __init__(self,iPE,maxIterations=100,tolerance=0.001):
+	def __init__(self,DPF,iPE,maxIterations=100,tolerance=0.001):
 		
-		super().__init__(iPE)
+		super().__init__(DPF,iPE)
 		
 		self._maxIterations = maxIterations
 		self._tolerance = tolerance
 
-	def estimate(self,DPF):
+	def estimate(self):
 		
-		return geometric_median(DPF._PEs[self._iPE].samples,max_iterations=self._maxIterations,tolerance=self._tolerance)[:,np.newaxis]
+		return geometric_median(self._DPF._PEs[self._iPE].samples,max_iterations=self._maxIterations,tolerance=self._tolerance)[:,np.newaxis]

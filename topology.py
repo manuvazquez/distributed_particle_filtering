@@ -272,5 +272,4 @@ class Physical(Topology):
 					# ...and the current PE to the list of neighbours of the selected neighbour (if it wasn't yet)
 					res[iNeighbour].add(iPE)
 					
-		print(res)
 		self._neighbours = [list(s) for s in res]
