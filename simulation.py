@@ -517,10 +517,11 @@ class MposteriorExchangePercentage(Mposterior):
 				)
 			)
 			
-			self._estimators.append(smc.estimator.PartialMposterior(self._PFs[-1],10))
+			self._estimators.append(smc.estimator.GeometricMedian(self._PFs[-1],
+														maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 			
 			self._estimatorsColors.append(c)
-			self._estimatorsLabels.append('M-posterior with each PE exchanging {} of its particles (M-posterior with 10 particles - mean)'.format(p))
+			self._estimatorsLabels.append('M-posterior with each PE exchanging {} of its particles (Geometric median with 1 particle)'.format(p))
 
 class MposteriorGeometricMedian(Mposterior):
 	

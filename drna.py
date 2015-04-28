@@ -1,6 +1,5 @@
 #! /usr/bin/env python3
 
-import math
 import numpy as np
 import json
 import time
@@ -98,14 +97,11 @@ if useAgg:
 	import matplotlib
 	matplotlib.use('agg')
 
-import matplotlib.pyplot as plt
-
 # some of this modules also import matplotlib.pyplot, and since this should be done AFTER calling "matplotlib.use", they have been imported here and not at the very beginning
 import target
 import state
 import sensor
 from smc import resampling
-import sensors_PEs_connector
 import simulation
 
 # the name of the machine running the program (supposedly, using the socket module gives rise to portable code)
