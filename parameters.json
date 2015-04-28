@@ -132,6 +132,7 @@
 		"type": "DRNA convergence",
 		"Mposterior": {
 			"implementing class": "Mposterior",
+			"exchanged particles maximum percentage": 0.15,
 			"file name prefix for the estimation error vs time plot": "errorVsTime"
 		},
 		"Mposterior: exchange percentage": {

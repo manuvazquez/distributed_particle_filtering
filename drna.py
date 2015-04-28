@@ -11,23 +11,23 @@ import socket
 import pickle
 import argparse
 
-#def info(type, value, tb):
-   #if hasattr(sys, 'ps1') or not sys.stderr.isatty():
-      ## we are in interactive mode or we don't have a tty-like device, so we call the default hook
-      #sys.__excepthook__(type, value, tb)
-   #else:
-      #import traceback, pdb
-      ## we are NOT in interactive mode, print the exception...
-      #traceback.print_exception(type, value, tb)
-      #print
-      ## ...then start the debugger in post-mortem mode.
-      #pdb.pm()
+# def info(type, value, tb):
+#    if hasattr(sys, 'ps1') or not sys.stderr.isatty():
+#       # we are in interactive mode or we don't have a tty-like device, so we call the default hook
+#       sys.__excepthook__(type, value, tb)
+#    else:
+#       import traceback, pdb
+#       # we are NOT in interactive mode, print the exception...
+#       traceback.print_exception(type, value, tb)
+#       print
+#       # ...then start the debugger in post-mortem mode.
+#       pdb.pm()
+#
+# sys.excepthook = info
 
-#sys.excepthook = info
-
-# so that numpy takes a specified measure when an "error" occurs
-#np.seterr(divide='raise')
-#np.seterr(all='raise')
+# # so that numpy takes a specified measure when an "error" occurs
+# np.seterr(divide='raise')
+# np.seterr(all='raise')
 
 # keys used to identify the different pseudo random numbers generators (they must coincide with those in the parameters file...)
 PRNGsKeys = ["Sensors and Monte Carlo pseudo random numbers generator","Trajectory pseudo random numbers generator","topology pseudo random numbers generator"]
@@ -49,7 +49,7 @@ if commandArguments.parametersToBeReproducedFilename:
 	# we open the file passed...
 	with open(commandArguments.parametersToBeReproducedFilename.name,"rb") as f:
 		
-		# ...to extract th parameters and random state from the previous simulation
+		# ...to extract the parameters and random state from the previous simulation
 		parametersNrandomState = pickle.load(f)
 	
 	# parameters are restored

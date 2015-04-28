@@ -257,7 +257,7 @@ class Mposterior(Simulation):
 		self._sensorWithTheClosestPEConnector = getattr(sensors_PEs_connector,sensorWithTheClosestPEConnectorSettings['implementing class'])(sensors,PEsPositions,sensorWithTheClosestPEConnectorSettings['parameters'])
 		
 		# network topology, which describes the connection among PEs, as well as the exact particles exchanged/shared
-		self._networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,self._MposteriorSettings["exchanged particles maximum percentage"],
+		self._networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,self._simulationParameters["exchanged particles maximum percentage"],
 																					 self._topologiesSettings['parameters'],PRNG=self._PRNGs["topology pseudo random numbers generator"])
 		
 		# ...are plot the connections between them
@@ -500,13 +500,31 @@ class MposteriorExchangePercentage(Mposterior):
 	
 	def addAlgorithms(self):
 		
+		# a parameter for the DRNA algorithm
+		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(self._nPEs,self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
+		
 		# available colors
 		colors = ['red','blue','green','goldenrod','cyan','crimson','lime','cadetblue','magenta']
 
-		for p,c in zip(self._simulationParameters["exchanged particles maximum percentage"],colors):
+		for percentage,color in zip(self._simulationParameters["exchanged particles maximum percentage"],colors):
 			
 			# topologies of the network, which includes the percentage of particles exchanged
-			self._networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,p,self._topologiesSettings['parameters'],PRNG=self._PRNGs["topology pseudo random numbers generator"])
+			self._networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,percentage,self._topologiesSettings['parameters'],PRNG=self._PRNGs["topology pseudo random numbers generator"])
+			
+			# a distributed PF with DRNA
+			self._PFs.append(
+				smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
+					self._DRNAsettings["exchange period"],self._networkTopology,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
+					self._prior,self._transitionKernel,self._sensors,self._everySensorWithEveryPEConnector.getConnections(self._nPEs),PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
+				)
+			)
+			
+			self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
+			
+			self._estimatorsColors.append('black')
+			self._estimatorsLabels.append('DRNA')
+			
+			# ------------
 			
 			self._PFs.append(
 				smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
@@ -520,8 +538,9 @@ class MposteriorExchangePercentage(Mposterior):
 			self._estimators.append(smc.estimator.GeometricMedian(self._PFs[-1],
 														maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 			
-			self._estimatorsColors.append(c)
-			self._estimatorsLabels.append('M-posterior with each PE exchanging {} of its particles (Geometric median with 1 particle)'.format(p))
+			self._estimatorsColors.append(color)
+			self._estimatorsLabels.append('M-posterior with each PE exchanging {} of its particles (Geometric median with 1 particle)'.format(percentage))
+			
 
 class MposteriorGeometricMedian(Mposterior):
 	

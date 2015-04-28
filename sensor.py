@@ -34,7 +34,8 @@ class Sensor(metaclass=abc.ABCMeta):
 		pass
 
 class BinarySensor(Sensor):
-	
+
+
 	def __init__(self,position,radius,probability_of_detection_within_the_radius=0.9,probability_of_false_alarm=0.01,PRNG=np.random.RandomState()):
 		
 		super().__init__(position,PRNG)
@@ -48,7 +49,7 @@ class BinarySensor(Sensor):
 		# the probability of false alarm
 		self._probFalseAlarm = probability_of_false_alarm
 		
-		# for the sake of convenience when computing the likelihood: we keep an array with the probability mass funciton of the observations conditional on the target being close enough (it depends on the threshold)...
+		# for the sake of convenience when computing the likelihood: we keep an array with the probability mass function of the observations conditional on the target being close enough (it depends on the threshold)...
 		# self._pmfObservationsWhenClose[x] = p(observation=x | |<target position> - <sensor position>| < threshold)
 		self._pmfObservationsWhenClose = np.array([1-probability_of_detection_within_the_radius,probability_of_detection_within_the_radius])
 		
@@ -72,7 +73,7 @@ class BinarySensor(Sensor):
 		# an empty array with the same dimensions as distances is created
 		likelihoods = np.empty_like(distances)
 
-		# the likelihood for a given observation is computed using probability mass funciton if the target is within the reach of the sensor...
+		# the likelihood for a given observation is computed using probability mass function if the target is within the reach of the sensor...
 		likelihoods[distances<self._threshold] = self._pmfObservationsWhenClose[observation]
 		
 		#...and a different one if it's outside it
