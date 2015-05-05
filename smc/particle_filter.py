@@ -301,6 +301,10 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 		
 		# the state from every PE is gathered together
 		return np.hstack([PE.getState() for PE in self._PEs])
+	
+	def nMessages(self):
+		
+		return 0
 
 class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilter):
 	
@@ -323,6 +327,9 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		self._exchangeMap,_ = self._topology.getExchangeTuples()
 		
 		self._estimator = smc.estimator.WeightedMean(self)
+		
+		# the number of hops to get a message from one node of the network to another
+		self._nAverageHopsOnTransmission = 1
 
 	def step(self,observations):
 		
@@ -397,6 +404,11 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 	def computeMean(self):
 		
 		return self._estimator.estimate()
+	
+	def nMessages(self):
+		
+		# each sensor must send its observation to every PE, and each transmission entails a certain number of "hops" on average
+		return len(self._sensors)*self._nPEs*self._nAverageHopsOnTransmission
 
 class PlainDistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTrackingParticleFilter):
 	

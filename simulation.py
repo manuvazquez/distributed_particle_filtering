@@ -53,6 +53,8 @@ class Simulation(metaclass=abc.ABCMeta):
 		
 		self._iFrame += 1
 	
+	# TODO: remove targetPosition as argument?
+	
 	@abc.abstractmethod
 	def saveData(self,targetPosition):
 
@@ -215,6 +217,8 @@ class Convergence(Simulation):
 
 class Mposterior(Simulation):
 	
+	# TODO: a method of the object is called from within "__init__" (allowed in python...but weird)
+	
 	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs):
 		
 		# let the super class do its thing...
@@ -356,24 +360,6 @@ class Mposterior(Simulation):
 		
 		# ------------
 		
-		
-		# DPFs with M-posterior-based exchange using, at every time instant, different numbers of particles to compute an estimate via M-posterior algorithm
-		#nParticles = [5,10,20,50,100]
-		#colors = ['goldenrod','cyan','crimson','lime','cadetblue']
-		nParticles = [5,100]
-		colors = ['goldenrod','cadetblue']
-		
-		for n,c in zip(nParticles,colors):
-			
-			# an estimator combining "n" particles from every PE through M-posterior to give a distribution whose mean is the estimate
-			self._estimators.append(smc.estimator.PartialMposterior(self._PFs[-1],n))
-			
-			self._estimatorsColors.append(c)
-			self._estimatorsLabels.append('M-posterior (M-posterior with {} particles - mean)'.format(n))
-		
-		
-		# ------------
-		
 		# an estimator computing the geometric median with 1 particle taken from each PE
 		self._estimators.append(smc.estimator.GeometricMedian(self._PFs[-1],
 														maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
@@ -497,8 +483,11 @@ class Mposterior(Simulation):
 						self._painter.updateParticlesPositions(state.position(pf.getState()),identifier='#{}'.format(iEstimator),color=color)
 
 class MposteriorExchangePercentage(Mposterior):
-	
+		
 	def addAlgorithms(self):
+		
+		# the coordinates associated with a given estimator for summarizing purposes
+		self._estimatorsCoordinates = []
 		
 		# a parameter for the DRNA algorithm
 		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(self._nPEs,self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
@@ -506,7 +495,7 @@ class MposteriorExchangePercentage(Mposterior):
 		# available colors
 		colors = ['red','blue','green','goldenrod','cyan','crimson','lime','cadetblue','magenta']
 
-		for percentage,color in zip(self._simulationParameters["exchanged particles maximum percentage"],colors):
+		for iPercentage,(percentage,color) in enumerate(zip(self._simulationParameters["exchanged particles maximum percentage"],colors)):
 			
 			# topologies of the network, which includes the percentage of particles exchanged
 			self._networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,percentage,self._topologiesSettings['parameters'],PRNG=self._PRNGs["topology pseudo random numbers generator"])
@@ -522,7 +511,9 @@ class MposteriorExchangePercentage(Mposterior):
 			self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
 			
 			self._estimatorsColors.append('black')
-			self._estimatorsLabels.append('DRNA')
+			self._estimatorsLabels.append('DRNA {}'.format(percentage))
+			
+			self._estimatorsCoordinates.append((0,iPercentage))
 			
 			# ------------
 			
@@ -539,8 +530,41 @@ class MposteriorExchangePercentage(Mposterior):
 														maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 			
 			self._estimatorsColors.append(color)
-			self._estimatorsLabels.append('M-posterior with each PE exchanging {} of its particles (Geometric median with 1 particle)'.format(percentage))
+			self._estimatorsLabels.append('M-posterior {}'.format(percentage))
 			
+			self._estimatorsCoordinates.append((1,iPercentage))
+			
+
+	def saveData(self,targetPosition):
+		
+		# the method from the grandparent
+		Simulation.saveData(self,targetPosition)
+		
+		# the mean of the error (euclidean distance) incurred by the PFs
+		error_vs_time = np.sqrt((np.subtract(self._estimatedPos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
+		
+		estimators_summaries = error_vs_time[self._simulationParameters['starting time instant as percentage of the frame length']*self._nTimeInstants:].sum(axis=0)
+		
+		# the number of percentages tested yields the number of columns, and the number of rows is inferred from that and the number of tuples in "self._estimatorsCoordinates"
+		error_vs_percentage = np.empty((len(self._estimatorsCoordinates)/len(self._simulationParameters['exchanged particles maximum percentage']),len(self._simulationParameters['exchanged particles maximum percentage'])))
+		
+		for summary,coordinates in zip(estimators_summaries,self._estimatorsCoordinates):
+			
+			error_vs_percentage[coordinates] = summary
+
+		# a dictionary encompassing all the data to be saved
+		dataToBeSaved = dict(
+				percentages = self._simulationParameters['exchanged particles maximum percentage'],
+				mean_error = error_vs_percentage
+			)
+		
+		# data is saved
+		#np.savez('res_' + self._outputFile + '.npz',**dataToBeSaved)
+		scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
+		print('results saved in "{}"'.format('res_' + self._outputFile))
+
+		import code
+		code.interact(local=dict(globals(), **locals()))
 
 class MposteriorGeometricMedian(Mposterior):
 	

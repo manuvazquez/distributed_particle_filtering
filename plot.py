@@ -50,7 +50,7 @@ def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,extraLine=No
 	
 	return ax,fig
 
-def PFs(x,y,outputFile,parameters,figureId='vs Time',axesProperties={}):
+def PFs(x,y,outputFile,parameters,figureId='vs Time',axesProperties={},maximized=False):
 
 	# a new pair of axes is set up
 	ax,fig = setupAxes(figureId)
@@ -70,6 +70,11 @@ def PFs(x,y,outputFile,parameters,figureId='vs Time',axesProperties={}):
 	
 	# set any additional properties for the axes
 	ax.set(**axesProperties)
+	
+	if maximized:
+		
+		# the window is maximized through the figure manager
+		plt.get_current_fig_manager().window.showMaximized()
 	
 	# show the plot...now!!
 	fig.show()
