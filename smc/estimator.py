@@ -61,6 +61,12 @@ class Estimator(metaclass=abc.ABCMeta):
 		
 		return
 
+class Delegating(Estimator):
+	
+	def estimate(self):
+		
+		return self._DPF.computeMean()
+
 class Mean(Estimator):
 	
 	def estimate(self):

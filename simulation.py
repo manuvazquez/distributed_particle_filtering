@@ -294,6 +294,21 @@ class Mposterior(Simulation):
 		# a parameter for the DRNA algorithm
 		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(self._nPEs,self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
 		
+		# centralized PF
+		self._PFs.append(
+			particle_filter.CentralizedTargetTrackingParticleFilter(
+				self._K*self._networkTopology.getNumberOfPEs(),self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,self._sensors
+				)
+		)
+			
+		# the estimator just delegates the calculus of the estimate to the PF
+		self._estimators.append(smc.estimator.Delegating(self._PFs[-1]))
+		
+		self._estimatorsColors.append('yellow')
+		self._estimatorsLabels.append('Centralized')
+		
+		# ------------
+		
 		# a distributed PF with DRNA
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
