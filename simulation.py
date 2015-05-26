@@ -284,6 +284,11 @@ class Mposterior(Simulation):
 		
 		# information about the simulated algorithms is added to the parameters...
 		parameters['algorithms'] = [{'name':name,'color':color} for name,color in zip(self._estimatorsLabels,self._estimatorsColors)]
+		
+		# hdf5
+		import h5py
+		self._f = h5py.File('res_' + self._outputFile + '.hdf5','w')
+		self._f_pos = self._f.create_group('position')
 	
 	def addAlgorithms(self):
 		
@@ -438,10 +443,18 @@ class Mposterior(Simulation):
 		
 		print(self._estimatedPos)
 		
+		# hdf5
+		self._f.close()
+		
 	def processFrame(self,targetPosition,targetVelocity,observations):
 		
 		# let the super class do its thing...
 		super().processFrame(targetPosition,targetVelocity,observations)
+		
+		# hdf5
+		h5data = self._f_pos.create_group('frame {0:05d}'.format(self._iFrame))
+		h5actualPos = h5data.create_dataset('actual position',shape=(2,self._nTimeInstants),dtype=float)
+		h5estimatedPos = h5data.create_dataset('estimated position',shape=(2,self._nTimeInstants,len(self._estimators)),dtype=float)
 		
 		# for every PF (different from estimator)...
 		for pf in self._PFs:
@@ -470,6 +483,9 @@ class Mposterior(Simulation):
 			print('position:\n',targetPosition[:,iTime:iTime+1])
 			print('velocity:\n',targetVelocity[:,iTime:iTime+1])
 			
+			# hdf5
+			h5actualPos[:,iTime:iTime+1] = targetPosition[:,iTime:iTime+1]
+			
 			# for every PF (different from estimator)...
 			for pf in self._PFs:
 				
@@ -480,6 +496,9 @@ class Mposterior(Simulation):
 			for iEstimator,(estimator,label) in enumerate(zip(self._estimators,self._estimatorsLabels)):
 				
 				self._estimatedPos[:,iTime:iTime+1,self._iFrame,iEstimator] = state.position(estimator.estimate())
+				
+				# hdf5
+				h5estimatedPos[:,iTime:iTime+1,iEstimator] = state.position(estimator.estimate())
 				
 				print('position estimated by {}\n'.format(label),self._estimatedPos[:,iTime:iTime+1,self._iFrame,iEstimator])
 			
