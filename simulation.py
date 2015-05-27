@@ -1,6 +1,7 @@
 import abc
 import numpy as np
 import scipy.io
+import math
 
 from smc import particle_filter
 import smc.estimator
@@ -285,10 +286,17 @@ class Mposterior(Simulation):
 		# information about the simulated algorithms is added to the parameters...
 		parameters['algorithms'] = [{'name':name,'color':color} for name,color in zip(self._estimatorsLabels,self._estimatorsColors)]
 		
-		# hdf5
+		# HDF5
 		import h5py
+		
+		# a reference to the HDF5 file
 		self._f = h5py.File('res_' + self._outputFile + '.hdf5','w')
+		
+		# a "group" is created to store the position-related data
 		self._f_pos = self._f.create_group('position')
+		
+		# this is the number of digits needed to express the frame number
+		self._nFramesWidth = math.ceil(math.log10(parameters["number of frames"]))
 	
 	def addAlgorithms(self):
 		
@@ -443,18 +451,25 @@ class Mposterior(Simulation):
 		
 		print(self._estimatedPos)
 		
-		# hdf5
-		self._f.close()
+		# in order to make sure the hdf5 files is valid...
+		#self._f.close()
+		#self._f.flush()
 		
 	def processFrame(self,targetPosition,targetVelocity,observations):
 		
 		# let the super class do its thing...
 		super().processFrame(targetPosition,targetVelocity,observations)
 		
-		# hdf5
-		h5data = self._f_pos.create_group('frame {0:05d}'.format(self._iFrame))
-		h5actualPos = h5data.create_dataset('actual position',shape=(2,self._nTimeInstants),dtype=float)
-		h5estimatedPos = h5data.create_dataset('estimated position',shape=(2,self._nTimeInstants,len(self._estimators)),dtype=float)
+		# HDF5
+		
+		# a reference to the group for the current frame...
+		h5data = self._f_pos.create_group('frame {num:0{width}}'.format(num=self._iFrame, width=self._nFramesWidth))
+		
+		# ...where a new dataset (initialized with NaN's) is created for the "actual position" of the target...
+		h5actualPos = h5data.create_dataset('actual position',shape=(2,self._nTimeInstants),dtype=float,data=np.full((2,self._nTimeInstants),np.nan))
+		
+		# ...and another one (also initialized with NaN's) for the "estimated position"
+		h5estimatedPos = h5data.create_dataset('estimated position',shape=(2,self._nTimeInstants,len(self._estimators)),dtype=float,data=np.full((2,self._nTimeInstants,len(self._estimators)),np.nan))
 		
 		# for every PF (different from estimator)...
 		for pf in self._PFs:
@@ -483,7 +498,7 @@ class Mposterior(Simulation):
 			print('position:\n',targetPosition[:,iTime:iTime+1])
 			print('velocity:\n',targetVelocity[:,iTime:iTime+1])
 			
-			# hdf5
+			# the actual position of the target is written to the HDF5 file
 			h5actualPos[:,iTime:iTime+1] = targetPosition[:,iTime:iTime+1]
 			
 			# for every PF (different from estimator)...
@@ -497,7 +512,7 @@ class Mposterior(Simulation):
 				
 				self._estimatedPos[:,iTime:iTime+1,self._iFrame,iEstimator] = state.position(estimator.estimate())
 				
-				# hdf5
+				# the position given by this estimator at the current time instant is written to the HDF5 file
 				h5estimatedPos[:,iTime:iTime+1,iEstimator] = state.position(estimator.estimate())
 				
 				print('position estimated by {}\n'.format(label),self._estimatedPos[:,iTime:iTime+1,self._iFrame,iEstimator])
@@ -515,6 +530,9 @@ class Mposterior(Simulation):
 					if self._painterSettings["display particles evolution?"]:
 						
 						self._painter.updateParticlesPositions(state.position(pf.getState()),identifier='#{}'.format(iEstimator),color=color)
+
+		# in order to make sure the HDF5 files is valid...
+		self._f.flush()
 
 class MposteriorExchangePercentage(Mposterior):
 		
