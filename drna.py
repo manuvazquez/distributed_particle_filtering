@@ -214,8 +214,8 @@ ctrlCpressed = False
 # handler for SIGINT is installed
 signal.signal(signal.SIGINT, sigint_handler)
 
-# handler for SIGUSR1 is installed
-signal.signal(signal.SIGUSR1, sigusr1_handler)
+## handler for SIGUSR1 is installed
+#signal.signal(signal.SIGUSR1, sigusr1_handler)
 
 # ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
 

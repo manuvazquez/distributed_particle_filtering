@@ -292,11 +292,14 @@ class Mposterior(Simulation):
 		# a reference to the HDF5 file
 		self._f = h5py.File('res_' + self._outputFile + '.hdf5','w')
 		
-		# a "group" is created to store the position-related data
-		self._f_pos = self._f.create_group('position')
-		
 		# this is the number of digits needed to express the frame number
 		self._nFramesWidth = math.ceil(math.log10(parameters["number of frames"]))
+		
+		## the names of the algorithms are also stored
+		#h5algorithms = self._f.create_dataset('algorithms',shape=(len(self._estimators),),dtype=h5py.special_dtype(vlen=str))
+		#for il,l in enumerate(self._estimatorsLabels):
+			#h5algorithms[il] = l
+		
 	
 	def addAlgorithms(self):
 		
@@ -452,8 +455,7 @@ class Mposterior(Simulation):
 		print(self._estimatedPos)
 		
 		# in order to make sure the hdf5 files is valid...
-		#self._f.close()
-		#self._f.flush()
+		self._f.close()
 		
 	def processFrame(self,targetPosition,targetVelocity,observations):
 		
@@ -463,13 +465,13 @@ class Mposterior(Simulation):
 		# HDF5
 		
 		# a reference to the group for the current frame...
-		h5data = self._f_pos.create_group('frame {num:0{width}}'.format(num=self._iFrame, width=self._nFramesWidth))
+		h5thisFrame = self._f.create_group('frame {num:0{width}}'.format(num=self._iFrame, width=self._nFramesWidth))
 		
 		# ...where a new dataset (initialized with NaN's) is created for the "actual position" of the target...
-		h5actualPos = h5data.create_dataset('actual position',shape=(2,self._nTimeInstants),dtype=float,data=np.full((2,self._nTimeInstants),np.nan))
+		h5actualPos = h5thisFrame.create_dataset('actual position',shape=(2,self._nTimeInstants),dtype=float,data=np.full((2,self._nTimeInstants),np.nan))
 		
 		# ...and another one (also initialized with NaN's) for the "estimated position"
-		h5estimatedPos = h5data.create_dataset('estimated position',shape=(2,self._nTimeInstants,len(self._estimators)),dtype=float,data=np.full((2,self._nTimeInstants,len(self._estimators)),np.nan))
+		h5estimatedPos = h5thisFrame.create_dataset('estimated position',shape=(2,self._nTimeInstants,len(self._estimators)),dtype=float,data=np.full((2,self._nTimeInstants,len(self._estimators)),np.nan))
 		
 		# for every PF (different from estimator)...
 		for pf in self._PFs:
