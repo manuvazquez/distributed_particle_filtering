@@ -107,11 +107,11 @@ import simulation
 # the name of the machine running the program (supposedly, using the socket module gives rise to portable code)
 hostname = socket.gethostname()
 
-# date and time
-date = time.strftime("%a_%Y-%m-%d_%H:%M:%S")
+## date and time
+#date = time.strftime("%a_%Y-%m-%d_%H:%M:%S")
 
 # output data file
-outputFile = hostname +'_' + date
+outputFile = hostname +'_' + str(os.getpid())
 
 # how numpy arrays are printed on screen is specified here
 np.set_printoptions(precision=3,linewidth=100)

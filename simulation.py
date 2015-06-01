@@ -306,7 +306,22 @@ class Mposterior(Simulation):
 		"""Adds the algorithms to be tested by this simulation, defining the required parameters.
 		
 		"""
+
+		# centralized PF
+		self._PFs.append(
+			particle_filter.CentralizedTargetTrackingParticleFilter(
+				self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,self._sensors
+				)
+		)
+			
+		# the estimator just delegates the calculus of the estimate to the PF
+		self._estimators.append(smc.estimator.Delegating(self._PFs[-1]))
 		
+		self._estimatorsColors.append('indigo')
+		self._estimatorsLabels.append('Single know-it-all PE')
+		
+		# ------------
+
 		# a parameter for the DRNA algorithm
 		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(self._nPEs,self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
 		
@@ -320,7 +335,7 @@ class Mposterior(Simulation):
 		# the estimator just delegates the calculus of the estimate to the PF
 		self._estimators.append(smc.estimator.Delegating(self._PFs[-1]))
 		
-		self._estimatorsColors.append('yellow')
+		self._estimatorsColors.append('lawngreen')
 		self._estimatorsLabels.append('Centralized')
 		
 		# ------------
