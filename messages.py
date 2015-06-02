@@ -5,16 +5,20 @@ import matplotlib.pyplot as plt
 
 exchange_period = 10
 
-# number of sensors
-J = 16
+# we deploy as many sensors as needed for every PE to have...
+average_number_of_sensors_per_PE = 4
 
 # percentage of its particles a certain PE exchanges
 p = 0.15
 
 # number of particles
-N = 50
+N = 20
 
 M = np.arange(2,18,2)
+
+# number of sensors
+#J = 16
+J = M*average_number_of_sensors_per_PE
 
 n_messages_DRNA = 1/exchange_period*(J*M + p*N*M) + (exchange_period-1)/exchange_period*(J*M)
 

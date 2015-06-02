@@ -265,9 +265,12 @@ class Mposterior(Simulation):
 		self._networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,self._simulationParameters["exchanged particles maximum percentage"],
 																					 self._topologiesSettings['parameters'],PRNG=self._PRNGs["topology pseudo random numbers generator"])
 		
-		# ...are plot the connections between them
-		#plot.PEsSensorsConnections(sensorsPositions,PEsPositions,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs))
-		plot.PEsSensorsAndPEsPEsConnections(sensorsPositions,PEsPositions,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),self._networkTopology.getNeighbours())
+		# ...are plot the connections between them		
+		sensorNetwork = plot.TightRectangularRoomPainterWithPEs(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
+														  self._sensorsPositions,PEsPositions,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),
+														  self._networkTopology.getNeighbours(),sleepTime=self._painterSettings["sleep time between updates"])
+		sensorNetwork.setup()		
+		sensorNetwork.save(outputFile='PEs_sensors_connections.pdf')
 		
 		# the list of algorithms (objects) to be executed, along with their corresponding colors and labels are empty before...
 		self._PFs = []
@@ -295,10 +298,10 @@ class Mposterior(Simulation):
 		# this is the number of digits needed to express the frame number
 		self._nFramesWidth = math.ceil(math.log10(parameters["number of frames"]))
 		
-		## the names of the algorithms are also stored
-		#h5algorithms = self._f.create_dataset('algorithms',shape=(len(self._estimators),),dtype=h5py.special_dtype(vlen=str))
-		#for il,l in enumerate(self._estimatorsLabels):
-			#h5algorithms[il] = l
+		# the names of the algorithms are also stored
+		h5algorithms = self._f.create_dataset('algorithms/names',shape=(len(self._estimators),),dtype=h5py.special_dtype(vlen=str))
+		for il,l in enumerate(self._estimatorsLabels):
+			h5algorithms[il] = l
 		
 	
 	def addAlgorithms(self):
@@ -480,7 +483,7 @@ class Mposterior(Simulation):
 		# HDF5
 		
 		# a reference to the group for the current frame...
-		h5thisFrame = self._f.create_group('frame {num:0{width}}'.format(num=self._iFrame, width=self._nFramesWidth))
+		h5thisFrame = self._f.create_group('frames/{num:0{width}}'.format(num=self._iFrame, width=self._nFramesWidth))
 		
 		# ...where a new dataset (initialized with NaN's) is created for the "actual position" of the target...
 		h5actualPos = h5thisFrame.create_dataset('actual position',shape=(2,self._nTimeInstants),dtype=float,data=np.full((2,self._nTimeInstants),np.nan))

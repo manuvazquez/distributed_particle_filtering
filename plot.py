@@ -243,52 +243,6 @@ def trajectory(filename,iTrajectory=0,nTimeInstants=-1,ticksFontSize=12):
 	
 	painter.save()
 
-def PEsSensorsConnections(sensorsPositions,PEsPositions,connections,figureId='connections',outputFile='PEs_sensors_connections.pdf'):
-	
-	# a new pair of axes is set up
-	ax,fig = setupAxes(figureId)
-	
-	ax.plot(sensorsPositions[0,:],sensorsPositions[1,:],linewidth=0,marker='+',color='blue')
-	ax.plot(PEsPositions[0,:],PEsPositions[1,:],linewidth=0,marker='s',color='red')
-	
-	for iPE,pos in enumerate(PEsPositions.T):
-		
-		ax.annotate('#{}'.format(iPE),xy=tuple(pos))
-	
-	# in "connections", for every PE there is a list of sensors associated
-	for iPE,sensorsIndexes in enumerate(connections):
-		
-		# for every sensor associated with the PE being processed
-		for iSensor in sensorsIndexes:
-		
-			ax.plot([sensorsPositions[0,iSensor],PEsPositions[0,iPE]],[sensorsPositions[1,iSensor],PEsPositions[1,iPE]],linewidth=2,linestyle='--')
-
-	fig.show()
-	
-	if outputFile:
-
-		plt.savefig(outputFile)
-	
-	return ax,fig
-
-def PEsSensorsAndPEsPEsConnections(sensorsPositions,PEsPositions,connections,PEsPEsConnections,figureId='connections',outputFile='PEs_sensors_connections.pdf'):
-	
-	ax,fig = PEsSensorsConnections(sensorsPositions,PEsPositions,connections,figureId,outputFile)
-	
-	for iPE,iNeighbours in enumerate(PEsPEsConnections):
-		
-		for i in iNeighbours:
-			
-			ax.plot([PEsPositions[0,iPE],PEsPositions[0,i]],[PEsPositions[1,iPE],PEsPositions[1,i]],linewidth=1,linestyle=':',color='gray')
-	
-	fig.show()
-	
-	if outputFile:
-
-		plt.savefig(outputFile)
-	
-	return ax,fig
-
 class RoomPainter:
 	
 	def __init__(self,sensorsPositions,sleepTime=0.5):
@@ -439,3 +393,37 @@ class TightRectangularRoomPainter(RectangularRoomPainter):
 		plt.figure(self._figure.number)
 		
 		plt.savefig(outputFile,bbox_inches="tight")
+
+class TightRectangularRoomPainterWithPEs(TightRectangularRoomPainter):
+	
+	def __init__(self,roomBottomLeftCorner,roomTopRightCorner,sensorsPositions,PEsPositions,connections,PEsPEsConnections,sleepTime=0.1,ticksFontSize=14):
+		
+		super().__init__(roomBottomLeftCorner,roomTopRightCorner,sensorsPositions,sleepTime,ticksFontSize)
+		
+		self._PEsPositions = PEsPositions
+		self._connections = connections
+		self._PEsPEsConnections = PEsPEsConnections
+	
+	def setup(self,borderLineProperties={'color':'black','linewidth':4},sensorsLineProperties = {'marker':'x','color':(116/255,113/255,209/255),'markersize':10,'markeredgewidth':5}):
+		
+		super().setup(borderLineProperties=borderLineProperties,sensorsLineProperties=sensorsLineProperties)
+
+		self._ax.plot(self._PEsPositions[0,:],self._PEsPositions[1,:],linewidth=0,marker='s',color='red')
+		
+		for iPE,pos in enumerate(self._PEsPositions.T):
+			
+			self._ax.annotate('#{}'.format(iPE),xy=tuple(pos))
+		
+		# in "self._connections", for every PE there is a list of sensors associated
+		for iPE,sensorsIndexes in enumerate(self._connections):
+			
+			# for every sensor associated with the PE being processed
+			for iSensor in sensorsIndexes:
+			
+				self._ax.plot([self._sensorsPositions[0,iSensor],self._PEsPositions[0,iPE]],[self._sensorsPositions[1,iSensor],self._PEsPositions[1,iPE]],linewidth=2,linestyle='--')
+				
+		for iPE,iNeighbours in enumerate(self._PEsPEsConnections):
+			
+			for i in iNeighbours:
+				
+				self._ax.plot([self._PEsPositions[0,iPE],self._PEsPositions[0,i]],[self._PEsPositions[1,iPE],self._PEsPositions[1,i]],linewidth=1,linestyle=':',color='gray')
