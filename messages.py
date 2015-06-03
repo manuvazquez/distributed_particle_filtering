@@ -14,7 +14,9 @@ p = 0.15
 # number of particles
 N = 20
 
-M = np.arange(2,18,2)
+# the number of PEs
+#M = np.arange(2,18,2)
+M = np.array([2,4,8])
 
 # number of sensors
 #J = 16

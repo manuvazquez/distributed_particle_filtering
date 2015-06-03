@@ -220,22 +220,14 @@ signal.signal(signal.SIGINT, sigint_handler)
 # ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
 
 # an object for computing the positions of the sensors is created and used
+# NOTE: the actual number of sensors might not be equal to that requested
 sensorsPositions = sensor.EquispacedOnRectangleSensorLayer(roomSettings['bottom left corner'],roomSettings['top right corner']).getPositions(sensorsSettings['number'])
-
-# the actual number of sensors might not be equal to that requested
-sensorsSettings['number'] = sensorsPositions.shape[1]
 
 # the class to be instantiated is figured out from the settings for that particular sensor type
 sensorClass = getattr(sensor,sensorsSettings[sensorsSettings['type']]['implementing class'])
 
-# (a copy of) the parameters for specific type of sensor requested...
-sensorParameters = sensorsSettings[sensorsSettings['type']]['parameters'].copy()
-
-# the corresponding pseudo-random numbers generator is added to the dictionary
-sensorParameters['PRNG'] = PRNGs['Sensors and Monte Carlo pseudo random numbers generator']
-
 # a list with the sensors for the different positions
-sensors = [sensorClass(sensorsPositions[:,i:i+1],**sensorParameters) for i in range(sensorsSettings['number'])]
+sensors = [sensorClass(pos[:,np.newaxis],PRNG=PRNGs['Sensors and Monte Carlo pseudo random numbers generator'],**sensorsSettings[sensorsSettings['type']]['parameters']) for pos in sensorsPositions.T]
 
 # ----------------------------------------------------------------- dynamic model ------------------------------------------------------------------------
 

@@ -16,6 +16,14 @@ class Simulation(metaclass=abc.ABCMeta):
 	@abc.abstractmethod
 	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs):
 		
+		# these parameters are kept for later use
+		self._resamplingAlgorithm = resamplingAlgorithm
+		self._resamplingCriterion = resamplingCriterion
+		self._prior = prior
+		self._transitionKernel = transitionKernel
+		self._sensors = sensors
+		self._PRNGs = PRNGs
+		
 		# number of particles per processing element (PE)
 		self._K = parameters["number of particles per PE"]
 		
@@ -228,14 +236,6 @@ class Mposterior(Simulation):
 		self._simulationParameters = parameters['simulations'][parameters['simulations']['type']]
 		self._MposteriorSettings = parameters['Mposterior']
 		
-		# these parameters are kept for use in the "addAlgorithms" method below
-		self._resamplingAlgorithm = resamplingAlgorithm
-		self._resamplingCriterion = resamplingCriterion
-		self._prior = prior
-		self._transitionKernel = transitionKernel
-		self._sensors = sensors
-		self._PRNGs = PRNGs
-		
 		# for the sake of clarity...since this will be used many times
 		self._nPEs = self._topologiesSettings['number of PEs']
 		
@@ -266,19 +266,19 @@ class Mposterior(Simulation):
 																					 self._topologiesSettings['parameters'],PRNG=self._PRNGs["topology pseudo random numbers generator"])
 		
 		# ...are plot the connections between them		
-		sensorNetwork = plot.TightRectangularRoomPainterWithPEs(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
+		sensorsNetworkPlot = plot.TightRectangularRoomPainterWithPEs(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
 														  self._sensorsPositions,PEsPositions,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),
 														  self._networkTopology.getNeighbours(),sleepTime=self._painterSettings["sleep time between updates"])
-		sensorNetwork.setup()		
-		sensorNetwork.save(outputFile='PEs_sensors_connections.pdf')
+		sensorsNetworkPlot.setup()		
+		sensorsNetworkPlot.save(outputFile='PEs_sensors_connections.pdf')
 		
-		# the list of algorithms (objects) to be executed, along with their corresponding colors and labels are empty before...
+		# the lists of PFs, estimators, colors and labels are initialized...
 		self._PFs = []
 		self._estimators = []
 		self._estimatorsColors = []
 		self._estimatorsLabels = []
 		
-		# ...algorithms are added
+		# ...and algorithms are added
 		self.addAlgorithms()
 		
 		# the position estimates
@@ -553,6 +553,7 @@ class Mposterior(Simulation):
 
 		# in order to make sure the HDF5 files is valid...
 		self._f.flush()
+
 
 class MposteriorExchangePercentage(Mposterior):
 		
