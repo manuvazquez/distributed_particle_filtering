@@ -26,7 +26,7 @@ class Target:
 		
 		return state.velocity(self._state)
 		
-	def simulateTrajectory(self,sensors,nTimeInstants):
+	def simulateTrajectory(self,nTimeInstants):
 		
 		# initial state is obtained by means of the prior...
 		self._state = self._prior.sample(PRNG=self._PRNG)

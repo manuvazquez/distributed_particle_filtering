@@ -276,7 +276,7 @@ iFrame = 0
 while iFrame < parameters["number of frames"] and not ctrlCpressed:
 	
 	# a trajectory is simulated
-	targetPosition[:,:,iFrame],targetVelocity = mobile.simulateTrajectory(sensors,nTimeInstants)
+	targetPosition[:,:,iFrame],targetVelocity = mobile.simulateTrajectory(nTimeInstants)
 
 	# observations for all the sensors at every time instant (each list)
 	# NOTE: conversion to float is done so that the observations (either 1 or 0) are amenable to be used in later computations
