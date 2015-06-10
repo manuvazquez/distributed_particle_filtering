@@ -107,9 +107,6 @@ import simulation
 # the name of the machine running the program (supposedly, using the socket module gives rise to portable code)
 hostname = socket.gethostname()
 
-## date and time
-#date = time.strftime("%a_%Y-%m-%d_%H:%M:%S")
-
 # output data file
 outputFile = hostname +'_' + str(os.getpid())
 
@@ -222,6 +219,7 @@ signal.signal(signal.SIGINT, sigint_handler)
 # an object for computing the positions of the sensors is created and used
 # NOTE: the actual number of sensors might not be equal to that requested
 sensorsPositions = sensor.EquispacedOnRectangleSensorLayer(roomSettings['bottom left corner'],roomSettings['top right corner']).getPositions(sensorsSettings['number'])
+#sensorsPositions = sensor.KmeansBasedSensorLayer(roomSettings['bottom left corner'],roomSettings['top right corner']).getPositions(sensorsSettings['number'])
 
 # the class to be instantiated is figured out from the settings for that particular sensor type
 sensorClass = getattr(sensor,sensorsSettings[sensorsSettings['type']]['implementing class'])

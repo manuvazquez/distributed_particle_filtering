@@ -9,14 +9,16 @@ exchange_period = 10
 average_number_of_sensors_per_PE = 4
 
 # percentage of its particles a certain PE exchanges
-p = 0.15
+#p = 0.15
+p = 0.5
 
 # number of particles
 N = 20
 
 # the number of PEs
 #M = np.arange(2,18,2)
-M = np.array([2,4,8])
+#M = np.array([2,4,8])
+M = np.array([2,3,4,5,6])
 
 # number of sensors
 #J = 16

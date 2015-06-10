@@ -10,11 +10,25 @@ def computePEsPositions(bottomLeftCorner,topRightCorner,nPEs,nPoints):
 	# the seed of the Pseudo Random Numbers Generator to be used below (so that the positions obtained for the PEs stay the same through different runs)
 	PRNG = numpy.random.RandomState(1234567)
 	
-	# ...is generated from a uniform distribution whose bounds are given by the rectangular space spanned by the sensors
+	# ...is generated from a uniform distribution within the limits of the room
 	points = np.vstack((PRNG.uniform(bottomLeftCorner[0],topRightCorner[0],(1,nPoints)),PRNG.uniform(bottomLeftCorner[1],topRightCorner[1],(1,nPoints))))
 	
 	# "nPEs" centroids for the above coordinates are computed using K-Means; initial random centroids are passed to the function so it does not generate them with its own random generator
 	PEsPositions,_ = scipy.cluster.vq.kmeans(points.T,points.T[PRNG.choice(points.shape[1],nPEs),:])
+
+	return orderedPEsPositions(PEsPositions,bottomLeftCorner,topRightCorner)
+
+def computePEsPositionsFromSensorsPositions(bottomLeftCorner,topRightCorner,sensorsPositions,nPEs):
+	
+	# seed for the default numpy random generator (used by scipy)
+	np.random.seed(123)
+	
+	# k-means over the sensors positions using "nPEs" centroids
+	PEsPositions,_ = scipy.cluster.vq.kmeans(sensorsPositions.T,nPEs)
+	
+	return orderedPEsPositions(PEsPositions,bottomLeftCorner,topRightCorner)
+
+def orderedPEsPositions(PEsPositions,bottomLeftCorner,topRightCorner):
 	
 	# the initial position is the upper-left corner
 	previousPos = np.array([bottomLeftCorner[0],topRightCorner[1]])

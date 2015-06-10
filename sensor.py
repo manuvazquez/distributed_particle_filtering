@@ -170,5 +170,4 @@ class EquispacedOnRectangleSensorLayer(SensorLayer):
 						[self._bottomLeftCorner[0] + (remainingInXdimension + squareSide)/2 + i*squareSide,self._bottomLeftCorner[1] + (remainingInYdimension + squareSide)/2 + j*squareSide]
 						for i in range(int(nSquaresInXdimension)) for j in range(int(nSquaresInYdimension))]))
 
-
 		return res
