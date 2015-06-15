@@ -3,7 +3,7 @@
 	"number of time instants": 300,
 	"number of particles per PE": 200,
 	"topologies": {
-		"type": "Mesh",
+		"type": ["Mesh"],
 		"Constant degree simple graph": {
 			"implementing class": "ConstantDegreeSimpleGraph",
 			"number of PEs": 128,
@@ -148,6 +148,11 @@
 		},
 		"DRNA convergence": {
 			"implementing class": "Convergence"
+		},
+		"Multiple Mposterior": {
+			"implementing class": "MultiMposterior",
+			"exchanged particles maximum percentage": 0.5,
+			"nPEs-nSensors pairs": [[2,8],[4,16],[8,32]]
 		}
 	},
 	"sensors-PEs connectors": {

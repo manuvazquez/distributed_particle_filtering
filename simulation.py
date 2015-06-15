@@ -224,20 +224,84 @@ class Convergence(Simulation):
 						self._painter.updateParticlesPositions(state.position(pf.getState()),identifier='centralized',color=self._painterSettings["color for the centralized PF"])
 						self._painter.updateParticlesPositions(state.position(distributedPf.getState()),identifier='distributed',color=self._painterSettings["color for the distributed PF"])
 
-class Mposterior(Simulation):
-	
-	# TODO: a method of the object is called from within "__init__" (allowed in python...but weird)
+class MultiMposterior(Simulation):
 	
 	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs):
 		
 		# let the super class do its thing...
 		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
 		
+		import h5py
+		import sensor
+		
+		# the parameters for this particular simulation are obtained
+		self._simulationParameters = parameters['simulations'][parameters['simulations']['type']]
+		
+		# for the sake of convenience
+		sensorsSettings = parameters["sensors"]
+		roomSettings = parameters["room"]
+		sensorClass = getattr(sensor,sensorsSettings[sensorsSettings['type']]['implementing class'])
+		
+		# HDF5 output file
+		self._f = h5py.File('res_' + self._outputFile + '.hdf5','w')
+		
+		# we will build several "Mposterior" objects...
+		self._simulations = []
+		
+		# ...and each one will have a different set of sensors
+		self._sensors = []
+		
+		# for every pair nPEs-nSensors we aim to simulate...
+		for (nPEs,nSensors) in self._simulationParameters["nPEs-nSensors pairs"]:
+			
+			#sensorsPositions = sensor.EquispacedOnRectangleSensorLayer(roomSettings['bottom left corner'],roomSettings['top right corner']).getPositions(nSensors)
+			sensorsPositions = sensor.KmeansBasedSensorLayer(roomSettings['bottom left corner'],roomSettings['top right corner']).getPositions(nSensors)
+
+			self._sensors.append([sensorClass(pos[:,np.newaxis],PRNG=PRNGs['Sensors and Monte Carlo pseudo random numbers generator'],**sensorsSettings[sensorsSettings['type']]['parameters']) for pos in sensorsPositions.T])
+			
+			self._simulations.append(Mposterior(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,self._sensors[-1],outputFile,PRNGs,
+									   h5pyFile=self._f,h5pyFilePrefix='{} PEs,{} sensors/'.format(nPEs,nSensors),nPEs=nPEs))
+
+	def processFrame(self,targetPosition,targetVelocity,observations):
+		
+		# let the super class do its thing...
+		super().processFrame(targetPosition,targetVelocity,observations)
+		
+		for sensors,sim in zip(self._sensors,self._simulations):
+		
+			observations = [np.array([sensor.detect(state.position(s[:,np.newaxis])) for sensor in sensors],dtype=float) for s in targetPosition.T]
+			sim.processFrame(targetPosition,targetVelocity,observations)
+		
+	def saveData(self,targetPosition):
+		
+		# let the super class do its thing...
+		super().saveData(targetPosition)
+		
+		self._f.close()
+
+class Mposterior(Simulation):
+	
+	# TODO: a method of the object is called from within "__init__" (allowed in python...but weird)
+	
+	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs,h5pyFile=None,h5pyFilePrefix='',nPEs=None):
+		
+		# let the super class do its thing...
+		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
+		
+		# for saving the data in HDF5
+		self._h5pyFile = h5pyFile
+		self._h5pyFilePrefix = h5pyFilePrefix
+		
 		self._simulationParameters = parameters['simulations'][parameters['simulations']['type']]
 		self._MposteriorSettings = parameters['Mposterior']
 		
-		# for the sake of clarity...since this will be used many times
-		self._nPEs = self._topologiesSettings['number of PEs']
+		# if the number of PEs is not received...
+		if nPEs==None:
+			# ...it is looked up in "parameters"
+			self._nPEs = self._topologiesSettings['number of PEs']
+		# otherwise...
+		else:
+			self._nPEs = nPEs
 		
 		# a connector that connects every sensor to every PE
 		self._everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(sensors)
@@ -249,9 +313,12 @@ class Mposterior(Simulation):
 		sensorsPositions = np.hstack([s.position for s in sensors])
 		
 		# ...and those of the PEs...
-		PEsPositions = sensors_PEs_connector.computePEsPositions(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
-														   self._nPEs,sensorWithTheClosestPEConnectorSettings['parameters']['number of uniform samples']*self._nPEs)
-		
+		PEsPositions = sensors_PEs_connector.computePEsPositionsFromSensorsPositions(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
+														   sensorsPositions,self._nPEs)
+
+		#PEsPositions = sensors_PEs_connector.computePEsPositions(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
+														   #self._nPEs,sensorWithTheClosestPEConnectorSettings['parameters']['number of uniform samples']*self._nPEs)
+
 		# the positions of the PEs are added as a parameters...technically they are "derived" parameters since they are completely determined by: 
 		#	- the corners of the room
 		#	- the positions of the sensors which, in turn, also depend on the corners of the room and the number of sensors
@@ -270,7 +337,7 @@ class Mposterior(Simulation):
 														  self._sensorsPositions,PEsPositions,self._sensorWithTheClosestPEConnector.getConnections(self._nPEs),
 														  self._networkTopology.getNeighbours(),sleepTime=self._painterSettings["sleep time between updates"])
 		sensorsNetworkPlot.setup()		
-		sensorsNetworkPlot.save(outputFile='PEs_sensors_connections.pdf')
+		sensorsNetworkPlot.save(outputFile='network_topology_{}_PEs.pdf'.format(self._nPEs))
 		
 		# the lists of PFs, estimators, colors and labels are initialized...
 		self._PFs = []
@@ -292,14 +359,20 @@ class Mposterior(Simulation):
 		# HDF5
 		import h5py
 		
-		# a reference to the HDF5 file
-		self._f = h5py.File('res_' + self._outputFile + '.hdf5','w')
+		# if a reference to an HDF5 file was not received...
+		if self._h5pyFile == None:
+			# ...a new HDF5 file is created
+			self._f = h5py.File('res_' + self._outputFile + '.hdf5','w')
+		# otherwise...
+		else:
+			# the value received is assumed to be a reference to an already open file
+			self._f = self._h5pyFile
 		
 		# this is the number of digits needed to express the frame number
 		self._nFramesWidth = math.ceil(math.log10(parameters["number of frames"]))
 		
 		# the names of the algorithms are also stored
-		h5algorithms = self._f.create_dataset('algorithms/names',shape=(len(self._estimators),),dtype=h5py.special_dtype(vlen=str))
+		h5algorithms = self._f.create_dataset(self._h5pyFilePrefix + 'algorithms/names',shape=(len(self._estimators),),dtype=h5py.special_dtype(vlen=str))
 		for il,l in enumerate(self._estimatorsLabels):
 			h5algorithms[il] = l
 		
@@ -472,18 +545,17 @@ class Mposterior(Simulation):
 		
 		print(self._estimatedPos)
 		
-		# in order to make sure the hdf5 files is valid...
-		self._f.close()
+		# in order to make sure the HDF5 file is valid...
+		if self._h5pyFile == None:
+			self._f.close()
 		
 	def processFrame(self,targetPosition,targetVelocity,observations):
 		
 		# let the super class do its thing...
 		super().processFrame(targetPosition,targetVelocity,observations)
 		
-		# HDF5
-		
-		# a reference to the group for the current frame...
-		h5thisFrame = self._f.create_group('frames/{num:0{width}}'.format(num=self._iFrame, width=self._nFramesWidth))
+		# a reference to the "group" for the current frame (notice the prefix in the name given "self._h5pyFilePrefix")...
+		h5thisFrame = self._f.create_group(self._h5pyFilePrefix + 'frames/{num:0{width}}'.format(num=self._iFrame, width=self._nFramesWidth))
 		
 		# ...where a new dataset (initialized with NaN's) is created for the "actual position" of the target...
 		h5actualPos = h5thisFrame.create_dataset('actual position',shape=(2,self._nTimeInstants),dtype=float,data=np.full((2,self._nTimeInstants),np.nan))
@@ -553,7 +625,6 @@ class Mposterior(Simulation):
 
 		# in order to make sure the HDF5 files is valid...
 		self._f.flush()
-
 
 class MposteriorExchangePercentage(Mposterior):
 		

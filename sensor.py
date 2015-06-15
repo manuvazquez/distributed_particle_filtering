@@ -119,9 +119,11 @@ class RSSsensor(Sensor):
 class SensorLayer:
 	
 	def __init__(self):
+		
 		pass
 
 	def getPositions(self,nSensors):
+		
 		pass
 
 class EquispacedOnRectangleSensorLayer(SensorLayer):
@@ -171,3 +173,29 @@ class EquispacedOnRectangleSensorLayer(SensorLayer):
 						for i in range(int(nSquaresInXdimension)) for j in range(int(nSquaresInYdimension))]))
 
 		return res
+
+class KmeansBasedSensorLayer(SensorLayer):
+
+	def __init__(self,bottomLeftCorner,topRightCorner,nPoints=10000):
+
+		super().__init__()
+		
+		self._bottomLeftCorner = bottomLeftCorner
+		self._topRightCorner = topRightCorner
+		self._nPoints = nPoints
+	
+	def getPositions(self,nSensors):
+		
+		# the seed of the Pseudo Random Numbers Generator to be used below (so that the positions obtained for the PEs stay the same through different runs)
+		PRNG = np.random.RandomState(1234567)
+		
+		# ...is generated from a uniform distribution within the limits of the room
+		points = np.hstack((PRNG.uniform(self._bottomLeftCorner[0],self._topRightCorner[0],(self._nPoints,1)),PRNG.uniform(self._bottomLeftCorner[1],self._topRightCorner[1],(self._nPoints,1))))
+		
+		# seed for the default numpy random generator (used by scipy)
+		np.random.seed(123)
+		
+		# "nSensors" centroids for the above coordinates are computed using K-Means
+		sensorsPositions,_ = scipy.cluster.vq.kmeans(points,nSensors)
+		
+		return sensorsPositions.T

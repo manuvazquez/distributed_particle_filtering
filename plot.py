@@ -58,15 +58,39 @@ def PFs(x,y,outputFile,parameters,figureId='vs Time',axesProperties={},maximized
 	assert y.shape[0] == len(x)
 	assert y.shape[1] == len(parameters)
 	
-	for data,param in zip(y.T,parameters):
+	# this is needed since x may be a "range" rather than a numpy array
+	try:
 		
-		ax.plot(x,data,**param)
+		several_x = (x.ndim > 1)
+		
+	except AttributeError:
+		
+		several_x = False
+	
+	# if several sets of x coordinates were passed
+	if several_x:
+	
+		for xcol,ycol,param in zip(x.T,y.T,parameters):
+			
+			ax.plot(xcol,ycol,**param)
+			
+	else:
+		
+		for data,param in zip(y.T,parameters):
+			
+			ax.plot(x,data,**param)
 	
 	# the labes are shown
 	ax.legend()
 
 	# the x axis is adjusted so that no empty space is left before the beginning of the plot
-	ax.set_xbound(lower=x[0],upper=x[-1])
+	if several_x:
+		
+		ax.set_xbound(lower=x[0,:].min(),upper=x[-1,:].max())
+		
+	else:
+
+		ax.set_xbound(lower=x[0],upper=x[-1])
 	
 	# set any additional properties for the axes
 	ax.set(**axesProperties)
