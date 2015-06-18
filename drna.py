@@ -63,9 +63,6 @@ else:
 		# the parameters file is read to memory
 		parameters = json.load(jsonData)
 
-# number of sensors, radius...
-sensorsSettings = parameters["sensors"]
-
 # number of time instants
 nTimeInstants = parameters["number of time instants"]
 
@@ -83,9 +80,6 @@ SMCsettings = parameters["SMC"]
 
 # parameters related to plotting
 painterSettings = parameters["painter"]
-
-# DRNA related
-DRNAsettings = parameters["DRNA"]
 
 # type of simulation and the corresponding parameters
 simulationSettings = parameters['simulations']
@@ -130,9 +124,6 @@ def saveParameters():
 # we'd rather have the coordinates of the corners stored as numpy arrays...
 roomSettings["bottom left corner"] = np.array(roomSettings["bottom left corner"])
 roomSettings["top right corner"] = np.array(roomSettings["top right corner"])
-
-# it amounts to the width and height
-roomDiagonalVector = roomSettings["top right corner"] - roomSettings["bottom left corner"]
 
 # ------------------------------------------------------------------ random numbers ----------------------------------------------------------------------
 
@@ -214,19 +205,6 @@ signal.signal(signal.SIGINT, sigint_handler)
 ## handler for SIGUSR1 is installed
 #signal.signal(signal.SIGUSR1, sigusr1_handler)
 
-# ------------------------------------------------------------- sensors-related stuff --------------------------------------------------------------------
-
-# an object for computing the positions of the sensors is created and used
-# NOTE: the actual number of sensors might not be equal to that requested
-sensorsPositions = sensor.EquispacedOnRectangleSensorLayer(roomSettings['bottom left corner'],roomSettings['top right corner']).getPositions(sensorsSettings['number'])
-#sensorsPositions = sensor.KmeansBasedSensorLayer(roomSettings['bottom left corner'],roomSettings['top right corner']).getPositions(sensorsSettings['number'])
-
-# the class to be instantiated is figured out from the settings for that particular sensor type
-sensorClass = getattr(sensor,sensorsSettings[sensorsSettings['type']]['implementing class'])
-
-# a list with the sensors for the different positions
-sensors = [sensorClass(pos[:,np.newaxis],PRNG=PRNGs['Sensors and Monte Carlo pseudo random numbers generator'],**sensorsSettings[sensorsSettings['type']]['parameters']) for pos in sensorsPositions.T]
-
 # ----------------------------------------------------------------- dynamic model ------------------------------------------------------------------------
 
 # a object that represents the prior distribution is instantiated...
@@ -262,7 +240,7 @@ mobile = target.Target(prior,transitionKernel,PRNG=PRNGs["Trajectory pseudo rand
 simulationClass = getattr(simulation,simulationSettings[simulationSettings['type']]['implementing class'])
 
 # ...is used to instantiate the latter
-sim = simulationClass(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
+sim = simulationClass(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs)
 
 #------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
 
@@ -275,12 +253,9 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 	
 	# a trajectory is simulated
 	targetPosition[:,:,iFrame],targetVelocity = mobile.simulateTrajectory(nTimeInstants)
-
-	# observations for all the sensors at every time instant (each list)
-	# NOTE: conversion to float is done so that the observations (either 1 or 0) are amenable to be used in later computations
-	observations = [np.array([sensor.detect(state.position(s[:,np.newaxis])) for sensor in sensors],dtype=float) for s in targetPosition[:,:,iFrame].T]
 	
-	sim.processFrame(targetPosition[:,:,iFrame],targetVelocity,observations)
+	# ...processed by the corresponding simulation
+	sim.processFrame(targetPosition[:,:,iFrame],targetVelocity)
 	
 	iFrame += 1
 	

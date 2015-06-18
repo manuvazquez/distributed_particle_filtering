@@ -150,7 +150,7 @@
 			"implementing class": "Convergence"
 		},
 		"Multiple Mposterior": {
-			"implementing class": "MultiMposterior",
+			"implementing class": "MultipleMposterior",
 			"exchanged particles maximum percentage": 0.5,
 			"nPEs-nSensors pairs": [[2,8],[4,16],[8,32]]
 		}

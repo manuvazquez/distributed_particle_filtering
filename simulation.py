@@ -8,6 +8,7 @@ from smc import particle_filter
 import smc.estimator
 import topology
 import drnautil
+import sensor
 import sensors_PEs_connector
 import state
 import plot
@@ -15,14 +16,13 @@ import plot
 class Simulation(metaclass=abc.ABCMeta):
 	
 	@abc.abstractmethod
-	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs):
+	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs):
 		
 		# these parameters are kept for later use
 		self._resamplingAlgorithm = resamplingAlgorithm
 		self._resamplingCriterion = resamplingCriterion
 		self._prior = prior
 		self._transitionKernel = transitionKernel
-		self._sensors = sensors
 		self._PRNGs = PRNGs
 		
 		# number of particles per processing element (PE)
@@ -52,14 +52,11 @@ class Simulation(metaclass=abc.ABCMeta):
 			# the "topology settings" object is just a dictionary
 			self._topologiesSettings = parameters['topologies'][parameters['topologies']['type']]
 		
-		# sensors positions are gathered
-		self._sensorsPositions = np.hstack([s.position for s in sensors])
-		
 		# so that it equals 0 the first time it is incremented...
 		self._iFrame = -1
 		
 	@abc.abstractmethod
-	def processFrame(self,targetPosition,targetVelocity,observations):
+	def processFrame(self,targetPosition,targetVelocity):
 		
 		self._iFrame += 1
 	
@@ -72,12 +69,49 @@ class Simulation(metaclass=abc.ABCMeta):
 			print('saveData: nothing to save...skipping')
 			return
 
-class Convergence(Simulation):
+class SimpleSimulation(Simulation):
 	
-	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs):
+	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,sensors=None):
+		
+		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs)
+		
+		# for the sake of convenience
+		bottomLeftCorner = parameters['room']['bottom left corner']
+		topRightCorner = parameters['room']['top right corner']
+		nSensors = parameters["sensors"]['number']
+		sensorsSettings = parameters["sensors"]
+		
+		if not sensors:
+			
+			self._sensorsPositions = sensor.EquispacedOnRectangleSensorLayer(bottomLeftCorner,topRightCorner).getPositions(nSensors)
+			#self._sensorsPositions = sensor.KmeansBasedSensorLayer(bottomLeftCorner,topRightCorner).getPositions(nSensors)
+
+			# the class to be instantiated is figured out from the settings for that particular sensor type
+			sensorClass = getattr(sensor,sensorsSettings[sensorsSettings['type']]['implementing class'])
+
+			# a list with the sensors for the different positions
+			self._sensors = [sensorClass(pos[:,np.newaxis],PRNG=PRNGs['Sensors and Monte Carlo pseudo random numbers generator'],**sensorsSettings[sensorsSettings['type']]['parameters']) for pos in self._sensorsPositions.T]
+			
+		else:
+			
+			self._sensors = sensors
+			self._sensorsPositions = np.hstack([s.position for s in sensors])
+			
+		
+	def processFrame(self,targetPosition,targetVelocity):
+		
+		super().processFrame(targetPosition,targetVelocity)
+		
+		# observations for all the sensors at every time instant (each list)
+		# NOTE: conversion to float is done so that the observations (either 1 or 0) are amenable to be used in later computations
+		self._observations = [np.array([sensor.detect(state.position(s[:,np.newaxis])) for sensor in self._sensors],dtype=float) for s in targetPosition.T]
+
+class Convergence(SimpleSimulation):
+	
+	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,sensors=None):
 		
 		# let the super class do its thing...
-		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
+		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,sensors)
 		
 		topologies = [getattr(topology,t['implementing class'])(t['number of PEs'],self._K,self._DRNAsettings["exchanged particles maximum percentage"],t['parameters'],
 											 PRNG=PRNGs["topology pseudo random numbers generator"]) for t in self._topologiesSettings]
@@ -86,14 +120,14 @@ class Convergence(Simulation):
 		self._aggregatedWeightsUpperBounds = [drnautil.supremumUpperBound(t['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon']) for t in self._topologiesSettings]
 		
 		# plain non-parallelized particle filter
-		self._PFsForTopologies = [particle_filter.CentralizedTargetTrackingParticleFilter(self._K*t.getNumberOfPEs(),resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors) for t in topologies]
+		self._PFsForTopologies = [particle_filter.CentralizedTargetTrackingParticleFilter(self._K*t.getNumberOfPEs(),resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,self._sensors) for t in topologies]
 		
-		sensorsPEsConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(sensors)
+		sensorsPEsConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensors)
 
 		# distributed particle filter
 		self._distributedPFsForTopologies = [particle_filter.TargetTrackingParticleFilterWithDRNA(
 			self._DRNAsettings["exchange period"],t,upperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
-			sensors,sensorsPEsConnector.getConnections(t.getNumberOfPEs())
+			self._sensors,sensorsPEsConnector.getConnections(t.getNumberOfPEs())
 			) for t,upperBound in zip(topologies,self._aggregatedWeightsUpperBounds)]
 		
 		#------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
@@ -163,10 +197,10 @@ class Convergence(Simulation):
 		scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
 		print('results saved in "{}"'.format('res_' + self._outputFile))
 	
-	def processFrame(self,targetPosition,targetVelocity,observations):
+	def processFrame(self,targetPosition,targetVelocity):
 		
 		# let the super class do its thing...
-		super().processFrame(targetPosition,targetVelocity,observations)
+		super().processFrame(targetPosition,targetVelocity)
 		
 		for iTopology,(pf,distributedPf) in enumerate(zip(self._PFsForTopologies,self._distributedPFsForTopologies)):
 			
@@ -196,8 +230,8 @@ class Convergence(Simulation):
 				print('velocity:\n',targetVelocity[:,iTime:iTime+1])
 				
 				# particle filters are updated
-				pf.step(observations[iTime])
-				distributedPf.step(observations[iTime])
+				pf.step(self._observations[iTime])
+				distributedPf.step(self._observations[iTime])
 				
 				# the mean computed by the centralized and distributed PFs
 				centralizedPF_mean,distributedPF_mean = pf.computeMean(),distributedPf.computeMean()
@@ -225,14 +259,12 @@ class Convergence(Simulation):
 						self._painter.updateParticlesPositions(state.position(pf.getState()),identifier='centralized',color=self._painterSettings["color for the centralized PF"])
 						self._painter.updateParticlesPositions(state.position(distributedPf.getState()),identifier='distributed',color=self._painterSettings["color for the distributed PF"])
 
-class MultiMposterior(Simulation):
+class MultipleMposterior(Simulation):
 	
-	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs):
+	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs):
 		
 		# let the super class do its thing...
-		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
-		
-		import sensor
+		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs)
 		
 		# the parameters for this particular simulation are obtained
 		self._simulationParameters = parameters['simulations'][parameters['simulations']['type']]
@@ -259,18 +291,17 @@ class MultiMposterior(Simulation):
 
 			self._sensors.append([sensorClass(pos[:,np.newaxis],PRNG=PRNGs['Sensors and Monte Carlo pseudo random numbers generator'],**sensorsSettings[sensorsSettings['type']]['parameters']) for pos in sensorsPositions.T])
 			
-			self._simulations.append(Mposterior(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,self._sensors[-1],outputFile,PRNGs,
+			self._simulations.append(Mposterior(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,sensors=self._sensors[-1],
 									   h5pyFile=self._f,h5pyFilePrefix='{} PEs,{} sensors/'.format(nPEs,nSensors),nPEs=nPEs))
 
-	def processFrame(self,targetPosition,targetVelocity,observations):
+	def processFrame(self,targetPosition,targetVelocity):
 		
 		# let the super class do its thing...
-		super().processFrame(targetPosition,targetVelocity,observations)
+		super().processFrame(targetPosition,targetVelocity)
 		
 		for sensors,sim in zip(self._sensors,self._simulations):
 		
-			observations = [np.array([sensor.detect(state.position(s[:,np.newaxis])) for sensor in sensors],dtype=float) for s in targetPosition.T]
-			sim.processFrame(targetPosition,targetVelocity,observations)
+			sim.processFrame(targetPosition,targetVelocity)
 		
 	def saveData(self,targetPosition):
 		
@@ -279,14 +310,14 @@ class MultiMposterior(Simulation):
 		
 		self._f.close()
 
-class Mposterior(Simulation):
+class Mposterior(SimpleSimulation):
 	
 	# TODO: a method of the object is called from within "__init__" (allowed in python...but weird)
 	
-	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs,h5pyFile=None,h5pyFilePrefix='',nPEs=None):
+	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,sensors=None,h5pyFile=None,h5pyFilePrefix='',nPEs=None):
 		
 		# let the super class do its thing...
-		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,sensors,outputFile,PRNGs)
+		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,sensors)
 		
 		# for saving the data in HDF5
 		self._h5pyFile = h5pyFile
@@ -304,17 +335,14 @@ class Mposterior(Simulation):
 			self._nPEs = nPEs
 		
 		# a connector that connects every sensor to every PE
-		self._everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(sensors)
+		self._everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensors)
 		
 		# the parameters given by the user for a connector that connects every sensor to the closest PE
 		sensorWithTheClosestPEConnectorSettings = parameters['sensors-PEs connectors']['sensors connected to the closest PEs']
 		
-		# the positions of the sensors...
-		sensorsPositions = np.hstack([s.position for s in sensors])
-		
-		# ...and those of the PEs...
+		# the positions of the PEs
 		PEsPositions = sensors_PEs_connector.computePEsPositionsFromSensorsPositions(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
-														   sensorsPositions,self._nPEs)
+														   self._sensorsPositions,self._nPEs)
 
 		#PEsPositions = sensors_PEs_connector.computePEsPositions(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
 														   #self._nPEs,sensorWithTheClosestPEConnectorSettings['parameters']['number of uniform samples']*self._nPEs)
@@ -327,7 +355,7 @@ class Mposterior(Simulation):
 		
 		# ...are used to build a connector, from which the links between PEs and sensors are obtained
 		self._PEsSensorsConnections = getattr(sensors_PEs_connector,sensorWithTheClosestPEConnectorSettings['implementing class'])(
-			sensors,PEsPositions,sensorWithTheClosestPEConnectorSettings['parameters']).getConnections(self._nPEs)
+			self._sensors,PEsPositions,sensorWithTheClosestPEConnectorSettings['parameters']).getConnections(self._nPEs)
 
 		# network topology, which describes the connection among PEs, as well as the exact particles exchanged/shared
 		self._networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,self._simulationParameters["exchanged particles maximum percentage"],
@@ -382,7 +410,7 @@ class Mposterior(Simulation):
 			self._f.create_dataset(self._h5pyFilePrefix + 'PEs/{}/connected sensors'.format(iPE),shape=(len(sens),),data=sens)
 		
 		# the positions of the sensors
-		self._f.create_dataset(self._h5pyFilePrefix + 'sensors/positions',shape=sensorsPositions.shape,data=sensorsPositions)
+		self._f.create_dataset(self._h5pyFilePrefix + 'sensors/positions',shape=self._sensorsPositions.shape,data=self._sensorsPositions)
 	
 	def addAlgorithms(self):
 		
@@ -556,10 +584,10 @@ class Mposterior(Simulation):
 		if self._h5pyFile == None:
 			self._f.close()
 		
-	def processFrame(self,targetPosition,targetVelocity,observations):
+	def processFrame(self,targetPosition,targetVelocity):
 		
 		# let the super class do its thing...
-		super().processFrame(targetPosition,targetVelocity,observations)
+		super().processFrame(targetPosition,targetVelocity)
 		
 		# a reference to the "group" for the current frame (notice the prefix in the name given "self._h5pyFilePrefix")...
 		h5thisFrame = self._f.create_group(self._h5pyFilePrefix + 'frames/{num:0{width}}'.format(num=self._iFrame, width=self._nFramesWidth))
@@ -604,7 +632,7 @@ class Mposterior(Simulation):
 			for pf in self._PFs:
 				
 				# ...a step is taken
-				pf.step(observations[iTime])
+				pf.step(self._observations[iTime])
 			
 			# for every estimator, along with its corresponding label,...
 			for iEstimator,(estimator,label) in enumerate(zip(self._estimators,self._estimatorsLabels)):
