@@ -69,23 +69,15 @@ nTimeInstants = parameters["number of time instants"]
 # room dimensions
 roomSettings = parameters["room"]
 
-# parameters for the distribution of the initial state
-priorDistributionSettings = parameters["prior distribution"]
-
 # state transition kernel parameters
 stateTransitionSettings = parameters["state transition"]
 
 # for the particle filters
-SMCsettings = parameters["SMC"]
-
-# parameters related to plotting
-painterSettings = parameters["painter"]
-
 # type of simulation and the corresponding parameters
 simulationSettings = parameters['simulations']
 
 # we use the "agg" backend if the DISPLAY variable is not present (the program is running without a display server) or the parameters file says so
-useAgg = ('DISPLAY' not in os.environ) or (not painterSettings["use display server if available?"])
+useAgg = ('DISPLAY' not in os.environ) or (not parameters["painter"]["use display server if available?"])
 
 if useAgg:
 	import matplotlib
@@ -208,7 +200,8 @@ signal.signal(signal.SIGINT, sigint_handler)
 # ----------------------------------------------------------------- dynamic model ------------------------------------------------------------------------
 
 # a object that represents the prior distribution is instantiated...
-prior = state.UniformBoundedPositionGaussianVelocityPrior(roomSettings["bottom left corner"],roomSettings["top right corner"],velocityVariance=priorDistributionSettings["velocity variance"],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
+prior = state.UniformBoundedPositionGaussianVelocityPrior(roomSettings["bottom left corner"],roomSettings["top right corner"],
+														  velocityVariance=parameters["prior distribution"]["velocity variance"],PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ...and a different one for the transition kernel belonging to class...
 transitionKernelSettings = stateTransitionSettings[stateTransitionSettings['type']]
@@ -225,7 +218,7 @@ transitionKernel = getattr(state,transitionKernelSettings['implementing class'])
 resamplingAlgorithm = resampling.MultinomialResamplingAlgorithm(PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ...and a resampling criterion are needed for the particle filters
-#resamplingCriterion = resampling.EffectiveSampleSizeBasedResamplingCriterion(SMCsettings["resampling ratio"])
+#resamplingCriterion = resampling.EffectiveSampleSizeBasedResamplingCriterion(parameters["SMC"]["resampling ratio"])
 resamplingCriterion = resampling.AlwaysResamplingCriterion()
 
 #-------------------------------------------------------------------- other stuff  -----------------------------------------------------------------------

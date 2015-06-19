@@ -26,6 +26,9 @@ def computePEsPositionsFromSensorsPositions(bottomLeftCorner,topRightCorner,sens
 	# k-means over the sensors positions using "nPEs" centroids
 	PEsPositions,_ = scipy.cluster.vq.kmeans(sensorsPositions.T,nPEs)
 	
+	# just in case K-means doesn't return the proper number of sensors
+	assert(len(PEsPositions)==nPEs)
+	
 	return orderedPEsPositions(PEsPositions,bottomLeftCorner,topRightCorner)
 
 def orderedPEsPositions(PEsPositions,bottomLeftCorner,topRightCorner):
