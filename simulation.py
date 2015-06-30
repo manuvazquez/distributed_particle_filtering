@@ -122,7 +122,7 @@ class Convergence(SimpleSimulation):
 		# plain non-parallelized particle filter
 		self._PFsForTopologies = [particle_filter.CentralizedTargetTrackingParticleFilter(self._K*t.getNumberOfPEs(),resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,self._sensors) for t in topologies]
 		
-		sensorsPEsConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensors)
+		sensorsPEsConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensorsPositions)
 
 		# distributed particle filter
 		self._distributedPFsForTopologies = [particle_filter.TargetTrackingParticleFilterWithDRNA(
@@ -335,7 +335,7 @@ class Mposterior(SimpleSimulation):
 			self._nPEs = nPEs
 		
 		# a connector that connects every sensor to every PE
-		self._everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensors)
+		self._everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensorsPositions)
 		
 		# the parameters given by the user for a connector that connects every sensor to the closest PE
 		sensorWithTheClosestPEConnectorSettings = parameters['sensors-PEs connectors']['sensors connected to the closest PEs']
@@ -355,7 +355,7 @@ class Mposterior(SimpleSimulation):
 		
 		# ...are used to build a connector, from which the links between PEs and sensors are obtained
 		self._PEsSensorsConnections = getattr(sensors_PEs_connector,sensorWithTheClosestPEConnectorSettings['implementing class'])(
-			self._sensors,PEsPositions,sensorWithTheClosestPEConnectorSettings['parameters']).getConnections(self._nPEs)
+			self._sensorsPositions,PEsPositions,sensorWithTheClosestPEConnectorSettings['parameters']).getConnections(self._nPEs)
 
 		# network topology, which describes the connection among PEs, as well as the exact particles exchanged/shared
 		self._networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,self._simulationParameters["exchanged particles maximum percentage"],
@@ -418,7 +418,7 @@ class Mposterior(SimpleSimulation):
 		
 		"""
 
-		# centralized PF
+		# a single PE (with the number of particles of any other PE) that has access to all the observations
 		self._PFs.append(
 			particle_filter.CentralizedTargetTrackingParticleFilter(
 				self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,self._sensors
@@ -509,11 +509,11 @@ class Mposterior(SimpleSimulation):
 				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter)
 		)
 		
-		# an estimator combining all the particles from all the PEs through M-posterior to give a distribution whose mean is the estimate
-		self._estimators.append(smc.estimator.Mposterior(self._PFs[-1]))
+		## an estimator combining all the particles from all the PEs through M-posterior to give a distribution whose mean is the estimate
+		#self._estimators.append(smc.estimator.Mposterior(self._PFs[-1]))
 		
-		self._estimatorsColors.append('darkred')
-		self._estimatorsLabels.append('M-posterior (M-posterior with ALL particles - mean)')
+		#self._estimatorsColors.append('darkred')
+		#self._estimatorsLabels.append('M-posterior (M-posterior with ALL particles - mean)')
 		
 		# ------------
 		

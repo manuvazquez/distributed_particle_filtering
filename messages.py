@@ -13,12 +13,12 @@ average_number_of_sensors_per_PE = 4
 p = 0.5
 
 # number of particles
-N = 20
+N = 200
 
 # the number of PEs
 #M = np.arange(2,18,2)
 #M = np.array([2,4,8])
-M = np.array([2,3,4,5,6])
+M = np.array([2,3,4,5,6],dtype=int)
 
 # number of sensors
 #J = 16

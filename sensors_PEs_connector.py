@@ -63,12 +63,13 @@ def orderedPEsPositions(PEsPositions,bottomLeftCorner,topRightCorner):
 
 class SensorsPEsConnector(metaclass=abc.ABCMeta):
 	
-	def __init__(self,sensors,parameters=None):
+	def __init__(self,sensorsPositions,PEsPositions=None,parameters=None):
 		
-		self._sensors = sensors
+		self._sensorsPositions = sensorsPositions
+		self._PEsPositions = PEsPositions
 		self._parameters = parameters
 		
-		self._nSensors = len(sensors)
+		self._nSensors = self._sensorsPositions.shape[1]
 	
 	@abc.abstractmethod
 	def getConnections(self,nPEs):
@@ -110,19 +111,15 @@ class ProximityBasedConnector(SensorsPEsConnector):
 	
 	def __init__(self,sensors,PEsPositions,parameters=None):
 		
-		super().__init__(sensors,parameters)
+		super().__init__(sensors,PEsPositions,parameters)
 		
-		self._PEsPositions = PEsPositions
-	
 	def getConnections(self,nPEs):
-		
-		sensorsPositions = np.hstack([s.position for s in self._sensors])
 		
 		# a number of samples proportional to the number of PEs...
 		nPoints = self._parameters['number of uniform samples']*nPEs
 		
 		# the distance from each PE (whose position has been computed above) to each sensor [<PE>,<sensor>]
-		distances = np.sqrt((np.subtract(self._PEsPositions[:,:,np.newaxis],sensorsPositions[:,np.newaxis,:])**2).sum(axis=0))
+		distances = np.sqrt((np.subtract(self._PEsPositions[:,:,np.newaxis],self._sensorsPositions[:,np.newaxis,:])**2).sum(axis=0))
 		
 		# for each sensor, the index of the PE which is closest to it
 		iClosestPEtoSensors = distances.argmin(axis=0)
