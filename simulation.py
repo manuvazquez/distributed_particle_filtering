@@ -337,15 +337,15 @@ class Mposterior(SimpleSimulation):
 		# a connector that connects every sensor to every PE
 		self._everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensorsPositions)
 		
-		# the parameters given by the user for a connector that connects every sensor to the closest PE
-		sensorWithTheClosestPEConnectorSettings = parameters['sensors-PEs connectors']['sensors connected to the closest PEs']
+		# the settings for the selected "sensors-PES connector"
+		sensorsPEsConnectorSettings = parameters['sensors-PEs connectors'][self._simulationParameters['sensors-PEs connector']]
 		
 		# the positions of the PEs
-		PEsPositions = sensors_PEs_connector.computePEsPositionsFromSensorsPositions(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
-														   self._sensorsPositions,self._nPEs)
+		#PEsPositions = sensors_PEs_connector.computePEsPositionsFromSensorsPositions(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
+														   #self._sensorsPositions,self._nPEs)
 
-		#PEsPositions = sensors_PEs_connector.computePEsPositions(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
-														   #self._nPEs,sensorWithTheClosestPEConnectorSettings['parameters']['number of uniform samples']*self._nPEs)
+		PEsPositions = sensors_PEs_connector.computePEsPositions(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
+														   self._nPEs,sensorsPEsConnectorSettings['parameters']['number of uniform samples']*self._nPEs)
 
 		# the positions of the PEs are added as a parameters...technically they are "derived" parameters since they are completely determined by: 
 		#	- the corners of the room
@@ -354,8 +354,8 @@ class Mposterior(SimpleSimulation):
 		self._topologiesSettings['parameters']['PEs positions'] = PEsPositions
 		
 		# ...are used to build a connector, from which the links between PEs and sensors are obtained
-		self._PEsSensorsConnections = getattr(sensors_PEs_connector,sensorWithTheClosestPEConnectorSettings['implementing class'])(
-			self._sensorsPositions,PEsPositions,sensorWithTheClosestPEConnectorSettings['parameters']).getConnections(self._nPEs)
+		self._PEsSensorsConnections = getattr(sensors_PEs_connector,sensorsPEsConnectorSettings['implementing class'])(
+			self._sensorsPositions,PEsPositions,sensorsPEsConnectorSettings['parameters']).getConnections(self._nPEs)
 
 		# network topology, which describes the connection among PEs, as well as the exact particles exchanged/shared
 		self._networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,self._simulationParameters["exchanged particles maximum percentage"],

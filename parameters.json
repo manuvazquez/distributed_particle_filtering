@@ -133,6 +133,7 @@
 		"Mposterior": {
 			"implementing class": "Mposterior",
 			"exchanged particles maximum percentage": 0.15,
+			"sensors-PEs connector": "sensors connected to the closest PEs",
 			"file name prefix for the estimation error vs time plot": "errorVsTime"
 		},
 		"Mposterior: exchange percentage": {
@@ -152,6 +153,7 @@
 		"Multiple Mposterior": {
 			"implementing class": "MultipleMposterior",
 			"exchanged particles maximum percentage": 0.5,
+			"sensors-PEs connector": "sensors connected to the closest PEs",
 			"nPEs-nSensors pairs": [[2,8],[4,16],[8,32]]
 		}
 	},
