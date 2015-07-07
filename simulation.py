@@ -10,6 +10,7 @@ import topology
 import drnautil
 import sensor
 import sensors_PEs_connector
+import PEsLayer
 import state
 import plot
 
@@ -341,11 +342,10 @@ class Mposterior(SimpleSimulation):
 		sensorsPEsConnectorSettings = parameters['sensors-PEs connectors'][self._simulationParameters['sensors-PEs connector']]
 		
 		# the positions of the PEs
-		#PEsPositions = sensors_PEs_connector.computePEsPositionsFromSensorsPositions(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
-														   #self._sensorsPositions,self._nPEs)
+		#PEsPositions = PEsLayer.ClusteringSensorsPEsLayer(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],sensorsPositions=self._sensorsPositions).getPositions(self._nPEs)
 
-		PEsPositions = sensors_PEs_connector.computePEsPositions(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
-														   self._nPEs,sensorsPEsConnectorSettings['parameters']['number of uniform samples']*self._nPEs)
+		PEsPositions = PEsLayer.RandomPEsLayer(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],sensorsPositions=self._sensorsPositions,
+										 parameters={'number of uniform samples':parameters['PEs layer']['Random']['parameters']['number of uniform samples']*self._nPEs}).getPositions(self._nPEs)
 
 		# the positions of the PEs are added as a parameters...technically they are "derived" parameters since they are completely determined by: 
 		#	- the corners of the room

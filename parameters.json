@@ -175,6 +175,14 @@
 			}
 		}
 	},
+	"PEs layer": {
+		"Random": {
+			"implementing class": "RandomPEsLayer",
+			"parameters": {
+				"number of uniform samples": 10000
+			}
+		}
+	},
 	"load sensors and Monte Carlo pseudo random numbers generator?": false,
 	"Sensors and Monte Carlo pseudo random numbers generator": "SensorsAndMonteCarloRandom.RandomState",
 	"load trajectory pseudo random numbers generator?": false,
