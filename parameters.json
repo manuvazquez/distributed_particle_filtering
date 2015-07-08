@@ -2,6 +2,26 @@
 	"number of frames": 10,
 	"number of time instants": 300,
 	"number of particles per PE": 200,
+	"networks": {
+		"fixed number of sensors per PE": {
+			"implementing class": "FixedNumberOfSensorsPerPE",
+			"parameters": {
+				"radius": 2,
+				"phase": 0,
+				"nSamples": 10000
+			}
+		},
+		"PEs without position and equispaced sensors": {
+			"implementing class": "PositionlessPEsEquispacedSensors",
+			"parameters": {}
+		},
+		"randomly strewn sensors and PEs": {
+			"implementing class": "RandomlyStrewnSensorsAndPEs",
+			"parameters": {
+				"nSamples": 10000
+			}
+		}
+	},
 	"topologies": {
 		"type": ["Mesh"],
 		"Constant degree simple graph": {
@@ -132,6 +152,7 @@
 		"type": "DRNA convergence",
 		"Mposterior": {
 			"implementing class": "Mposterior",
+			"network": "fixed number of sensors per PE",
 			"exchanged particles maximum percentage": 0.15,
 			"sensors-PEs connector": "sensors connected to the closest PEs",
 			"file name prefix for the estimation error vs time plot": "errorVsTime"
@@ -148,10 +169,12 @@
 			"file name prefix for the estimation error vs time plot": "errorVsTime"
 		},
 		"DRNA convergence": {
-			"implementing class": "Convergence"
+			"implementing class": "Convergence",
+			"network": "PEs without position and equispaced sensors",
 		},
 		"Multiple Mposterior": {
 			"implementing class": "MultipleMposterior",
+			"network": "fixed number of sensors per PE",
 			"exchanged particles maximum percentage": 0.5,
 			"sensors-PEs connector": "sensors connected to the closest PEs",
 			"nPEs-nSensors pairs": [[2,8],[4,16],[8,32]]

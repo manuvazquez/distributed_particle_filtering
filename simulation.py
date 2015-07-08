@@ -10,9 +10,9 @@ import topology
 import drnautil
 import sensor
 import sensors_PEs_connector
-import PEsLayer
 import state
 import plot
+import network
 
 class Simulation(metaclass=abc.ABCMeta):
 	
@@ -56,6 +56,9 @@ class Simulation(metaclass=abc.ABCMeta):
 		# so that it equals 0 the first time it is incremented...
 		self._iFrame = -1
 		
+		# the parameters for this particular simulation are obtained
+		self._simulationParameters = parameters['simulations'][parameters['simulations']['type']]
+		
 	@abc.abstractmethod
 	def processFrame(self,targetPosition,targetVelocity):
 		
@@ -72,32 +75,48 @@ class Simulation(metaclass=abc.ABCMeta):
 
 class SimpleSimulation(Simulation):
 	
-	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,sensors=None):
+	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,nPEs=None,nSensors=None):
 		
 		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs)
 		
 		# for the sake of convenience
 		bottomLeftCorner = parameters['room']['bottom left corner']
 		topRightCorner = parameters['room']['top right corner']
-		nSensors = parameters["sensors"]['number']
+		#nSensors = parameters["sensors"]['number']
 		sensorsSettings = parameters["sensors"]
 		
-		if not sensors:
+		#if nPEs==None and nSensors==None:
+		if nSensors==None:
 			
-			self._sensorsPositions = sensor.EquispacedOnRectangleSensorLayer(bottomLeftCorner,topRightCorner).getPositions(nSensors)
-			#self._sensorsPositions = sensor.KmeansBasedSensorLayer(bottomLeftCorner,topRightCorner).getPositions(nSensors)
+			nSensors = parameters["sensors"]['number']
+		
+		if nPEs==None:
 
-			# the class to be instantiated is figured out from the settings for that particular sensor type
-			sensorClass = getattr(sensor,sensorsSettings[sensorsSettings['type']]['implementing class'])
-
-			# a list with the sensors for the different positions
-			self._sensors = [sensorClass(pos[:,np.newaxis],PRNG=PRNGs['Sensors and Monte Carlo pseudo random numbers generator'],**sensorsSettings[sensorsSettings['type']]['parameters']) for pos in self._sensorsPositions.T]
+			# we try to extract the "number of PEs" from the topology settings...
+			try:
+				
+				nPEs = self._topologiesSettings['number of PEs']
 			
-		else:
-			
-			self._sensors = sensors
-			self._sensorsPositions = np.hstack([s.position for s in sensors])
-			
+			# ...it it's not possible, it is because there are multiple topology settings => Convergence simulation
+			except TypeError:
+				
+				# nPEs = None
+				pass
+		
+		# for the sake of convenience below...
+		networkSettings = parameters['networks'][self._simulationParameters['network']]		
+		networkClass = getattr(network,networkSettings['implementing class'])
+		
+		# the appropriate class is instantiated with the given parameters
+		self._network = networkClass(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],nPEs,nSensors,**networkSettings['parameters'])
+		
+		# the positions of the PEs and the sensors are collected from the network just built
+		self._sensorsPositions,self._PEsPositions = self._network.sensorsPositions,self._network.PEsPositions
+		
+		# the class to be instantiated is figured out from the settings for that particular sensor type
+		sensorClass = getattr(sensor,sensorsSettings[sensorsSettings['type']]['implementing class'])
+		
+		self._sensors = [sensorClass(pos[:,np.newaxis],PRNG=PRNGs['Sensors and Monte Carlo pseudo random numbers generator'],**sensorsSettings[sensorsSettings['type']]['parameters']) for pos in self._sensorsPositions.T]
 		
 	def processFrame(self,targetPosition,targetVelocity):
 		
@@ -109,10 +128,10 @@ class SimpleSimulation(Simulation):
 
 class Convergence(SimpleSimulation):
 	
-	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,sensors=None):
+	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs):
 		
 		# let the super class do its thing...
-		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,sensors)
+		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs)
 		
 		topologies = [getattr(topology,t['implementing class'])(t['number of PEs'],self._K,self._DRNAsettings["exchanged particles maximum percentage"],t['parameters'],
 											 PRNG=PRNGs["topology pseudo random numbers generator"]) for t in self._topologiesSettings]
@@ -222,9 +241,9 @@ class Convergence(SimpleSimulation):
 
 				# ...e.g., draw the sensors
 				self._painter.setup()
-
+				
 			for iTime in range(self._nTimeInstants):
-
+				
 				print('---------- iFrame = {}, iTopology = {}, iTime = {}'.format(repr(self._iFrame),repr(iTopology),repr(iTime)))
 
 				print('position:\n',targetPosition[:,iTime:iTime+1])
@@ -267,9 +286,6 @@ class MultipleMposterior(Simulation):
 		# let the super class do its thing...
 		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs)
 		
-		# the parameters for this particular simulation are obtained
-		self._simulationParameters = parameters['simulations'][parameters['simulations']['type']]
-		
 		# for the sake of convenience
 		sensorsSettings = parameters["sensors"]
 		roomSettings = parameters["room"]
@@ -287,20 +303,15 @@ class MultipleMposterior(Simulation):
 		# for every pair nPEs-nSensors we aim to simulate...
 		for (nPEs,nSensors) in self._simulationParameters["nPEs-nSensors pairs"]:
 			
-			#sensorsPositions = sensor.EquispacedOnRectangleSensorLayer(roomSettings['bottom left corner'],roomSettings['top right corner']).getPositions(nSensors)
-			sensorsPositions = sensor.KmeansBasedSensorLayer(roomSettings['bottom left corner'],roomSettings['top right corner']).getPositions(nSensors)
-
-			self._sensors.append([sensorClass(pos[:,np.newaxis],PRNG=PRNGs['Sensors and Monte Carlo pseudo random numbers generator'],**sensorsSettings[sensorsSettings['type']]['parameters']) for pos in sensorsPositions.T])
-			
-			self._simulations.append(Mposterior(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,sensors=self._sensors[-1],
-									   h5pyFile=self._f,h5pyFilePrefix='{} PEs,{} sensors/'.format(nPEs,nSensors),nPEs=nPEs))
+			self._simulations.append(Mposterior(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,nPEs,nSensors,
+									   h5pyFile=self._f,h5pyFilePrefix='{} PEs,{} sensors/'.format(nPEs,nSensors)))
 
 	def processFrame(self,targetPosition,targetVelocity):
 		
 		# let the super class do its thing...
 		super().processFrame(targetPosition,targetVelocity)
 		
-		for sensors,sim in zip(self._sensors,self._simulations):
+		for sim in self._simulations:
 		
 			sim.processFrame(targetPosition,targetVelocity)
 		
@@ -315,10 +326,10 @@ class Mposterior(SimpleSimulation):
 	
 	# TODO: a method of the object is called from within "__init__" (allowed in python...but weird)
 	
-	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,sensors=None,h5pyFile=None,h5pyFilePrefix='',nPEs=None):
+	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,nPEs=None,nSensors=None,h5pyFile=None,h5pyFilePrefix=''):
 		
 		# let the super class do its thing...
-		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,sensors)
+		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,nPEs,nSensors)
 		
 		# for saving the data in HDF5
 		self._h5pyFile = h5pyFile
@@ -344,18 +355,25 @@ class Mposterior(SimpleSimulation):
 		# the positions of the PEs
 		#PEsPositions = PEsLayer.ClusteringSensorsPEsLayer(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],sensorsPositions=self._sensorsPositions).getPositions(self._nPEs)
 
-		PEsPositions = PEsLayer.RandomPEsLayer(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],sensorsPositions=self._sensorsPositions,
-										 parameters={'number of uniform samples':parameters['PEs layer']['Random']['parameters']['number of uniform samples']*self._nPEs}).getPositions(self._nPEs)
-
+		#PEsPositions = PEsLayer.RandomPEsLayer(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],sensorsPositions=self._sensorsPositions,
+										 #parameters={'number of uniform samples':parameters['PEs layer']['Random']['parameters']['number of uniform samples']*self._nPEs}).getPositions(self._nPEs)
+		
+		#self._sensorsPositions = sensor.ConstantNumberOfSensorsPerPEsensorLayer(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],self._PEsPositions).getPositions(parameters["sensors"]['number'])
+		
+		## sensor objects need to be instantiated all over again
+		#sensorsSettings = parameters["sensors"]
+		#sensorClass = getattr(sensor,sensorsSettings[sensorsSettings['type']]['implementing class'])
+		#self._sensors = [sensorClass(pos[:,np.newaxis],PRNG=PRNGs['Sensors and Monte Carlo pseudo random numbers generator'],**sensorsSettings[sensorsSettings['type']]['parameters']) for pos in self._sensorsPositions.T]
+		
 		# the positions of the PEs are added as a parameters...technically they are "derived" parameters since they are completely determined by: 
 		#	- the corners of the room
 		#	- the positions of the sensors which, in turn, also depend on the corners of the room and the number of sensors
 		#	- the number of PEs
-		self._topologiesSettings['parameters']['PEs positions'] = PEsPositions
+		self._topologiesSettings['parameters']['PEs positions'] = self._PEsPositions
 		
 		# ...are used to build a connector, from which the links between PEs and sensors are obtained
 		self._PEsSensorsConnections = getattr(sensors_PEs_connector,sensorsPEsConnectorSettings['implementing class'])(
-			self._sensorsPositions,PEsPositions,sensorsPEsConnectorSettings['parameters']).getConnections(self._nPEs)
+			self._sensorsPositions,self._PEsPositions,sensorsPEsConnectorSettings['parameters']).getConnections(self._nPEs)
 
 		# network topology, which describes the connection among PEs, as well as the exact particles exchanged/shared
 		self._networkTopology = getattr(topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,self._simulationParameters["exchanged particles maximum percentage"],
@@ -363,7 +381,7 @@ class Mposterior(SimpleSimulation):
 		
 		# ...are plot the connections between them		
 		sensorsNetworkPlot = plot.TightRectangularRoomPainterWithPEs(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
-														  self._sensorsPositions,PEsPositions,self._PEsSensorsConnections,
+														  self._sensorsPositions,self._PEsPositions,self._PEsSensorsConnections,
 														  self._networkTopology.getNeighbours(),sleepTime=self._painterSettings["sleep time between updates"])
 		sensorsNetworkPlot.setup()		
 		sensorsNetworkPlot.save(outputFile='network_topology_{}_PEs.pdf'.format(self._nPEs))
@@ -405,7 +423,7 @@ class Mposterior(SimpleSimulation):
 			h5algorithms[il] = l
 		
 		# the position and connected sensors of each PE
-		for iPE,(pos,sens) in enumerate(zip(PEsPositions.T,self._PEsSensorsConnections)):
+		for iPE,(pos,sens) in enumerate(zip(self._PEsPositions.T,self._PEsSensorsConnections)):
 			self._f.create_dataset(self._h5pyFilePrefix + 'PEs/{}/position'.format(iPE),shape=(2,),data=pos)
 			self._f.create_dataset(self._h5pyFilePrefix + 'PEs/{}/connected sensors'.format(iPE),shape=(len(sens),),data=sens)
 		
