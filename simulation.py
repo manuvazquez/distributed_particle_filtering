@@ -352,19 +352,6 @@ class Mposterior(SimpleSimulation):
 		# the settings for the selected "sensors-PES connector"
 		sensorsPEsConnectorSettings = parameters['sensors-PEs connectors'][self._simulationParameters['sensors-PEs connector']]
 		
-		# the positions of the PEs
-		#PEsPositions = PEsLayer.ClusteringSensorsPEsLayer(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],sensorsPositions=self._sensorsPositions).getPositions(self._nPEs)
-
-		#PEsPositions = PEsLayer.RandomPEsLayer(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],sensorsPositions=self._sensorsPositions,
-										 #parameters={'number of uniform samples':parameters['PEs layer']['Random']['parameters']['number of uniform samples']*self._nPEs}).getPositions(self._nPEs)
-		
-		#self._sensorsPositions = sensor.ConstantNumberOfSensorsPerPEsensorLayer(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],self._PEsPositions).getPositions(parameters["sensors"]['number'])
-		
-		## sensor objects need to be instantiated all over again
-		#sensorsSettings = parameters["sensors"]
-		#sensorClass = getattr(sensor,sensorsSettings[sensorsSettings['type']]['implementing class'])
-		#self._sensors = [sensorClass(pos[:,np.newaxis],PRNG=PRNGs['Sensors and Monte Carlo pseudo random numbers generator'],**sensorsSettings[sensorsSettings['type']]['parameters']) for pos in self._sensorsPositions.T]
-		
 		# the positions of the PEs are added as a parameters...technically they are "derived" parameters since they are completely determined by: 
 		#	- the corners of the room
 		#	- the positions of the sensors which, in turn, also depend on the corners of the room and the number of sensors
@@ -598,8 +585,10 @@ class Mposterior(SimpleSimulation):
 		
 		print(self._estimatedPos)
 		
-		# in order to make sure the HDF5 file is valid...
+		# if a reference to an HDF5 was not received, that means the file was created by this object, and hence it is responsibility to close it...
 		if self._h5pyFile == None:
+			
+			# ...in order to make sure the HDF5 file is valid...
 			self._f.close()
 		
 	def processFrame(self,targetPosition,targetVelocity):
@@ -759,9 +748,6 @@ class MposteriorExchangePercentage(Mposterior):
 		#np.savez('res_' + self._outputFile + '.npz',**dataToBeSaved)
 		scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
 		print('results saved in "{}"'.format('res_' + self._outputFile))
-
-		import code
-		code.interact(local=dict(globals(), **locals()))
 
 class MposteriorGeometricMedian(Mposterior):
 	

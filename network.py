@@ -117,20 +117,26 @@ class FixedNumberOfSensorsPerPE(Network):
 		
 		super().__init__(bottomLeftCorner,topRightCorner,nPEs,nSensors)
 		
-		self._phase = phase
-		self._radius = radius
-		
 		# there should be an integer number of sensors per PE...
 		assert(nSensors % nPEs == 0)
 		
 		self._PEsPositions = self.orderPositions(self.randomPositions(nPEs,nSamples))
 		#self._PEsPositions = self.equispacedPositions(self._nPEs)
 		
+		#import scipy.cluster.hierarchy as hcluster
+		#thresh = 1.5
+		#clusters = hcluster.fclusterdata(self._PEsPositions[1,:][:,np.newaxis], thresh, criterion="distance")
+		#nRowsOfPEs = len(np.unique(clusters))
+		#radius = (self._topRightCorner[1] - self._bottomLeftCorner[1])*0.75/(2*nRowsOfPEs)
+		
+		#import code
+		#code.interact(local=dict(globals(), **locals()))
+		
 		# ...which is
 		nSensorsPerPE = nSensors // nPEs
 		
 		# the sensors will be positioned at these angles around each PE
-		angles = self._phase + np.arange(0,2*np.pi,2*np.pi/nSensorsPerPE)
+		angles = phase + np.arange(0,2*np.pi,2*np.pi/nSensorsPerPE)
 		
 		self._sensorsPositions = np.empty((2,nSensors))
 		iSensor = 0
@@ -139,7 +145,7 @@ class FixedNumberOfSensorsPerPE(Network):
 			
 			for angle in angles:
 				
-				self._sensorsPositions[:,iSensor] = PEposition + np.array([self._radius*np.cos(angle),self._radius*np.sin(angle)])
+				self._sensorsPositions[:,iSensor] = PEposition + np.array([radius*np.cos(angle),radius*np.sin(angle)])
 				
 				iSensor += 1
 		

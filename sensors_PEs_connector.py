@@ -70,16 +70,14 @@ class ConstrainedProximityBasedConnector(ProximityBasedConnector):
 	def getConnections(self,nPEs):
 		
 		# a list with the sensors associated with each PE withouth the fixed number of sensors constraint
-		unconstrained = super().getConnections(nPEs)
+		unconstrainedPEsSensors = super().getConnections(nPEs)
 		
-		lengths = [len(s) for s in unconstrained]
+		lengths = [len(s) for s in unconstrainedPEsSensors]
 		
 		# the indexes of the PEs ordered by descending number of associated sensors
 		iDescendingLength = np.argsort(lengths)[::-1]
 		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
-		
+		# number of sensors that SHOULD be assigned to each PE
 		nSensorsPerPE = self._sensorsPositions.shape[1]//self._PEsPositions.shape[1]
 		
 		for i in range(nPEs-1):
@@ -92,33 +90,35 @@ class ConstrainedProximityBasedConnector(ProximityBasedConnector):
 			
 			if nSensorsToDrop==0:
 				
-				print('pass')
-				
 				continue
 			
-			#if nSensorsToDrop < 0:
+			elif nSensorsToDrop>0:
+			
+				# the positions of the sensors associated with the current PE
+				sensorsPositions = self._sensorsPositions[:,unconstrainedPEsSensors[iCurrentPE]]
 				
+				# the positions of subsequente (not processed yet) PEs
+				remainingPEsPositions = self._PEsPositions[:,iDescendingLength[i+1:]]
+				
+				# the (i,j) element is the distance from the i-th sensor to the j-th remaining PE
+				distances = np.sqrt(((sensorsPositions[:,:,np.newaxis] - remainingPEsPositions[:,np.newaxis,:])**2).sum(axis=0))
+				
+				for _ in range(nSensorsToDrop):
+					
+					# the index of the sensor that is sent away and that of the PE that is going to attach to
+					iLocalSensor,iHostingPE = np.unravel_index(distances.argmin(),distances.shape)
+			
+					unconstrainedPEsSensors[iDescendingLength[i+1+iHostingPE]].append(unconstrainedPEsSensors[iCurrentPE][iLocalSensor])
+					del unconstrainedPEsSensors[iCurrentPE][iLocalSensor]
+					
+					lengths[iCurrentPE] -= 1
+					lengths[iDescendingLength[i+1+iHostingPE]] += 1
+			
+			else:
+
 				#import code
 				#code.interact(local=dict(globals(), **locals()))
-			
-			sensorsPositions = self._sensorsPositions[:,unconstrained[iCurrentPE]]
-			
-			remainingPEsPositions = self._PEsPositions[:,iDescendingLength[i+1:]]
-			
-			# the (i,j) element is the distance from the i-th sensor to the j-th remaining PE
-			distances = np.sqrt(((sensorsPositions[:,:,np.newaxis] - remainingPEsPositions[:,np.newaxis,:])**2).sum(axis=0))
-			
-			for _ in range(nSensorsToDrop):
 				
-				iSensor,iPE = np.unravel_index(distances.argmin(),distances.shape)
+				raise Exception('not implemented!!')
 		
-				unconstrained[iDescendingLength[i+1+iPE]].append(unconstrained[iCurrentPE][iSensor])
-				del unconstrained[iCurrentPE][iSensor]
-				
-				lengths[iCurrentPE] -= 1
-				lengths[iDescendingLength[i+1+iPE]] += 1
-
-		import code
-		code.interact(local=dict(globals(), **locals()))
-		
-		return unconstrained
+		return unconstrainedPEsSensors
