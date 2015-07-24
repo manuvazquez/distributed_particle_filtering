@@ -306,6 +306,8 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 		
 		return 0
 
+# =========================================================================================================
+
 class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilter):
 	
 	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
@@ -410,6 +412,8 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		# each sensor must send its observation to every PE, and each transmission entails a certain number of "hops" on average
 		return len(self._sensors)*self._nPEs*self._nAverageHopsOnTransmission
 
+# =========================================================================================================
+
 class PlainDistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTrackingParticleFilter):
 	
 	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,
@@ -457,6 +461,8 @@ class PlainDistributedTargetTrackingParticleFilterWithMposterior(DistributedTarg
 		jointWeights =	np.hstack([posterior[1]*weight for posterior,weight in zip(posteriorDistributions,weiszfeldWeights)])
 		
 		return (jointParticles,jointWeights)
+
+# =========================================================================================================
 
 class DistributedTargetTrackingParticleFilterWithMposterior(PlainDistributedTargetTrackingParticleFilterWithMposterior):
 	

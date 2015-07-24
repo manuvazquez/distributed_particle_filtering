@@ -244,10 +244,10 @@ class Physical(Topology):
 		
 		for iPE in range(PEsPositions.shape[1]):
 			
-			# the difference vectors between the position of the current PE and the positions of ALL the PEs, which allow to compute...
+			# the difference vectors between the position of the current PE and the positions of ALL the PEs,...
 			diff = PEsPositions - PEsPositions[:,iPE:iPE+1]
 			
-			# ...the angles
+			# ... which allow to compute the angles
 			angles = np.degrees(np.arctan2(diff[1,:],diff[0,:]))
 			
 			# ...and the distances
