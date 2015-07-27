@@ -310,23 +310,22 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 
 class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilter):
 	
-	def __init__(self,exchangePeriod,topology,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
+	def __init__(self,exchangePeriod,exchangeRecipe,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
 			  PFsClass=EmbeddedTargetTrackingParticleFilter):
 		
-		super().__init__(topology.getNumberOfPEs(),nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
-				   PFsClass=PFsClass,PFsInitialAggregatedWeight=1.0/topology.getNumberOfPEs())
+		super().__init__(exchangeRecipe.getNumberOfPEs(),nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
+				   PFsClass=PFsClass,PFsInitialAggregatedWeight=1.0/exchangeRecipe.getNumberOfPEs())
 		
 		# a exchange of particles among PEs will happen every...
 		self._exchangePeriod = exchangePeriod
+		
+		self._exchangeRecipe = exchangeRecipe
 
 		# period for the normalization of the aggregated weights
 		self._normalizationPeriod = normalizationPeriod
 		
-		# how the PEs are interconnected
-		self._topology = topology
-
 		# we get a unique exchange map from this network
-		self._exchangeMap,_ = self._topology.getExchangeTuples()
+		self._exchangeMap,_ = exchangeRecipe.getExchangeTuples()
 		
 		self._estimator = smc.estimator.WeightedMean(self)
 		
@@ -368,9 +367,6 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 				PE.divideWeights(aggregatedWeightsSum)
 
 	def exchangeParticles(self):
-
-		## we generate a random exchange map
-		#self._exchangeMap,_ = self._topology.getExchangeTuples()
 
 		# first, we compile all the particles that are going to be exchanged in an auxiliar variable
 		aux = []
@@ -416,14 +412,11 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 
 class PlainDistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTrackingParticleFilter):
 	
-	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,
+	def __init__(self,exchangeRecipe,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,
 			  PFsClass=CentralizedTargetTrackingParticleFilter):
 		
-		super().__init__(topology.getNumberOfPEs(),nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass)
+		super().__init__(exchangeRecipe.getNumberOfPEs(),nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass)
 		
-		# how the PEs are interconnected
-		self._topology = topology
-
 		# the (R) Mposterior package is imported...
 		self._Mposterior = importr('Mposterior')
 		
@@ -466,16 +459,17 @@ class PlainDistributedTargetTrackingParticleFilterWithMposterior(DistributedTarg
 
 class DistributedTargetTrackingParticleFilterWithMposterior(PlainDistributedTargetTrackingParticleFilterWithMposterior):
 	
-	def __init__(self,topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,sharingPeriod,
-			  exchangeManager=smc.mposterior.share.RandomExchange(),PFsClass=CentralizedTargetTrackingParticleFilter):
+	def __init__(self,exchangeRecipe,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,sharingPeriod,
+			  exchangeManager,PFsClass=CentralizedTargetTrackingParticleFilter):
 		
-		super().__init__(topology,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,PFsClass=PFsClass)
+		super().__init__(exchangeRecipe,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,PFsClass=PFsClass)
 		
 		self._sharingPeriod = sharingPeriod
-		self._nSharedParticles = topology.nParticlesExchangedBetweenTwoNeighbours
+		self._nSharedParticles = exchangeRecipe.nParticlesExchangedBetweenTwoNeighbours
+		self._exchangeRecipe = exchangeRecipe
 		
 		# we get a unique exchange map from this network
-		self._exchangeMap,self._neighboursWithParticles = self._topology.getExchangeTuples()
+		self._exchangeMap,self._neighboursWithParticles = exchangeRecipe.getExchangeTuples()
 		
 		# this object is responsible for the sharing step
 		self._exchangeManager = exchangeManager
