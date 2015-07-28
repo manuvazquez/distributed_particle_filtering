@@ -365,15 +365,15 @@ class Mposterior(SimpleSimulation):
 			self._sensorsPositions,self._PEsPositions,sensorsPEsConnectorSettings['parameters']).getConnections(self._nPEs)
 
 		# network topology, which describes the connection among PEs, as well as the exact particles exchanged/shared
-		PEsTopology = getattr(PEs_topology,self._topologiesSettings['implementing class'])(self._nPEs,self._topologiesSettings['parameters'])
+		self._PEsTopology = getattr(PEs_topology,self._topologiesSettings['implementing class'])(self._nPEs,self._topologiesSettings['parameters'])
 		
 		
-		self._exchangeRecipe = smc.particles_exchange.ExchangeRecipe(PEsTopology,self._K,self._simulationParameters["exchanged particles maximum percentage"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
+		self._exchangeRecipe = smc.particles_exchange.ExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles maximum percentage"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
 		
 		# ...are plot the connections between them		
 		sensorsNetworkPlot = plot.TightRectangularRoomPainterWithPEs(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
 														  self._sensorsPositions,self._PEsPositions,self._PEsSensorsConnections,
-														  PEsTopology.getNeighbours(),sleepTime=self._painterSettings["sleep time between updates"])
+														  self._PEsTopology.getNeighbours(),sleepTime=self._painterSettings["sleep time between updates"])
 		sensorsNetworkPlot.setup()		
 		sensorsNetworkPlot.save(outputFile='network_topology_{}_PEs.pdf'.format(self._nPEs))
 		
@@ -426,6 +426,23 @@ class Mposterior(SimpleSimulation):
 		"""Adds the algorithms to be tested by this simulation, defining the required parameters.
 		
 		"""
+		
+		## consensus
+		#self._PFs.append(
+			#particle_filter.LikelihoodConsensusDistributedTargetTrackingParticleFilter(
+				#self._nPEs,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,self._sensors,self._PEsSensorsConnections
+				#)
+		#)
+		
+		#self._PFs[-1].polynomialApproximation(None,None,2)
+		
+		## the estimator just delegates the calculus of the estimate to the PF
+		#self._estimators.append(smc.estimator.Delegating(self._PFs[-1]))
+		
+		#self._estimatorsColors.append('lawngreen')
+		#self._estimatorsLabels.append('test')
+		
+		# ------------
 
 		# a single PE (with the number of particles of any other PE) that has access to all the observations
 		self._PFs.append(

@@ -308,6 +308,106 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 
 # =========================================================================================================
 
+#class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTargetTrackingParticleFilter):
+	
+	#def __init__(self,nPEs,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
+			  #PFsClass=CentralizedTargetTrackingParticleFilter,PFsInitialAggregatedWeight=1.0):
+		
+		#super().__init__(nPEs,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections)
+	
+	#def polynomialApproximation(self,x,y,degree):
+		
+		#import itertools
+		#import scipy.misc
+		##import numpy.linalg
+		
+		## for the sake of conveninience when following the pseudocode in "Likelihood Consensus and its Application to Distributed Particle Filtering":
+		
+		## the size of the state
+		#M = state.nElements
+		
+		## the chosen degreen for the polynomial approximation
+		#R_p = degree
+		#R_d = degree
+		
+		## theoretical number of monomials in the approximation
+		#R_a = scipy.misc.comb(R_p + M,R_p,exact=True)
+		
+		##monomialsExponents = list(itertools.filterfalse(lambda x: sum(x)>R_p, itertools.product(range(R_p+1),repeat=M)))
+		
+		## an iterator with the exponents of each variable in every monomial
+		#monomialsExponents = itertools.filterfalse(lambda x: sum(x)>R_p, itertools.product(range(R_p+1),repeat=M))
+		
+		
+		#exponentsMatrix = np.array(list(itertools.filterfalse(lambda x: sum(x)>R_p, itertools.product(range(R_p+1),repeat=M))))
+		
+		## -----------
+		#q = 2
+		
+		#np.random.seed(123412341)
+		
+		#x = np.random.randn(M,20)
+		#true_phi = (x.T[:,:,np.newaxis]**exponentsMatrix.T[np.newaxis,:,:]).prod(axis=1)
+		
+		#alphas = np.random.randn(q,R_a)
+		#gammas = np.random.randn(R_a)
+		
+		#y = []
+		#d = []
+		
+		#for sample in true_phi:
+			
+			#y.append((sample[np.newaxis,:]*alphas).sum(axis=1))
+			#d.append(sample.dot(gammas))
+			
+		
+		#A = np.vstack(y)
+		##A = A + np.random.randn(*A.shape)*0.1
+		
+		#d = np.array(d)
+		
+		##np.allclose(true_phi.dot(alphas.T),A)
+		##np.linalg.cond(true_phi.T.dot(true_phi))
+		
+		##sol = np.dot(np.dot(np.linalg.inv(np.dot(true_phi.T,true_phi)),true_phi.T),A)
+		#sol = np.linalg.pinv(true_phi).dot(A)
+		
+		#gammaHat = np.linalg.pinv(true_phi).dot(d)
+		
+		##true_phi.T
+		
+		## -----------
+		
+		## the number of points used in the approximation
+		#J = x.shape[1]
+		
+		##phi2 = np.empty((J,R_a))
+		
+		### for every sample used to compute the approximation
+		##for iSample,sample in enumerate(x.T):
+			
+			###print('================ wap ================')
+			
+			### each "tuple" of exponents represents a monomial
+			###for iExponents,exponents in enumerate(monomialsExponents):
+			##for iExponents,exponents in enumerate(exponentsMatrix):
+			
+				##phi2[iSample,iExponents] = prod(sample**exponents)
+				###print('iSample = {}'.format(iSample))
+				###print('iExponents = {}'.format(iExponents))
+				###print('result = {}'.format(sample**exponents))
+				
+		
+		## in the first matrix, we just replicate the samples matrix (<number of sample>,<component within sample>) along the third dimension;
+		## in the second matrix, the third dimension gives the number of monomial
+		#phi = (x.T[:,:,np.newaxis]**exponentsMatrix.T[np.newaxis,:,:]).prod(axis=1)
+		
+		
+		#import code
+		#code.interact(local=dict(globals(), **locals()))
+
+# =========================================================================================================
+
 class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilter):
 	
 	def __init__(self,exchangePeriod,exchangeRecipe,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
@@ -339,7 +439,8 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		# if it is exchanging particles time
 		if (self._n % self._exchangePeriod == 0):
 			
-			self.exchangeParticles()
+			#self.exchangeParticles()
+			self._exchangeRecipe.performExchange(self)
 			
 			# after the exchange, the aggregated weight of every PE must be updated
 			for PE in self._PEs:
@@ -365,18 +466,6 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 			for PE in self._PEs:
 				
 				PE.divideWeights(aggregatedWeightsSum)
-
-	def exchangeParticles(self):
-
-		# first, we compile all the particles that are going to be exchanged in an auxiliar variable
-		aux = []
-		for exchangeTuple in self._exchangeMap:
-			aux.append((self._PEs[exchangeTuple.iPE].getParticle(exchangeTuple.iParticleWithinPE),self._PEs[exchangeTuple.iNeighbour].getParticle(exchangeTuple.iParticleWithinNeighbour)))
-
-		# afterwards, we loop through all the exchange tuples performing the real exchange
-		for (exchangeTuple,particles) in zip(self._exchangeMap,aux):
-			self._PEs[exchangeTuple.iPE].setParticle(exchangeTuple.iParticleWithinPE,particles[1])
-			self._PEs[exchangeTuple.iNeighbour].setParticle(exchangeTuple.iParticleWithinNeighbour,particles[0])
 	
 	def getAggregatedWeights(self):
 		
@@ -410,12 +499,16 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 
 # =========================================================================================================
 
-class PlainDistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTrackingParticleFilter):
+class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTrackingParticleFilter):
 	
-	def __init__(self,exchangeRecipe,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,
-			  PFsClass=CentralizedTargetTrackingParticleFilter):
+	def __init__(self,exchangeRecipe,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,sharingPeriod,
+			  exchangeManager,PFsClass=CentralizedTargetTrackingParticleFilter):
 		
 		super().__init__(exchangeRecipe.getNumberOfPEs(),nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass)
+		
+		self._sharingPeriod = sharingPeriod
+		self._nSharedParticles = exchangeRecipe.nParticlesExchangedBetweenTwoNeighbours
+		self._exchangeRecipe = exchangeRecipe
 		
 		# the (R) Mposterior package is imported...
 		self._Mposterior = importr('Mposterior')
@@ -423,6 +516,12 @@ class PlainDistributedTargetTrackingParticleFilterWithMposterior(DistributedTarg
 		# ...and the parameters to be passed to the required function are kept
 		self._findWeiszfeldMedianParameters = findWeiszfeldMedianParameters
 		
+		# we get a unique exchange map from this network
+		self._exchangeMap,self._neighboursWithParticles = exchangeRecipe.getExchangeTuples()
+		
+		# this object is responsible for the sharing step
+		self._exchangeManager = exchangeManager
+
 	def Mposterior(self,posteriorDistributions):
 		
 		"""Applies the Mposterior algorithm to weight the samples of a list of "subset posterior distribution"s.
@@ -455,25 +554,6 @@ class PlainDistributedTargetTrackingParticleFilterWithMposterior(DistributedTarg
 		
 		return (jointParticles,jointWeights)
 
-# =========================================================================================================
-
-class DistributedTargetTrackingParticleFilterWithMposterior(PlainDistributedTargetTrackingParticleFilterWithMposterior):
-	
-	def __init__(self,exchangeRecipe,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,sharingPeriod,
-			  exchangeManager,PFsClass=CentralizedTargetTrackingParticleFilter):
-		
-		super().__init__(exchangeRecipe,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,PFsClass=PFsClass)
-		
-		self._sharingPeriod = sharingPeriod
-		self._nSharedParticles = exchangeRecipe.nParticlesExchangedBetweenTwoNeighbours
-		self._exchangeRecipe = exchangeRecipe
-		
-		# we get a unique exchange map from this network
-		self._exchangeMap,self._neighboursWithParticles = exchangeRecipe.getExchangeTuples()
-		
-		# this object is responsible for the sharing step
-		self._exchangeManager = exchangeManager
-		
 	def step(self,observations):
 		
 		super().step(observations)

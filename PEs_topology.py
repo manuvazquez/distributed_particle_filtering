@@ -112,7 +112,7 @@ class FullyConnected(Topology):
 		
 		self._neighbours = [[j for j in range(nPEs) if j!=i] for i in range(nPEs)]
 
-class Physical(Topology):
+class LOSbased(Topology):
 	
 	def __init__(self,nPEs,topologySpecificParameters):
 		

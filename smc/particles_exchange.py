@@ -96,3 +96,15 @@ class ExchangeRecipe:
 		"""
 		
 		return self._nParticlesExchangedBetweenTwoNeighbours
+	
+	def performExchange(self,DPF):
+
+		# first, we compile all the particles that are going to be exchanged in an auxiliar variable
+		aux = []
+		for exchangeTuple in self._exchangeTuples:
+			aux.append((DPF._PEs[exchangeTuple.iPE].getParticle(exchangeTuple.iParticleWithinPE),DPF._PEs[exchangeTuple.iNeighbour].getParticle(exchangeTuple.iParticleWithinNeighbour)))
+
+		# afterwards, we loop through all the exchange tuples performing the real exchange
+		for (exchangeTuple,particles) in zip(self._exchangeTuples,aux):
+			DPF._PEs[exchangeTuple.iPE].setParticle(exchangeTuple.iParticleWithinPE,particles[1])
+			DPF._PEs[exchangeTuple.iNeighbour].setParticle(exchangeTuple.iParticleWithinNeighbour,particles[0])
