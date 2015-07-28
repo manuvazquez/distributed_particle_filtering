@@ -367,8 +367,13 @@ class Mposterior(SimpleSimulation):
 		# network topology, which describes the connection among PEs, as well as the exact particles exchanged/shared
 		self._PEsTopology = getattr(PEs_topology,self._topologiesSettings['implementing class'])(self._nPEs,self._topologiesSettings['parameters'])
 		
+		# a copy of the required PRNG is built...so that the exchange particles map is the same for both DRNA and Mposterior
+		# TODO: is this really necesary? a better approach?
+		import copy
+		PRNGcopy = copy.deepcopy(self._PRNGs["topology pseudo random numbers generator"])
 		
-		self._exchangeRecipe = smc.particles_exchange.ExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles maximum percentage"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
+		self._DRNAexchangeRecipe = smc.particles_exchange.ExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles maximum percentage"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
+		self._MposteriorExchangeRecipe = smc.particles_exchange.MposteriorExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles maximum percentage"],PRNG=PRNGcopy)
 		
 		# ...are plot the connections between them		
 		sensorsNetworkPlot = plot.TightRectangularRoomPainterWithPEs(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
@@ -480,7 +485,7 @@ class Mposterior(SimpleSimulation):
 		# a distributed PF with DRNA
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"],self._exchangeRecipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
+				self._DRNAsettings["exchange period"],self._DRNAexchangeRecipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
 				self._prior,self._transitionKernel,self._sensors,self._everySensorWithEveryPEConnector.getConnections(self._nPEs),PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
 		)
@@ -497,7 +502,7 @@ class Mposterior(SimpleSimulation):
 		# a distributed PF using a variation of DRNA in which each PE only sees a subset of the observations
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"],self._exchangeRecipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
+				self._DRNAsettings["exchange period"],self._DRNAexchangeRecipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
 				self._prior,self._transitionKernel,self._sensors,self._PEsSensorsConnections,PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
 		)
@@ -529,10 +534,9 @@ class Mposterior(SimpleSimulation):
 		# DPF with M-posterior-based exchange
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-				self._exchangeRecipe,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
+				self._MposteriorExchangeRecipe,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 				self._sensors,self._PEsSensorsConnections,self._MposteriorSettings['findWeiszfeldMedian parameters'],
-				self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
-				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter)
+				self._MposteriorSettings['sharing period'],PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter)
 		)
 		
 		## an estimator combining all the particles from all the PEs through M-posterior to give a distribution whose mean is the estimate
@@ -544,8 +548,8 @@ class Mposterior(SimpleSimulation):
 		# ------------
 		
 		# an estimator computing the geometric median with 1 particle taken from each PE
-		self._estimators.append(smc.estimator.GeometricMedian(self._PFs[-1],
-														maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
+		self._estimators.append(smc.estimator.GeometricMedian(self._PFs[-1],maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
+														tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 		self._estimatorsColors.append('green')
 		self._estimatorsLabels.append('M-posterior (geometric median with 1 particle from each PE)')
 		
@@ -730,8 +734,7 @@ class MposteriorExchangePercentage(Mposterior):
 				smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
 					exchangeMap,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 					self._sensors,self._PEsSensorsConnections,self._MposteriorSettings['findWeiszfeldMedian parameters'],
-					self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
-					PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter
+					self._MposteriorSettings['sharing period'],PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter
 				)
 			)
 			
@@ -782,7 +785,7 @@ class MposteriorGeometricMedian(Mposterior):
 		# a distributed PF with DRNA
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"],self._exchangeRecipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
+				self._DRNAsettings["exchange period"],self._DRNAexchangeRecipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
 				self._prior,self._transitionKernel,self._sensors,self._everySensorWithEveryPEConnector.getConnections(self._nPEs),PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
 		)
@@ -800,10 +803,9 @@ class MposteriorGeometricMedian(Mposterior):
 		# DPF with M-posterior-based exchange
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-				self._exchangeRecipe,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
+				self._MposteriorExchangeRecipe,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 				self._sensors,self._PEsSensorsConnections,self._MposteriorSettings['findWeiszfeldMedian parameters'],
-				self._MposteriorSettings['sharing period'],exchangeManager=smc.mposterior.share.DeterministicExchange(),
-				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,
+				self._MposteriorSettings['sharing period'],PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,
 			)
 		)
 		

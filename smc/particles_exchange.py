@@ -108,3 +108,26 @@ class ExchangeRecipe:
 		for (exchangeTuple,particles) in zip(self._exchangeTuples,aux):
 			DPF._PEs[exchangeTuple.iPE].setParticle(exchangeTuple.iParticleWithinPE,particles[1])
 			DPF._PEs[exchangeTuple.iNeighbour].setParticle(exchangeTuple.iParticleWithinNeighbour,particles[0])
+
+class MposteriorExchangeRecipe(ExchangeRecipe):
+	
+	#def share(self,DPF):
+	def performExchange(self,DPF):
+		
+		for PE,this_PE_neighbours_particles in zip(DPF._PEs,self._neighboursWithParticles):
+			
+			# a list with the subset posterior of each neighbour
+			subsetPosteriorDistributions = [(DPF._PEs[neighbour_particles[0]].getSamplesAt(neighbour_particles[1]).T,np.full(self._nParticlesExchangedBetweenTwoNeighbours,1.0/self._nParticlesExchangedBetweenTwoNeighbours)) for neighbour_particles in this_PE_neighbours_particles]
+			
+			# a subset posterior obtained from this PE is also added: it encompasses its FIRST "self._nParticlesExchangedBetweenTwoNeighbours" particles
+			subsetPosteriorDistributions.append((PE.getSamplesAt(range(self._nParticlesExchangedBetweenTwoNeighbours)).T,np.full(self._nParticlesExchangedBetweenTwoNeighbours,1.0/self._nParticlesExchangedBetweenTwoNeighbours)))
+			
+			# M posterior on the posterior distributions collected above
+			jointParticles,jointWeights = DPF.Mposterior(subsetPosteriorDistributions)
+			
+			# the indexes of the particles to be kept
+			iNewParticles = DPF._resamplingAlgorithm.getIndexes(jointWeights,PE._nParticles)
+			
+			PE.samples = jointParticles[:,iNewParticles]
+			PE.logWeights = np.full(PE._nParticles,-np.log(PE._nParticles))
+			PE.updateAggregatedWeight()

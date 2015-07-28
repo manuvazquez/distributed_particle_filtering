@@ -4,7 +4,6 @@ import abc
 
 import state
 import smc.estimator
-import smc.mposterior.share
 
 # this is required (due to a bug?) for import rpy2
 import readline
@@ -502,12 +501,11 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTrackingParticleFilter):
 	
 	def __init__(self,exchangeRecipe,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,findWeiszfeldMedianParameters,sharingPeriod,
-			  exchangeManager,PFsClass=CentralizedTargetTrackingParticleFilter):
+			  PFsClass=CentralizedTargetTrackingParticleFilter):
 		
 		super().__init__(exchangeRecipe.getNumberOfPEs(),nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass)
 		
 		self._sharingPeriod = sharingPeriod
-		self._nSharedParticles = exchangeRecipe.nParticlesExchangedBetweenTwoNeighbours
 		self._exchangeRecipe = exchangeRecipe
 		
 		# the (R) Mposterior package is imported...
@@ -516,12 +514,6 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 		# ...and the parameters to be passed to the required function are kept
 		self._findWeiszfeldMedianParameters = findWeiszfeldMedianParameters
 		
-		# we get a unique exchange map from this network
-		self._exchangeMap,self._neighboursWithParticles = exchangeRecipe.getExchangeTuples()
-		
-		# this object is responsible for the sharing step
-		self._exchangeManager = exchangeManager
-
 	def Mposterior(self,posteriorDistributions):
 		
 		"""Applies the Mposterior algorithm to weight the samples of a list of "subset posterior distribution"s.
@@ -561,4 +553,4 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 		# if it is sharing particles time
 		if (self._n % self._sharingPeriod == 0):
 			
-			self._exchangeManager.share(self)
+			self._exchangeRecipe.performExchange(self)
