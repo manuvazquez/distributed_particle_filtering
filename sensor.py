@@ -93,13 +93,16 @@ class RSSsensor(Sensor):
 		# the path loss exponent (depending on the medium)
 		self._pathLossExponent = path_loss_exponent
 		
-		# the variance of the additive noise in the model
+		# the variance of the additive noise in the model (it is meant to be accessed from outside)
+		self.noiseVar = noise_variance
+		
+		# ...and, for the sake of efficiency, the standard deviation
 		self._noiseStd = np.sqrt(noise_variance)
 		
 		# minimum amount of power the sensor is able to measure
 		self._minimumPower = minimum_amount_of_power
 
-	def meanRSS(self,distances):
+	def likelihoodMean(self,distances):
 		
 		return 10*np.log10(self._txPower/distances**self._pathLossExponent + self._minimumPower)
 
@@ -107,11 +110,11 @@ class RSSsensor(Sensor):
 		
 		distance = np.linalg.norm((self.position - targetPos))
 		
-		return self.meanRSS(distance) + self._PRNG.randn()*self._noiseStd
+		return self.likelihoodMean(distance) + self._PRNG.randn()*self._noiseStd
 
 	def likelihood(self,observation,positions):
 		
 		# the distances to ALL the positions are computed
 		distances = np.linalg.norm(np.subtract(positions,self.position),axis=0)
 		
-		return scipy.stats.norm.pdf(observation,self.meanRSS(distances),self._noiseStd)
+		return scipy.stats.norm.pdf(observation,self.likelihoodMean(distances),self._noiseStd)

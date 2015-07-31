@@ -439,13 +439,11 @@ class Mposterior(SimpleSimulation):
 				#)
 		#)
 		
-		#self._PFs[-1].polynomialApproximation(None,None,2)
-		
 		## the estimator just delegates the calculus of the estimate to the PF
 		#self._estimators.append(smc.estimator.Delegating(self._PFs[-1]))
 		
-		#self._estimatorsColors.append('lawngreen')
-		#self._estimatorsLabels.append('test')
+		#self._estimatorsColors.append('brown')
+		#self._estimatorsLabels.append('LC DPF')
 		
 		# ------------
 

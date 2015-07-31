@@ -253,10 +253,202 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 
 # =========================================================================================================
 
+class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(CentralizedTargetTrackingParticleFilter):
+	
+	def __init__(self,nParticles,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,aggregatedWeight=1.0):
+		
+		super().__init__(nParticles,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,aggregatedWeight)
+		
+		# the noise covariance matrix is built from the individual variances of each sensor
+		self._noiseCovariance = np.diag([s.noiseVar for s in sensors])
+		
+		# the position of every sensor
+		self._sensorsPositions = np.hstack([s.position for s in sensors])
+		#self._sensorsPositions = np.hstack([s.position for s in sensors[:3]])
+	
+	def likelihoodMean(self,positions):
+		
+		# each row gives the distances from ALL the positions to a sensor
+		distances = np.linalg.norm(positions[:,:,np.newaxis] - self._sensorsPositions[:,np.newaxis,:],axis=0).T
+		
+		#import code
+		#code.interact(local=dict(globals(), **locals()))
+		
+		return np.vstack([s.likelihoodMean(d) for d,s in zip(distances,self._sensors)])
+		
+	def step(self,observations):
+		
+		super().step(observations)
+		
+		self.polynomialApproximation(observations,None,None,2)
+	
+	def polynomialApproximation(self,observations,x,y,degree):
+		
+		import itertools
+		import scipy.misc
+		
+		# for the sake of conveninience when following the pseudocode in "Likelihood Consensus and its Application to Distributed Particle Filtering":
+		
+		# the size of the state
+		#M = state.nElements
+		M = 2
+		
+		# the chosen degreen for the polynomial approximation
+		R_p = degree
+		
+		#R_d = degree
+		
+		# the number of elements in the observations vector
+		q = len(self._sensors)
+		
+		# theoretical number of monomials in the approximation
+		R_a = scipy.misc.comb(R_p + M,R_p,exact=True)
+		
+		# a list of tuples, each one representing a combination of possible exponents for a monomial
+		r_a_tuples = list(itertools.filterfalse(lambda x: sum(x)>R_p, itertools.product(range(R_p+1),repeat=M)))
+		
+		# each row contains the exponents for a monomial
+		r_a = np.array(r_a_tuples)
+		
+		# -----------
+		
+		#np.random.seed(123412341)
+		
+		#x = np.random.randn(M,20)
+		#true_phi = (x.T[:,:,np.newaxis]**r_a.T[np.newaxis,:,:]).prod(axis=1)
+		
+		
+		#alphas = np.random.randn(q,R_a)
+		#gammas = np.random.randn(R_a)
+		
+		#y = []
+		#d = []
+		
+		#for sample in true_phi:
+			
+			#y.append((sample[np.newaxis,:]*alphas).sum(axis=1))
+			#d.append(sample.dot(gammas))
+			
+		
+		#A = np.vstack(y)
+		##A = A + np.random.randn(*A.shape)*0.1
+		
+		#d = np.array(d)
+		
+		##np.allclose(true_phi.dot(alphas.T),A)
+		##np.linalg.cond(true_phi.T.dot(true_phi))
+		
+		##sol = np.dot(np.dot(np.linalg.inv(np.dot(true_phi.T,true_phi)),true_phi.T),A)
+		#sol = np.linalg.pinv(true_phi).dot(A)
+		
+		#gammaHat = np.linalg.pinv(true_phi).dot(d)
+		
+		##true_phi.T
+		
+		## -----------
+		
+		## the number of points used in the approximation
+		#J = x.shape[1]
+		
+		#import code
+		#code.interact(local=dict(globals(), **locals()))
+		
+		x = state.position(self._state)
+		#x = np.random.randn(2,200)
+		
+		# in the first matrix, we just replicate the samples matrix (<number of sample>,<component within sample>) along the third dimension;
+		# in the second matrix, the third dimension gives the number of monomial
+		phi = (x.T[:,:,np.newaxis]**r_a.T[np.newaxis,:,:]).prod(axis=1)
+		
+		# the true values for the function to be approximated
+		A = self.likelihoodMean(x).T
+		
+		# the coefficients of the approximation (each row corresponds to one coefficient)
+		Y = np.linalg.pinv(phi).dot(A)
+		
+		# the solution is stored in a dictionary for easy access
+		alpha = dict(zip(r_a_tuples,Y))
+		
+		# *************** test
+		approx = phi.dot(Y)
+		approx[0,:] - A[0,:]
+		print('error = {}'.format(((approx - A)**2).sum()))
+		# ***************
+		
+		# exponents for computing d
+		r_d_tuples = list(itertools.filterfalse(lambda x: sum(x)>(2*R_p), itertools.product(range(2*R_p+1),repeat=M)))
+		r_d = np.array(r_d_tuples)
+		
+		# a dictionary (indexed by the elements in r_d_tuples) with the computed coefficients gamma
+		gamma = {}
+		
+		for r in r_d:
+			
+			relevantCombinations = list(itertools.filterfalse(lambda x: not np.allclose((np.array(x)[:M] + x[M:]),r) or sum(x[:M])>R_p or sum(x[M:])>R_p,itertools.product(range(R_p+1),repeat=2*M)))
+			#rPrime = relevantCombinations[:,:M]
+			#rDoublePrime = relevantCombinations[:,M:]
+		
+			#import code
+			#code.interact(local=dict(globals(), **locals()))
+			
+			accum = 0
+			
+			for t in relevantCombinations:
+				
+				# alpha * covariance * alpha^T (alpha has been stored as a row vector)
+				accum += alpha[t[:M]].dot(self._noiseCovariance).dot(alpha[t[M:]][:,np.newaxis]).item(0)
+				
+				#import code
+				#code.interact(local=dict(globals(), **locals()))
+			
+			accum /= 2
+			
+			# the computed value is added to the dictionary
+			gamma[tuple(r)] = accum
+		
+		
+		# *************** test
+		xTest = x[:,0]
+		s = 0
+		for exponents,coef in gamma.items():
+			s += (xTest**exponents).prod()*coef
+		h = self.likelihoodMean(xTest[:,np.newaxis])
+		d = 0.5*h.T.dot(self._noiseCovariance).dot(h).item(0)
+		# ***************
+		
+		b = self._noiseCovariance.dot(observations)[:,np.newaxis]
+		
+		beta = {}
+		
+		for r in r_d_tuples:
+			
+			deg = sum(r)
+			
+			if deg<=R_p:
+				
+				beta[r] = alpha[r].dot(b) - gamma[r]
+			
+			elif deg<=(2*R_p):
+				
+				beta[r] = - gamma[r]
+			
+			else:
+				
+				raise Exception('WTF')
+		
+		
+		N_c = scipy.misc.comb(2*R_p + M,2*R_p,exact=True)
+		
+		import code
+		code.interact(local=dict(globals(), **locals()))
+			
+
+# =========================================================================================================
+
 class DistributedTargetTrackingParticleFilter(ParticleFilter):
 	
 	def __init__(self,nPEs,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
-			  PFsClass=CentralizedTargetTrackingParticleFilter,PFsInitialAggregatedWeight=1.0):
+			  PFsClass=CentralizedTargetTrackingParticleFilterWithConsensusCapabilities,PFsInitialAggregatedWeight=1.0):
 		
 		super().__init__(nPEs*nParticlesPerPE,resamplingAlgorithm,resamplingCriterion)
 		
@@ -307,103 +499,14 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 
 # =========================================================================================================
 
-#class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTargetTrackingParticleFilter):
+class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTargetTrackingParticleFilter):
 	
-	#def __init__(self,nPEs,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
-			  #PFsClass=CentralizedTargetTrackingParticleFilter,PFsInitialAggregatedWeight=1.0):
+	def __init__(self,nPEs,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
+			  PFsClass=CentralizedTargetTrackingParticleFilterWithConsensusCapabilities):
 		
-		#super().__init__(nPEs,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections)
-	
-	#def polynomialApproximation(self,x,y,degree):
+		super().__init__(nPEs,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections)
 		
-		#import itertools
-		#import scipy.misc
-		##import numpy.linalg
-		
-		## for the sake of conveninience when following the pseudocode in "Likelihood Consensus and its Application to Distributed Particle Filtering":
-		
-		## the size of the state
-		#M = state.nElements
-		
-		## the chosen degreen for the polynomial approximation
-		#R_p = degree
-		#R_d = degree
-		
-		## theoretical number of monomials in the approximation
-		#R_a = scipy.misc.comb(R_p + M,R_p,exact=True)
-		
-		##monomialsExponents = list(itertools.filterfalse(lambda x: sum(x)>R_p, itertools.product(range(R_p+1),repeat=M)))
-		
-		## an iterator with the exponents of each variable in every monomial
-		#monomialsExponents = itertools.filterfalse(lambda x: sum(x)>R_p, itertools.product(range(R_p+1),repeat=M))
-		
-		
-		#exponentsMatrix = np.array(list(itertools.filterfalse(lambda x: sum(x)>R_p, itertools.product(range(R_p+1),repeat=M))))
-		
-		## -----------
-		#q = 2
-		
-		#np.random.seed(123412341)
-		
-		#x = np.random.randn(M,20)
-		#true_phi = (x.T[:,:,np.newaxis]**exponentsMatrix.T[np.newaxis,:,:]).prod(axis=1)
-		
-		#alphas = np.random.randn(q,R_a)
-		#gammas = np.random.randn(R_a)
-		
-		#y = []
-		#d = []
-		
-		#for sample in true_phi:
-			
-			#y.append((sample[np.newaxis,:]*alphas).sum(axis=1))
-			#d.append(sample.dot(gammas))
-			
-		
-		#A = np.vstack(y)
-		##A = A + np.random.randn(*A.shape)*0.1
-		
-		#d = np.array(d)
-		
-		##np.allclose(true_phi.dot(alphas.T),A)
-		##np.linalg.cond(true_phi.T.dot(true_phi))
-		
-		##sol = np.dot(np.dot(np.linalg.inv(np.dot(true_phi.T,true_phi)),true_phi.T),A)
-		#sol = np.linalg.pinv(true_phi).dot(A)
-		
-		#gammaHat = np.linalg.pinv(true_phi).dot(d)
-		
-		##true_phi.T
-		
-		## -----------
-		
-		## the number of points used in the approximation
-		#J = x.shape[1]
-		
-		##phi2 = np.empty((J,R_a))
-		
-		### for every sample used to compute the approximation
-		##for iSample,sample in enumerate(x.T):
-			
-			###print('================ wap ================')
-			
-			### each "tuple" of exponents represents a monomial
-			###for iExponents,exponents in enumerate(monomialsExponents):
-			##for iExponents,exponents in enumerate(exponentsMatrix):
-			
-				##phi2[iSample,iExponents] = prod(sample**exponents)
-				###print('iSample = {}'.format(iSample))
-				###print('iExponents = {}'.format(iExponents))
-				###print('result = {}'.format(sample**exponents))
-				
-		
-		## in the first matrix, we just replicate the samples matrix (<number of sample>,<component within sample>) along the third dimension;
-		## in the second matrix, the third dimension gives the number of monomial
-		#phi = (x.T[:,:,np.newaxis]**exponentsMatrix.T[np.newaxis,:,:]).prod(axis=1)
-		
-		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
+		#self._PEs[0].polynomialApproximation(None,None,2)
 
 # =========================================================================================================
 
