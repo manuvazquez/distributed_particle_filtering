@@ -1,6 +1,8 @@
 import numpy as np
 import math
 import abc
+import itertools
+import scipy.misc
 
 import state
 import smc.estimator
@@ -267,8 +269,37 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 		
 		# for the sake of conveninience when following the pseudocode in "Likelihood Consensus and its Application to Distributed Particle Filtering":
 		# -------------------
+		
 		# the size of the state
 		self._M = 2
+		
+		# the chosen degreen for the polynomial approximation
+		self._R_p = 2
+		
+		# a list of tuples, each one representing a combination of possible exponents for a monomial
+		self._r_a_tuples = list(itertools.filterfalse(lambda x: sum(x)>self._R_p, itertools.product(range(self._R_p+1),repeat=self._M)))
+		
+		# each row contains the exponents for a monomial
+		self._r_a = np.array(self._r_a_tuples)
+		
+		# theoretical number of monomials in the approximation
+		R_a = scipy.misc.comb(self._R_p + self._M,self._R_p,exact=True)
+		
+		assert(R_a==len(self._r_a_tuples))
+		
+		# exponents for computing d
+		self._r_d_tuples = list(itertools.filterfalse(lambda x: sum(x)>(2*self._R_p), itertools.product(range(2*self._R_p+1),repeat=self._M)))
+		self._r_d = np.array(self._r_d_tuples)
+		
+		# we generate the *two* vectors of exponents (r' and r'' in the paper) jointly, and then drop those combinations that don't satisy the required constraints
+		self._rs_gamma = [list(itertools.filterfalse(
+			lambda x: not np.allclose((np.array(x)[:self._M] + x[self._M:]),r) or sum(x[:self._M])>self._R_p or sum(x[self._M:])>self._R_p,
+			itertools.product(range(self._R_p+1),repeat=2*self._M))) for r in self._r_d]
+	
+		# theoretically, this is the number of beta components that should result
+		N_c = scipy.misc.comb(2*self._R_p + self._M,2*self._R_p,exact=True)
+		
+		assert(N_c==len(self._r_d_tuples))
 	
 	def likelihoodMean(self,positions):
 		
@@ -279,40 +310,24 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 		#code.interact(local=dict(globals(), **locals()))
 		
 		return np.vstack([s.likelihoodMean(d) for d,s in zip(distances,self._sensors)])
-		
+
 	def step(self,observations):
 		
-		super().step(observations)
+		assert len(observations) == len(self._sensors)
 		
-		self.polynomialApproximation(observations,2)
+		# every particle is updated (previous state is not stored...)
+		self._state = np.hstack(
+			[self._stateTransitionKernel.nextState(self._state[:,i:i+1]) for i in range(self._nParticles)])
+		
+		self.polynomialApproximation(observations)
 	
-	def polynomialApproximation(self,observations,degree):
-		
-		import itertools
-		import scipy.misc
-		
-		# the chosen degreen for the polynomial approximation
-		R_p = degree
-		
-		# the number of elements in the observations vector
-		q = len(self._sensors)
-		
-		# theoretical number of monomials in the approximation
-		R_a = scipy.misc.comb(R_p + self._M,R_p,exact=True)
-		
-		# a list of tuples, each one representing a combination of possible exponents for a monomial
-		r_a_tuples = list(itertools.filterfalse(lambda x: sum(x)>R_p, itertools.product(range(R_p+1),repeat=self._M)))
-		
-		# each row contains the exponents for a monomial
-		r_a = np.array(r_a_tuples)
-		
-		assert(R_a==len(r_a_tuples))
+	def polynomialApproximation(self,observations):
 		
 		x = state.position(self._state)
 		
 		# in the first matrix, we just replicate the samples matrix (<number of sample>,<component within sample>) along the third dimension;
 		# in the second matrix, the third dimension gives the number of monomial
-		phi = (x.T[:,:,np.newaxis]**r_a.T[np.newaxis,:,:]).prod(axis=1)
+		phi = (x.T[:,:,np.newaxis]**self._r_a.T[np.newaxis,:,:]).prod(axis=1)
 		
 		# the true values for the function to be approximated
 		A = self.likelihoodMean(x).T
@@ -321,21 +336,12 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 		Y = np.linalg.pinv(phi).dot(A)
 		
 		# the solution is stored in a dictionary for easy access
-		alpha = dict(zip(r_a_tuples,Y))
-		
-		# exponents for computing d
-		r_d_tuples = list(itertools.filterfalse(lambda x: sum(x)>(2*R_p), itertools.product(range(2*R_p+1),repeat=self._M)))
-		r_d = np.array(r_d_tuples)
+		alpha = dict(zip(self._r_a_tuples,Y))
 		
 		# a dictionary (indexed by the elements in r_d_tuples) with the computed coefficients gamma
 		gamma = {}
 		
-		for r in r_d:
-			
-			# we generate the *two* vectors of exponents (r' and r'' in the paper) jointly, and then drop those combinations that don't satisy the required constraints
-			possibleCombinations = list(itertools.filterfalse(
-				lambda x: not np.allclose((np.array(x)[:self._M] + x[self._M:]),r) or sum(x[:self._M])>R_p or sum(x[self._M:])>R_p,
-				itertools.product(range(R_p+1),repeat=2*self._M)))
+		for r,possibleCombinations in zip(self._r_d,self._rs_gamma):
 			
 			accum = 0
 			
@@ -356,15 +362,15 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 		# a dictionary to store the beta component associated to every vector of indices
 		beta = {}
 		
-		for r in r_d_tuples:
+		for r in self._r_d_tuples:
 			
 			deg = sum(r)
 			
-			if deg<=R_p:
+			if deg<=self._R_p:
 				
 				beta[r] = alpha[r].dot(b) - gamma[r]
 			
-			elif deg<=(2*R_p):
+			elif deg<=(2*self._R_p):
 				
 				beta[r] = - gamma[r]
 			
@@ -372,12 +378,7 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 				
 				raise Exception('WTF')
 		
-		
-		# theoretically this is the number of beta components that should result
-		N_c = scipy.misc.comb(2*R_p + self._M,2*R_p,exact=True)
-		
-		assert(N_c==len(beta))
-		
+		print(beta)
 		
 		import code
 		code.interact(local=dict(globals(), **locals()))
