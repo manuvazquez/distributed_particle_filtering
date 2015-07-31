@@ -435,7 +435,8 @@ class Mposterior(SimpleSimulation):
 		## consensus
 		#self._PFs.append(
 			#particle_filter.LikelihoodConsensusDistributedTargetTrackingParticleFilter(
-				#self._nPEs,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,self._sensors,self._PEsSensorsConnections
+				#self._nPEs,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
+				#self._sensors,self._PEsSensorsConnections,2,PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilterWithConsensusCapabilities
 				#)
 		#)
 		
