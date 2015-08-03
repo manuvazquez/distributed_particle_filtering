@@ -2,6 +2,13 @@ import collections
 import numpy as np
 
 class ExchangeRecipe:
+	
+	def __init__(self,PEsTopology):
+		
+		# the number of PEs...
+		self._nPEs = PEsTopology.getNumberOfPEs()
+	
+class DRNAexchangeRecipe(ExchangeRecipe):
 
 	def __init__(self,PEsTopology,nParticlesPerPE,exchangePercentage,PRNG=np.random.RandomState()):
 		
@@ -9,8 +16,7 @@ class ExchangeRecipe:
 		
 		"""
 		
-		# the number of PEs...
-		self._nPEs = PEsTopology.getNumberOfPEs()
+		super().__init__(PEsTopology)
 		
 		# ...and the neighbours of each PE are extracted from the topology
 		neighbours = PEsTopology.getNeighbours()
@@ -109,7 +115,7 @@ class ExchangeRecipe:
 			DPF._PEs[exchangeTuple.iPE].setParticle(exchangeTuple.iParticleWithinPE,particles[1])
 			DPF._PEs[exchangeTuple.iNeighbour].setParticle(exchangeTuple.iParticleWithinNeighbour,particles[0])
 
-class MposteriorExchangeRecipe(ExchangeRecipe):
+class MposteriorExchangeRecipe(DRNAexchangeRecipe):
 	
 	#def share(self,DPF):
 	def performExchange(self,DPF):

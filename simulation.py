@@ -136,7 +136,7 @@ class Convergence(SimpleSimulation):
 		
 		topologies = [getattr(PEs_topology,t['implementing class'])(t['number of PEs'],t['parameters']) for t in self._topologiesSettings]
 		
-		exchangeRecipes = [smc.particles_exchange.ExchangeRecipe(t,self._K,self._DRNAsettings["exchanged particles maximum percentage"],PRNG=self._PRNGs["topology pseudo random numbers generator"]) for t in topologies]
+		exchangeRecipes = [smc.particles_exchange.DRNAexchangeRecipe(t,self._K,self._DRNAsettings["exchanged particles maximum percentage"],PRNG=self._PRNGs["topology pseudo random numbers generator"]) for t in topologies]
 		
 		# we compute the upper bound for the supremum of the aggregated weights that should guarante convergence
 		self._aggregatedWeightsUpperBounds = [drnautil.supremumUpperBound(t['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon']) for t in self._topologiesSettings]
@@ -372,7 +372,7 @@ class Mposterior(SimpleSimulation):
 		import copy
 		PRNGcopy = copy.deepcopy(self._PRNGs["topology pseudo random numbers generator"])
 		
-		self._DRNAexchangeRecipe = smc.particles_exchange.ExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles maximum percentage"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
+		self._DRNAexchangeRecipe = smc.particles_exchange.DRNAexchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles maximum percentage"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
 		self._MposteriorExchangeRecipe = smc.particles_exchange.MposteriorExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles maximum percentage"],PRNG=PRNGcopy)
 		
 		# ...are plot the connections between them		
@@ -708,9 +708,9 @@ class MposteriorExchangePercentage(Mposterior):
 		for iPercentage,(percentage,color) in enumerate(zip(self._simulationParameters["exchanged particles maximum percentage"],colors)):
 			
 			# topologies of the network, which includes the percentage of particles exchanged
-			PEsTopology = getattr(PEs_topology,self._topologiesSettings['implementing class'])(self._nPEs,self._K,percentage,self._topologiesSettings['parameters'],PRNG=self._PRNGs["topology pseudo random numbers generator"])
+			PEsTopology = getattr(PEs_topology,self._topologiesSettings['implementing class'])(self._nPEs,self._topologiesSettings['parameters'])
 			
-			exchangeMap = smc.particles_exchange.ExchangeRecipe(PEsTopology,self._K,self._simulationParameters["exchanged particles maximum percentage"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
+			exchangeMap = smc.particles_exchange.DRNAexchangeRecipe(PEsTopology,self._K,percentage,PRNG=self._PRNGs["topology pseudo random numbers generator"])
 			
 			# a distributed PF with DRNA
 			self._PFs.append(

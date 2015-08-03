@@ -266,40 +266,6 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 		
 		# the position of every sensor
 		self._sensorsPositions = np.hstack([s.position for s in sensors])
-		
-		# for the sake of conveninience when following the pseudocode in "Likelihood Consensus and its Application to Distributed Particle Filtering":
-		# -------------------
-		
-		# the size of the state
-		self._M = 2
-		
-		# the chosen degreen for the polynomial approximation
-		self._R_p = 2
-		
-		# a list of tuples, each one representing a combination of possible exponents for a monomial
-		self._r_a_tuples = list(itertools.filterfalse(lambda x: sum(x)>self._R_p, itertools.product(range(self._R_p+1),repeat=self._M)))
-		
-		# each row contains the exponents for a monomial
-		self._r_a = np.array(self._r_a_tuples)
-		
-		# theoretical number of monomials in the approximation
-		R_a = scipy.misc.comb(self._R_p + self._M,self._R_p,exact=True)
-		
-		assert(R_a==len(self._r_a_tuples))
-		
-		# exponents for computing d
-		self._r_d_tuples = list(itertools.filterfalse(lambda x: sum(x)>(2*self._R_p), itertools.product(range(2*self._R_p+1),repeat=self._M)))
-		self._r_d = np.array(self._r_d_tuples)
-		
-		# we generate the *two* vectors of exponents (r' and r'' in the paper) jointly, and then drop those combinations that don't satisy the required constraints
-		self._rs_gamma = [list(itertools.filterfalse(
-			lambda x: not np.allclose((np.array(x)[:self._M] + x[self._M:]),r) or sum(x[:self._M])>self._R_p or sum(x[self._M:])>self._R_p,
-			itertools.product(range(self._R_p+1),repeat=2*self._M))) for r in self._r_d]
-	
-		# theoretically, this is the number of beta components that should result
-		N_c = scipy.misc.comb(2*self._R_p + self._M,2*self._R_p,exact=True)
-		
-		assert(N_c==len(self._r_d_tuples))
 	
 	def likelihoodMean(self,positions):
 		
@@ -313,6 +279,11 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 
 	def step(self,observations):
 		
+		#pass
+		self.preconsensusStep(observations)
+
+	def preconsensusStep(self,observations):
+		
 		assert len(observations) == len(self._sensors)
 		
 		# every particle is updated (previous state is not stored...)
@@ -320,7 +291,7 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 			[self._stateTransitionKernel.nextState(self._state[:,i:i+1]) for i in range(self._nParticles)])
 		
 		self.polynomialApproximation(observations)
-	
+
 	def polynomialApproximation(self,observations):
 		
 		x = state.position(self._state)
@@ -380,9 +351,23 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 		
 		print(beta)
 		
+		
+		# *************** test a
+		approx = phi.dot(Y)
+		approx[0,:] - A[0,:]
+		print('error = {}'.format(((approx - A)**2).sum()))
+		
+		# *************** test d
+		xTest = x[:,0]
+		s = 0
+		for exponents,coef in gamma.items():
+			s += (xTest**exponents).prod()*coef
+		h = self.likelihoodMean(xTest[:,np.newaxis])
+		d = 0.5*h.T.dot(self._noiseCovariance).dot(h).item(0)
+		
 		import code
 		code.interact(local=dict(globals(), **locals()))
-			
+		
 
 # =========================================================================================================
 
@@ -404,7 +389,7 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 		
 		# the particle filters are built (each one associated with a different set of sensors)
 		self._PEs = [PFsClass(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,
-													[s for iSensor,s in enumerate(sensors) if iSensor in connections],
+													[sensors[iSensor] for iSensor in connections],
 													aggregatedWeight=PFsInitialAggregatedWeight) for connections in  PEsSensorsConnections]
 
 	def initialize(self):
@@ -420,11 +405,11 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 	def step(self,observations):
 		
 		# a step is taken in every PF (ideally, this would occur concurrently)
-		for iPe,PE in enumerate(self._PEs):
+		for PE,sensorsConnections in zip(self._PEs,self._PEsSensorsConnections):
 			
 			# only the appropriate observations are passed to this PE
 			# NOTE: it is assumed that the order in which the observations are passed is the same as that of the sensors when building the PF
-			PE.step(observations[self._PEsSensorsConnections[iPe]])
+			PE.step(observations[sensorsConnections])
 			
 		# a new time instant has elapsed
 		self._n += 1
@@ -447,6 +432,62 @@ class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTarg
 		
 		super().__init__(nPEs,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass)
 		
+		# for the sake of conveninience when following the pseudocode in "Likelihood Consensus and its Application to Distributed Particle Filtering":
+		# -------------------
+		
+		# the size of the state
+		self._M = 2
+		
+		# the chosen degreen for the polynomial approximation
+		self._R_p = polynomialDegree
+		
+		# a list of tuples, each one representing a combination of possible exponents for a monomial
+		self._r_a_tuples = list(itertools.filterfalse(lambda x: sum(x)>self._R_p, itertools.product(range(self._R_p+1),repeat=self._M)))
+		
+		# each row contains the exponents for a monomial
+		self._r_a = np.array(self._r_a_tuples)
+		
+		# theoretical number of monomials in the approximation
+		R_a = scipy.misc.comb(self._R_p + self._M,self._R_p,exact=True)
+		
+		assert(R_a==len(self._r_a_tuples))
+		
+		# exponents for computing d
+		self._r_d_tuples = list(itertools.filterfalse(lambda x: sum(x)>(2*self._R_p), itertools.product(range(2*self._R_p+1),repeat=self._M)))
+		self._r_d = np.array(self._r_d_tuples)
+		
+		# we generate the *two* vectors of exponents (r' and r'' in the paper) jointly, and then drop those combinations that don't satisy the required constraints
+		self._rs_gamma = [list(itertools.filterfalse(
+			lambda x: not np.allclose((np.array(x)[:self._M] + x[self._M:]),r) or sum(x[:self._M])>self._R_p or sum(x[self._M:])>self._R_p,
+			itertools.product(range(self._R_p+1),repeat=2*self._M))) for r in self._r_d]
+	
+		# theoretically, this is the number of beta components that should result
+		N_c = scipy.misc.comb(2*self._R_p + self._M,2*self._R_p,exact=True)
+		
+		assert(N_c==len(self._r_d_tuples))
+
+	def initialize(self):
+		
+		# all the PFs are initialized
+		for PE in self._PEs:
+			
+			PE.initialize()
+			
+			PE._M = self._M
+			PE._R_p = self._R_p
+			PE._r_a_tuples = self._r_a_tuples
+			PE._r_a = self._r_a
+			PE._r_d_tuples = self._r_d_tuples
+			PE._r_d = self._r_d
+			PE._rs_gamma = self._rs_gamma
+
+	def step(self,observations):
+		
+		# each PE initializes its local state
+		for PE,sensorsConnections in zip(self._PEs,self._PEsSensorsConnections):
+			
+			PE.preconsensusStep(observations[sensorsConnections])
+			
 # =========================================================================================================
 
 class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilter):
