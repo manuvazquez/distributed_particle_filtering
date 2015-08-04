@@ -269,7 +269,7 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 	
 	def likelihoodMean(self,positions):
 		
-		# each row gives the distances from ALL the positions to a sensor
+		# each row gives the distances from a sensor to ALL the positions
 		distances = np.linalg.norm(positions[:,:,np.newaxis] - self._sensorsPositions[:,np.newaxis,:],axis=0).T
 		
 		#import code
@@ -279,8 +279,38 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 
 	def step(self,observations):
 		
-		#pass
-		self.preconsensusStep(observations)
+		exponents = np.array(list(self.betaConsensus.keys()))
+		betas = np.array(list(self.betaConsensus.values()))
+		
+		x = state.position(self._state)
+		#x[:,0] = [14.831,0.987]
+		phi = (x.T[:,:,np.newaxis]**exponents.T[np.newaxis,:,:]).prod(axis=1)
+		S = (phi * betas[np.newaxis,:]).sum(axis=1)
+		likelihoodsUpToPropConstant = np.exp(S)
+		
+		## test
+		#s0 = 0
+		#for (r,beta) in self.betaConsensus.items():
+			#print(r)
+			#s0 += (x[:,0]**r).prod()*beta
+		
+		# S contains exponents...and hence subtracting a constant is tantamount to scaling of the likelihood
+		shiftedS = S - max(S)
+		
+		# it should OK to normalize the likelihoods now
+		likelihoods = np.exp(shiftedS)/np.exp(shiftedS).sum()
+		
+		# the weights are updated
+		self._logWeights += np.log(likelihoods)
+		
+		# the aggregated weight is kept up to date at all times
+		self.updateAggregatedWeight()
+		
+		# whatever is required (it depends on the algorithm) to avoid weights degeneracy...
+		self.avoidWeightDegeneracy()
+		
+		#import code
+		#code.interact(local=dict(globals(), **locals()))
 
 	def preconsensusStep(self,observations):
 		
@@ -298,7 +328,7 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 		
 		# in the first matrix, we just replicate the samples matrix (<number of sample>,<component within sample>) along the third dimension;
 		# in the second matrix, the third dimension gives the number of monomial
-		phi = (x.T[:,:,np.newaxis]**self._r_a.T[np.newaxis,:,:]).prod(axis=1)
+		phi = (x[:,:,np.newaxis]**self._r_a.T[:,np.newaxis,:]).prod(axis=0)
 		
 		# the true values for the function to be approximated
 		A = self.likelihoodMean(x).T
@@ -320,18 +350,18 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 			for t in possibleCombinations:
 				
 				# alpha * covariance * alpha^T (alpha has been stored as a row vector)
-				accum += alpha[t[:self._M]].dot(self._noiseCovariance).dot(alpha[t[self._M:]][:,np.newaxis]).item(0)
+				accum += alpha[t[:self._M]].dot(self._noiseCovariance).dot(alpha[t[self._M:]][:,np.newaxis])
 				
 			accum /= 2
 			
 			# the computed value is added to the dictionary
-			gamma[tuple(r)] = accum
+			gamma[tuple(r)] = accum.item(0)
 		
 		# this term is independent of the indices
-		b = self._noiseCovariance.dot(observations)[:,np.newaxis]
+		b = self._noiseCovariance.dot(observations)
 		
 		# a dictionary to store the beta component associated to every vector of indices
-		beta = {}
+		self.beta = {}
 		
 		for r in self._r_d_tuples:
 			
@@ -339,34 +369,37 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 			
 			if deg<=self._R_p:
 				
-				beta[r] = alpha[r].dot(b) - gamma[r]
+				#import code
+				#code.interact(local=dict(globals(), **locals()))
+				
+				self.beta[r] = alpha[r].dot(b) - gamma[r]
 			
 			elif deg<=(2*self._R_p):
 				
-				beta[r] = - gamma[r]
+				self.beta[r] = - gamma[r]
 			
 			else:
 				
 				raise Exception('WTF')
 		
-		print(beta)
+		#print(self.beta)
 		
 		
-		# *************** test a
-		approx = phi.dot(Y)
-		approx[0,:] - A[0,:]
-		print('error = {}'.format(((approx - A)**2).sum()))
+		## *************** test a
+		#approx = phi.dot(Y)
+		#approx[0,:] - A[0,:]
+		#print('error = {}'.format(((approx - A)**2).sum()))
 		
-		# *************** test d
-		xTest = x[:,0]
-		s = 0
-		for exponents,coef in gamma.items():
-			s += (xTest**exponents).prod()*coef
-		h = self.likelihoodMean(xTest[:,np.newaxis])
-		d = 0.5*h.T.dot(self._noiseCovariance).dot(h).item(0)
+		## *************** test d
+		#xTest = x[:,0]
+		#s = 0
+		#for exponents,coef in gamma.items():
+			#s += (xTest**exponents).prod()*coef
+		#h = self.likelihoodMean(xTest[:,np.newaxis])
+		#d = 0.5*h.T.dot(self._noiseCovariance).dot(h).item(0)
 		
-		import code
-		code.interact(local=dict(globals(), **locals()))
+		#import code
+		#code.interact(local=dict(globals(), **locals()))
 		
 
 # =========================================================================================================
@@ -427,10 +460,13 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 
 class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTargetTrackingParticleFilter):
 	
-	def __init__(self,nPEs,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,polynomialDegree,
+	def __init__(self,exchangeRecipe,nPEs,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,polynomialDegree,
 			  PFsClass=CentralizedTargetTrackingParticleFilterWithConsensusCapabilities):
 		
 		super().__init__(nPEs,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass)
+		
+		# the exchange recipe is kept
+		self._exchangeRecipe = exchangeRecipe
 		
 		# for the sake of conveninience when following the pseudocode in "Likelihood Consensus and its Application to Distributed Particle Filtering":
 		# -------------------
@@ -487,7 +523,16 @@ class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTarg
 		for PE,sensorsConnections in zip(self._PEs,self._PEsSensorsConnections):
 			
 			PE.preconsensusStep(observations[sensorsConnections])
+		
+		self._exchangeRecipe.performExchange(self)
+		
+		# a step is taken in every PF (ideally, this would occur concurrently)
+		for PE,sensorsConnections in zip(self._PEs,self._PEsSensorsConnections):
 			
+			# only the appropriate observations are passed to this PE
+			# NOTE: it is assumed that the order in which the observations are passed is the same as that of the sensors when building the PF
+			PE.step(observations[sensorsConnections])
+		
 # =========================================================================================================
 
 class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilter):

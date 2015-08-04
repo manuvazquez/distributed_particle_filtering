@@ -374,6 +374,7 @@ class Mposterior(SimpleSimulation):
 		
 		self._DRNAexchangeRecipe = smc.particles_exchange.DRNAexchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles maximum percentage"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
 		self._MposteriorExchangeRecipe = smc.particles_exchange.MposteriorExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles maximum percentage"],PRNG=PRNGcopy)
+		self._likelihoodConsensusExchangeRecipe = smc.particles_exchange.LikelihoodConsensusExchangeRecipe(self._PEsTopology,7)
 		
 		# ...are plot the connections between them		
 		sensorsNetworkPlot = plot.TightRectangularRoomPainterWithPEs(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
@@ -432,19 +433,19 @@ class Mposterior(SimpleSimulation):
 		
 		"""
 		
-		## consensus
-		#self._PFs.append(
-			#particle_filter.LikelihoodConsensusDistributedTargetTrackingParticleFilter(
-				#self._nPEs,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
-				#self._sensors,self._PEsSensorsConnections,2,PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilterWithConsensusCapabilities
-				#)
-		#)
+		# consensus
+		self._PFs.append(
+			particle_filter.LikelihoodConsensusDistributedTargetTrackingParticleFilter(
+				self._likelihoodConsensusExchangeRecipe,self._nPEs,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
+				self._sensors,self._PEsSensorsConnections,2,PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilterWithConsensusCapabilities
+				)
+		)
 		
-		## the estimator just delegates the calculus of the estimate to the PF
-		#self._estimators.append(smc.estimator.Delegating(self._PFs[-1]))
+		# the estimator just delegates the calculus of the estimate to the PF
+		self._estimators.append(smc.estimator.SinglePEmean(self._PFs[-1],0))
 		
-		#self._estimatorsColors.append('brown')
-		#self._estimatorsLabels.append('LC DPF')
+		self._estimatorsColors.append('brown')
+		self._estimatorsLabels.append('LC DPF')
 		
 		# ------------
 

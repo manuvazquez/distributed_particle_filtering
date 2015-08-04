@@ -137,3 +137,99 @@ class MposteriorExchangeRecipe(DRNAexchangeRecipe):
 			PE.samples = jointParticles[:,iNewParticles]
 			PE.logWeights = np.full(PE._nParticles,-np.log(PE._nParticles))
 			PE.updateAggregatedWeight()
+
+class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
+	
+	def __init__(self,PEsTopology,maxNumberOfIterations):
+		
+		super().__init__(PEsTopology)
+		
+		self._maxNumberOfIterations = maxNumberOfIterations
+		
+		# a list of lists in which each element yields the neighbors of a PE
+		self._neighborhoods = PEsTopology.getNeighbours()
+		
+		# Metropolis weights
+		# ==========================
+		
+		# this will store tuples (<own weight>,<numpy array with weights for each neighbor>)
+		self._metropolisWeights = []
+		
+		# for the neighbours of every PE
+		for neighbors in self._neighborhoods:
+			
+			# the number of neighbors of the PE
+			nNeighbors = len(neighbors)
+			
+			# the weight assigned to each one of its neighbors
+			neighborsWeights = np.array([1/(1+max(nNeighbors,len(self._neighborhoods[iNeighbor]))) for iNeighbor in neighbors])
+			
+			# the weight assigned to itself is the first element in the tuple
+			self._metropolisWeights.append((1-neighborsWeights.sum(),neighborsWeights))
+			
+	
+	def performExchange(self,DPF):
+		
+		#self._maxNumberOfIterations = 10
+		
+		# the first iteration of the consensus algorithm
+		# ==========================
+		
+		# for every PE, along with its neighbors
+		for PE,neighbors,weights in zip(DPF._PEs,self._neighborhoods,self._metropolisWeights):
+			
+			# a dictionary for storing the "consensed" beta's
+			PE.betaConsensus = {}
+			
+			# for every combination of exponents, r
+			for r in DPF._r_d_tuples:
+				
+				#import code
+				#code.interact(local=dict(globals(), **locals()))
+				
+				PE.betaConsensus[r] = PE.beta[r]*weights[0] + np.array([DPF._PEs[iNeighbor].beta[r] for iNeighbor in neighbors]).dot(weights[1])
+		
+		#import code
+		#code.interact(local=dict(globals(), **locals()))
+		
+		# the remaining iterations of the consensus algorithm
+		# ==========================
+		
+		# the same operations as above using "betaConsensus" rather than beta
+		for _ in range(self._maxNumberOfIterations-1):
+		
+			# for every PE, along with its neighbors
+			for PE,neighbors,weights in zip(DPF._PEs,self._neighborhoods,self._metropolisWeights):
+				
+				# for every combination of exponents, r
+				for r in DPF._r_d_tuples:
+					
+					PE.betaConsensus[r] = PE.betaConsensus[r]*weights[0] + np.array([DPF._PEs[iNeighbor].betaConsensus[r] for iNeighbor in neighbors]).dot(weights[1])
+		
+		## test
+		#print('----------------')
+		#print(DPF._PEs[0].betaConsensus)
+		#print('----------------')
+		
+		#trueBetas = {}
+		#for r in DPF._r_d_tuples:
+				#trueBetas[r] = np.hstack([PE.beta[r] for PE in DPF._PEs]).mean()
+		
+		#print(trueBetas)
+		
+		#import code
+		#code.interact(local=dict(globals(), **locals()))
+		
+		
+
+		
+		# every average is turned into a sum
+		# ==========================
+		
+		# for every PE...
+		for PE in DPF._PEs:
+			
+			# ...and every coefficient computed
+			for r in DPF._r_d_tuples:
+				
+				PE.betaConsensus[r] *= self._nPEs
