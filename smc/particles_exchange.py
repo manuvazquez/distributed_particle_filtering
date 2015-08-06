@@ -170,8 +170,6 @@ class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 	
 	def performExchange(self,DPF):
 		
-		#self._maxNumberOfIterations = 10
-		
 		# the first iteration of the consensus algorithm
 		# ==========================
 		
@@ -189,9 +187,6 @@ class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 				
 				PE.betaConsensus[r] = PE.beta[r]*weights[0] + np.array([DPF._PEs[iNeighbor].beta[r] for iNeighbor in neighbors]).dot(weights[1])
 		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
-		
 		# the remaining iterations of the consensus algorithm
 		# ==========================
 		
@@ -205,23 +200,6 @@ class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 				for r in DPF._r_d_tuples:
 					
 					PE.betaConsensus[r] = PE.betaConsensus[r]*weights[0] + np.array([DPF._PEs[iNeighbor].betaConsensus[r] for iNeighbor in neighbors]).dot(weights[1])
-		
-		## test
-		#print('----------------')
-		#print(DPF._PEs[0].betaConsensus)
-		#print('----------------')
-		
-		#trueBetas = {}
-		#for r in DPF._r_d_tuples:
-				#trueBetas[r] = np.hstack([PE.beta[r] for PE in DPF._PEs]).mean()
-		
-		#print(trueBetas)
-		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
-		
-		
-
 		
 		# every average is turned into a sum
 		# ==========================

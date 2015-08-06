@@ -339,6 +339,7 @@ class Mposterior(SimpleSimulation):
 		
 		self._simulationParameters = parameters['simulations'][parameters['simulations']['type']]
 		self._MposteriorSettings = parameters['Mposterior']
+		self._LCDPFsettings = parameters['Likelihood Consensus']
 		
 		# if the number of PEs is not received...
 		if nPEs==None:
@@ -374,7 +375,7 @@ class Mposterior(SimpleSimulation):
 		
 		self._DRNAexchangeRecipe = smc.particles_exchange.DRNAexchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles maximum percentage"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
 		self._MposteriorExchangeRecipe = smc.particles_exchange.MposteriorExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles maximum percentage"],PRNG=PRNGcopy)
-		self._likelihoodConsensusExchangeRecipe = smc.particles_exchange.LikelihoodConsensusExchangeRecipe(self._PEsTopology,7)
+		self._likelihoodConsensusExchangeRecipe = smc.particles_exchange.LikelihoodConsensusExchangeRecipe(self._PEsTopology,self._LCDPFsettings['number of consensus iterations'])
 		
 		# ...are plot the connections between them		
 		sensorsNetworkPlot = plot.TightRectangularRoomPainterWithPEs(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
@@ -437,7 +438,8 @@ class Mposterior(SimpleSimulation):
 		self._PFs.append(
 			particle_filter.LikelihoodConsensusDistributedTargetTrackingParticleFilter(
 				self._likelihoodConsensusExchangeRecipe,self._nPEs,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
-				self._sensors,self._PEsSensorsConnections,2,PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilterWithConsensusCapabilities
+				self._sensors,self._PEsSensorsConnections,self._LCDPFsettings['degree of the polynomial approximation'],
+				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilterWithConsensusCapabilities
 				)
 		)
 		

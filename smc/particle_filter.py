@@ -272,36 +272,28 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 		# each row gives the distances from a sensor to ALL the positions
 		distances = np.linalg.norm(positions[:,:,np.newaxis] - self._sensorsPositions[:,np.newaxis,:],axis=0).T
 		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
-		
 		return np.vstack([s.likelihoodMean(d) for d,s in zip(distances,self._sensors)])
 
 	def step(self,observations):
 		
+		# the exponents of the monomials and their associated coefficients are extracted from the "consensed" beta's
 		exponents = np.array(list(self.betaConsensus.keys()))
 		betas = np.array(list(self.betaConsensus.values()))
 		
+		# for the sake of convenience
 		x = state.position(self._state)
-		#x[:,0] = [14.831,0.987]
-		phi = (x.T[:,:,np.newaxis]**exponents.T[np.newaxis,:,:]).prod(axis=1)
+		
+		# a matrix containing the monomials evaluated for the all the x's
+		phi = (x[:,:,np.newaxis]**exponents.T[:,np.newaxis,:]).prod(axis=0)
+		
+		# the exponent of the Joint Likelihood Function (JLF) for every particle (x), as computed in this PE
 		S = (phi * betas[np.newaxis,:]).sum(axis=1)
-		likelihoodsUpToPropConstant = np.exp(S)
 		
-		## test
-		#s0 = 0
-		#for (r,beta) in self.betaConsensus.items():
-			#print(r)
-			#s0 += (x[:,0]**r).prod()*beta
-		
-		# S contains exponents...and hence subtracting a constant is tantamount to scaling of the likelihood
+		# S contains exponents...and hence subtracting a constant is tantamount to scaling the power (the JLF)
 		shiftedS = S - max(S)
 		
-		# it should OK to normalize the likelihoods now
-		likelihoods = np.exp(shiftedS)/np.exp(shiftedS).sum()
-		
-		# the weights are updated
-		self._logWeights += np.log(likelihoods)
+		# the weights should be multiplied by e^shiftedS and divided by the sum thereof...when taking the logarithm this yields
+		self._logWeights += shiftedS - np.log(np.exp(shiftedS).sum())
 		
 		# the aggregated weight is kept up to date at all times
 		self.updateAggregatedWeight()
@@ -309,9 +301,6 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 		# whatever is required (it depends on the algorithm) to avoid weights degeneracy...
 		self.avoidWeightDegeneracy()
 		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
-
 	def preconsensusStep(self,observations):
 		
 		assert len(observations) == len(self._sensors)
@@ -380,27 +369,7 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 			
 			else:
 				
-				raise Exception('WTF')
-		
-		#print(self.beta)
-		
-		
-		## *************** test a
-		#approx = phi.dot(Y)
-		#approx[0,:] - A[0,:]
-		#print('error = {}'.format(((approx - A)**2).sum()))
-		
-		## *************** test d
-		#xTest = x[:,0]
-		#s = 0
-		#for exponents,coef in gamma.items():
-			#s += (xTest**exponents).prod()*coef
-		#h = self.likelihoodMean(xTest[:,np.newaxis])
-		#d = 0.5*h.T.dot(self._noiseCovariance).dot(h).item(0)
-		
-		#import code
-		#code.interact(local=dict(globals(), **locals()))
-		
+				raise Exception('coefficient for this combination of exponents not found!!')
 
 # =========================================================================================================
 
@@ -524,6 +493,7 @@ class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTarg
 			
 			PE.preconsensusStep(observations[sensorsConnections])
 		
+		# consensus
 		self._exchangeRecipe.performExchange(self)
 		
 		# a step is taken in every PF (ideally, this would occur concurrently)

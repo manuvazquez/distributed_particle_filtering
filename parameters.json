@@ -148,6 +148,10 @@
 			"tol": 1e-10
 		}
 	},
+	"Likelihood Consensus": {
+		"degree of the polynomial approximation": 2,
+		"number of consensus iterations": 7
+	},
 	"simulations": {
 		"type": "DRNA convergence",
 		"Mposterior": {
