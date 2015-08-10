@@ -136,7 +136,7 @@ class Convergence(SimpleSimulation):
 		
 		topologies = [getattr(PEs_topology,t['implementing class'])(t['number of PEs'],t['parameters']) for t in self._topologiesSettings]
 		
-		exchangeRecipes = [smc.particles_exchange.DRNAexchangeRecipe(t,self._K,self._DRNAsettings["exchanged particles maximum percentage"],PRNG=self._PRNGs["topology pseudo random numbers generator"]) for t in topologies]
+		exchangeRecipes = [smc.particles_exchange.DRNAexchangeRecipe(t,self._K,self._DRNAsettings["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"]) for t in topologies]
 		
 		# we compute the upper bound for the supremum of the aggregated weights that should guarante convergence
 		self._aggregatedWeightsUpperBounds = [drnautil.supremumUpperBound(t['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon']) for t in self._topologiesSettings]
@@ -373,8 +373,8 @@ class Mposterior(SimpleSimulation):
 		import copy
 		PRNGcopy = copy.deepcopy(self._PRNGs["topology pseudo random numbers generator"])
 		
-		self._DRNAexchangeRecipe = smc.particles_exchange.DRNAexchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles maximum percentage"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
-		self._MposteriorExchangeRecipe = smc.particles_exchange.MposteriorExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles maximum percentage"],PRNG=PRNGcopy)
+		self._DRNAexchangeRecipe = smc.particles_exchange.DRNAexchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
+		self._MposteriorExchangeRecipe = smc.particles_exchange.MposteriorExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=PRNGcopy)
 		self._likelihoodConsensusExchangeRecipe = smc.particles_exchange.LikelihoodConsensusExchangeRecipe(self._PEsTopology,self._LCDPFsettings['number of consensus iterations'])
 		
 		# ...are plot the connections between them		
@@ -708,7 +708,7 @@ class MposteriorExchangePercentage(Mposterior):
 		# available colors
 		colors = ['red','blue','green','goldenrod','cyan','crimson','lime','cadetblue','magenta']
 
-		for iPercentage,(percentage,color) in enumerate(zip(self._simulationParameters["exchanged particles maximum percentage"],colors)):
+		for iPercentage,(percentage,color) in enumerate(zip(self._simulationParameters["exchanged particles"],colors)):
 			
 			# topologies of the network, which includes the percentage of particles exchanged
 			PEsTopology = getattr(PEs_topology,self._topologiesSettings['implementing class'])(self._nPEs,self._topologiesSettings['parameters'])
@@ -760,7 +760,7 @@ class MposteriorExchangePercentage(Mposterior):
 		estimators_summaries = error_vs_time[self._simulationParameters['starting time instant as percentage of the frame length']*self._nTimeInstants:].sum(axis=0)
 		
 		# the number of percentages tested yields the number of columns, and the number of rows is inferred from that and the number of tuples in "self._estimatorsCoordinates"
-		error_vs_percentage = np.empty((len(self._estimatorsCoordinates)/len(self._simulationParameters['exchanged particles maximum percentage']),len(self._simulationParameters['exchanged particles maximum percentage'])))
+		error_vs_percentage = np.empty((len(self._estimatorsCoordinates)/len(self._simulationParameters['exchanged particles']),len(self._simulationParameters['exchanged particles'])))
 		
 		for summary,coordinates in zip(estimators_summaries,self._estimatorsCoordinates):
 			
@@ -768,7 +768,7 @@ class MposteriorExchangePercentage(Mposterior):
 
 		# a dictionary encompassing all the data to be saved
 		dataToBeSaved = dict(
-				percentages = self._simulationParameters['exchanged particles maximum percentage'],
+				percentages = self._simulationParameters['exchanged particles'],
 				mean_error = error_vs_percentage
 			)
 		

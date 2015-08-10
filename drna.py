@@ -287,5 +287,4 @@ else:
 # if using the agg backend (no pictures shown), there is no point in bringing up the interactive prompt before exiting
 if not useAgg:
 	import code
-
 	code.interact(local=dict(globals(), **locals()))
