@@ -20,16 +20,18 @@ def setupAxes(figureId,clearFigure=True):
 	
 	return axes,fig
 
-def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,extraLine=None,outputFile=None,
-									  centralizedPFparameters={'label':'Centralized PF'},distributedPFparameters={'label':'Distributed PF'},extraLineParameters={},
-									  figureId='vs Time',axesProperties={}):
+
+def distributedPFagainstCentralizedPF(x, centralizedPF, distributedPF, extraLine=None, outputFile=None,
+                                      centralizedPFparameters={'label':'Centralized PF'},
+                                      distributedPFparameters={'label':'Distributed PF'},
+                                      extraLineParameters={}, figureId='vs Time',axesProperties={}):
 
 	# a new pair of axes is set up
 	ax,fig = setupAxes(figureId)
 	
-	ax.plot(x,centralizedPF,**centralizedPFparameters)
+	ax.plot(x, centralizedPF, **centralizedPFparameters)
 
-	ax.plot(x,distributedPF,**distributedPFparameters)
+	ax.plot(x, distributedPF, **distributedPFparameters)
 	
 	if extraLine is not None:
 		
@@ -49,6 +51,7 @@ def distributedPFagainstCentralizedPF(x,centralizedPF,distributedPF,extraLine=No
 		plt.savefig(outputFile)
 	
 	return ax,fig
+
 
 def PFs(x,y,outputFile,parameters,figureId='vs Time',axesProperties={},maximized=False):
 
@@ -109,6 +112,7 @@ def PFs(x,y,outputFile,parameters,figureId='vs Time',axesProperties={},maximized
 	
 	return ax,fig
 
+
 def aggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregatedWeightsVsTime.pdf',xticksStep=10):
 
 	# the corresponding axes are created
@@ -142,6 +146,7 @@ def aggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregated
 	ax.set_ybound(upper=1)
 
 	plt.savefig(outputFile)
+
 
 def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggregatedWeightVsTime.pdf',stepExchangePeriod=1,
 									supremumLineProperties={'label':'Supremum','linestyle':':'},
@@ -187,6 +192,7 @@ def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggrega
 	
 	return ax,fig
 
+
 def aggregatedWeightsSupremumVsNumberOfPEs(Ms,maxWeights,upperBounds=None,outputFile='maxAggregatedWeightVsM.pdf',
 										   supremumLineProperties={},upperBoundLineProperties={'color':'red','label':'$c^q/M^{q-\\varepsilon}$','marker':'+','markersize':10,'markeredgewidth':2,'linestyle':':'},
 										   figureId='Aggregated Weights Supremum Vs M',axesProperties={}):
@@ -224,6 +230,7 @@ def aggregatedWeightsSupremumVsNumberOfPEs(Ms,maxWeights,upperBounds=None,output
 		plt.savefig(outputFile)
 	
 	return ax,fig
+
 
 def trajectory(filename,iTrajectory=0,nTimeInstants=-1,ticksFontSize=12):
 	
@@ -266,6 +273,7 @@ def trajectory(filename,iTrajectory=0,nTimeInstants=-1,ticksFontSize=12):
 		painter.updateTargetPosition(position[:,i])
 	
 	painter.save()
+
 
 class RoomPainter:
 	
@@ -365,6 +373,7 @@ class RoomPainter:
 		
 		plt.close(self._figure)
 
+
 class RectangularRoomPainter(RoomPainter):
 	
 	def __init__(self,roomBottomLeftCorner,roomTopRightCorner,sensorsPositions,sleepTime=0.5):
@@ -385,6 +394,7 @@ class RectangularRoomPainter(RoomPainter):
 
 		# ...and added to the axes
 		self._ax.add_patch(roomEdge)
+
 
 class TightRectangularRoomPainter(RectangularRoomPainter):
 	
@@ -417,6 +427,7 @@ class TightRectangularRoomPainter(RectangularRoomPainter):
 		plt.figure(self._figure.number)
 		
 		plt.savefig(outputFile,bbox_inches="tight")
+
 
 class TightRectangularRoomPainterWithPEs(TightRectangularRoomPainter):
 	
