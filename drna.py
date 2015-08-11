@@ -198,26 +198,18 @@ signal.signal(signal.SIGINT, sigint_handler)
 # a object that represents the prior distribution is instantiated...
 prior = state.UniformBoundedPositionGaussianVelocityPrior(roomSettings["bottom left corner"],
                                                           roomSettings["top right corner"],
-                                                          velocityVariance=parameters["prior distribution"][
-	                                                          "velocity variance"], PRNG=PRNGs[
-		"Sensors and Monte Carlo pseudo random numbers generator"])
+                                                          velocityVariance=parameters["prior distribution"]["velocity variance"],
+                                                          PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ...and a different one for the transition kernel belonging to class...
 transitionKernelSettings = stateTransitionSettings[stateTransitionSettings['type']]
 
 # ...is instantiated here
-transitionKernel = getattr(state, transitionKernelSettings['implementing class'])(roomSettings["bottom left corner"],
-                                                                                  roomSettings["top right corner"],
-                                                                                  velocityVariance=
-                                                                                  stateTransitionSettings[
-	                                                                                  "velocity variance"],
-                                                                                  noiseVariance=stateTransitionSettings[
-	                                                                                  "position variance"],
-                                                                                  stepDuration=stateTransitionSettings[
-	                                                                                  'time step size'], PRNG=PRNGs[
-		"Sensors and Monte Carlo pseudo random numbers generator"],
-                                                                                  **transitionKernelSettings[
-	                                                                                  'parameters'])
+transitionKernel = getattr(state, transitionKernelSettings['implementing class'])(
+	roomSettings["bottom left corner"], roomSettings["top right corner"],
+	velocityVariance=stateTransitionSettings["velocity variance"],
+	noiseVariance=stateTransitionSettings["position variance"], stepDuration=stateTransitionSettings['time step size'],
+	PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"], **transitionKernelSettings['parameters'])
 
 # ------------------------------------------------------------------- SMC stuff --------------------------------------------------------------------------
 
@@ -286,5 +278,6 @@ else:
 
 # if using the agg backend (no pictures shown), there is no point in bringing up the interactive prompt before exiting
 if not useAgg:
+
 	import code
 	code.interact(local=dict(globals(), **locals()))

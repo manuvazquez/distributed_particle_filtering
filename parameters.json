@@ -133,7 +133,6 @@
 	},
 	"DRNA": {
 		"exchange period": 10,
-		"exchanged particles": 0.65,
 		"c": 4.0,
 		"q": 4,
 		"epsilon": 0.1,
@@ -141,7 +140,6 @@
 	},
 	"Mposterior": {
 		"sharing period": 10,
-		"exchanged particles": 0.15,
 		"findWeiszfeldMedian parameters": {
 			"sigma": 0.1,
 			"maxit": 100,
@@ -174,7 +172,8 @@
 		},
 		"DRNA convergence": {
 			"implementing class": "Convergence",
-			"network": "PEs without position and equispaced sensors"
+			"network": "PEs without position and equispaced sensors",
+		  	"exchanged particles": 0.65
 		},
 		"Multiple Mposterior": {
 			"implementing class": "MultipleMposterior",

@@ -5,7 +5,7 @@ import math
 import h5py
 
 from smc import particle_filter
-import smc.particles_exchange
+import smc.exchange_recipe
 import smc.estimator
 import PEs_topology
 import drnautil
@@ -136,7 +136,7 @@ class Convergence(SimpleSimulation):
 		
 		topologies = [getattr(PEs_topology,t['implementing class'])(t['number of PEs'],t['parameters']) for t in self._topologiesSettings]
 		
-		exchangeRecipes = [smc.particles_exchange.DRNAexchangeRecipe(t,self._K,self._DRNAsettings["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"]) for t in topologies]
+		exchangeRecipes = [smc.exchange_recipe.DRNAexchangeRecipe(t,self._K,self._simulationParameters["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"]) for t in topologies]
 		
 		# we compute the upper bound for the supremum of the aggregated weights that should guarante convergence
 		self._aggregatedWeightsUpperBounds = [drnautil.supremumUpperBound(t['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon']) for t in self._topologiesSettings]
@@ -373,9 +373,9 @@ class Mposterior(SimpleSimulation):
 		import copy
 		PRNGcopy = copy.deepcopy(self._PRNGs["topology pseudo random numbers generator"])
 		
-		self._DRNAexchangeRecipe = smc.particles_exchange.DRNAexchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
-		self._MposteriorExchangeRecipe = smc.particles_exchange.MposteriorExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=PRNGcopy)
-		self._likelihoodConsensusExchangeRecipe = smc.particles_exchange.LikelihoodConsensusExchangeRecipe(self._PEsTopology,self._LCDPFsettings['number of consensus iterations'])
+		self._DRNAexchangeRecipe = smc.exchange_recipe.DRNAexchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
+		self._MposteriorExchangeRecipe = smc.exchange_recipe.MposteriorExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=PRNGcopy)
+		self._likelihoodConsensusExchangeRecipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(self._PEsTopology,self._LCDPFsettings['number of consensus iterations'])
 		
 		# ...are plot the connections between them		
 		sensorsNetworkPlot = plot.TightRectangularRoomPainterWithPEs(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
@@ -713,7 +713,7 @@ class MposteriorExchangePercentage(Mposterior):
 			# topologies of the network, which includes the percentage of particles exchanged
 			PEsTopology = getattr(PEs_topology,self._topologiesSettings['implementing class'])(self._nPEs,self._topologiesSettings['parameters'])
 			
-			exchangeMap = smc.particles_exchange.DRNAexchangeRecipe(PEsTopology,self._K,percentage,PRNG=self._PRNGs["topology pseudo random numbers generator"])
+			exchangeMap = smc.exchange_recipe.DRNAexchangeRecipe(PEsTopology,self._K,percentage,PRNG=self._PRNGs["topology pseudo random numbers generator"])
 			
 			# a distributed PF with DRNA
 			self._PFs.append(
