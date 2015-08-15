@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import collections
+import networkx as nx
 
 class Topology:
 	
@@ -24,6 +25,39 @@ class Topology:
 		"""
 		
 		return self._neighbours
+
+	def distances_between_PEs(self):
+
+		# an empty graph
+		G = nx.Graph()
+
+		# a node per PE is added
+		G.add_nodes_from(range(self._nPEs))
+
+		# this is a list to store tuples defining the edges of the graph
+		edges = []
+
+		# for every PE...
+		for iPE,thisPEneighbours in enumerate(self._neighbours):
+
+			# an edge is added for every one of its neighbours
+			edges.extend([(iPE,n) for n in thisPEneighbours])
+
+		# all the edges are added
+		G.add_edges_from(edges)
+
+		# paths between nodes
+		paths = nx.all_pairs_shortest_path(G)
+
+		# a numpy array in which each row yields the distance (in hops) from each node to every other node
+		distances = np.empty((self._nPEs,self._nPEs))
+
+		for iPE in range(self._nPEs):
+
+			for iNeigh in range(self._nPEs):
+
+				# the number of hops is the number of nodes in the path minus one
+				distances[iPE,iNeigh] = len(paths[iPE][iNeigh])-1
 
 class Customized(Topology):
 	

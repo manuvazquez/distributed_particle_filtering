@@ -2,7 +2,7 @@
 	"number of frames": 10,
 	"number of time instants": 300,
 	"number of particles per PE": 200,
-	"networks": {
+	"network nodes": {
 		"fixed number of sensors per PE": {
 			"implementing class": "FixedNumberOfSensorsPerPE",
 			"parameters": {

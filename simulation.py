@@ -13,7 +13,7 @@ import sensor
 import sensors_PEs_connector
 import state
 import plot
-import network
+import network_nodes
 
 class Simulation(metaclass=abc.ABCMeta):
 	
@@ -81,12 +81,8 @@ class SimpleSimulation(Simulation):
 		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs)
 		
 		# for the sake of convenience
-		bottomLeftCorner = parameters['room']['bottom left corner']
-		topRightCorner = parameters['room']['top right corner']
-		#nSensors = parameters["sensors"]['number']
 		sensorsSettings = parameters["sensors"]
-		
-		#if nPEs==None and nSensors==None:
+
 		if nSensors==None:
 			
 			nSensors = parameters["sensors"]['number']
@@ -105,11 +101,11 @@ class SimpleSimulation(Simulation):
 				pass
 		
 		# for the sake of convenience below...
-		networkSettings = parameters['networks'][self._simulationParameters['network']]		
-		networkClass = getattr(network,networkSettings['implementing class'])
+		networkNodesSettings = parameters['network nodes'][self._simulationParameters['network']]
+		networkNodesClass = getattr(network_nodes, networkNodesSettings['implementing class'])
 		
 		# the appropriate class is instantiated with the given parameters
-		self._network = networkClass(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],nPEs,nSensors,**networkSettings['parameters'])
+		self._network = networkNodesClass(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],nPEs,nSensors,**networkNodesSettings['parameters'])
 		
 		# the positions of the PEs and the sensors are collected from the network just built
 		self._sensorsPositions,self._PEsPositions = self._network.sensorsPositions,self._network.PEsPositions
@@ -287,11 +283,6 @@ class MultipleMposterior(Simulation):
 		
 		# let the super class do its thing...
 		super().__init__(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs)
-		
-		# for the sake of convenience
-		sensorsSettings = parameters["sensors"]
-		roomSettings = parameters["room"]
-		sensorClass = getattr(sensor,sensorsSettings[sensorsSettings['type']]['implementing class'])
 		
 		# HDF5 output file
 		self._f = h5py.File('res_' + self._outputFile + '.hdf5','w')
