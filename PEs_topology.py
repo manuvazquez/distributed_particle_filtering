@@ -50,7 +50,7 @@ class Topology:
 		paths = nx.all_pairs_shortest_path(G)
 
 		# a numpy array in which each row yields the distance (in hops) from each node to every other node
-		distances = np.empty((self._nPEs,self._nPEs))
+		distances = np.empty((self._nPEs,self._nPEs),dtype=int)
 
 		for iPE in range(self._nPEs):
 
@@ -58,6 +58,8 @@ class Topology:
 
 				# the number of hops is the number of nodes in the path minus one
 				distances[iPE,iNeigh] = len(paths[iPE][iNeigh])-1
+
+		return distances
 
 class Customized(Topology):
 	

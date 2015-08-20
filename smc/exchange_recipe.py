@@ -1,11 +1,16 @@
 import collections
 import numpy as np
+import scipy
+
+import state
 
 class ExchangeRecipe:
 
 	def __init__(self,PEsTopology):
 
-		# the number of PEs...
+		self._PEsTopology = PEsTopology
+
+		# for the sake of convenience, we keep the number of PEs...
 		self._nPEs = PEsTopology.getNumberOfPEs()
 
 
@@ -126,9 +131,33 @@ class DRNAexchangeRecipe(ExchangeRecipe):
 			DPF._PEs[exchangeTuple.iPE].setParticle(exchangeTuple.iParticleWithinPE,particles[1])
 			DPF._PEs[exchangeTuple.iNeighbour].setParticle(exchangeTuple.iParticleWithinNeighbour,particles[0])
 
+	def messages(self):
+
+		# the number of hops between each pair of PEs
+		distances = self._PEsTopology.distances_between_PEs()
+
+		# overall number of messages sent/received in an exchange step
+		nMessages = 0
+
+		# for every PE (index) along with its list of neighbours
+		for iPE,neighboursList in enumerate(self._neighboursWithParticles):
+
+			# each element of the list is a tuple (<index neighbour>,<indexes of the particles exchanged with that neighbour>)
+			for iNeighbour,iParticles in  neighboursList:
+
+				# the number of messages required to send the samples
+				nMessages += distances[iPE,iNeighbour]*len(iParticles)*state.nElements
+
+			# we also need to send the aggregated weight to each neighbour
+			nMessages += len(neighboursList)
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		return nMessages
+
 class MposteriorExchangeRecipe(DRNAexchangeRecipe):
 
-	#def share(self,DPF):
 	def performExchange(self,DPF):
 
 		for PE,this_PE_neighbours_particles in zip(DPF._PEs,self._neighboursWithParticles):
@@ -149,13 +178,34 @@ class MposteriorExchangeRecipe(DRNAexchangeRecipe):
 			PE.logWeights = np.full(PE._nParticles,-np.log(PE._nParticles))
 			PE.updateAggregatedWeight()
 
+	def messages(self):
+
+		# overall number of messages sent/received in an exchange step
+		nMessages = 0
+
+		# every PE has a list of neighbours
+		for neighboursList in self._neighboursWithParticles:
+
+			# each element in the list yields the indexes of the particles exchanged with that particular neighbour
+			for _,iParticles in neighboursList:
+
+				# exchange only happens between neighbours (no hops)
+				nMessages += len(iParticles)*state.nElements
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		return nMessages
+
+
 class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 
-	def __init__(self,PEsTopology,maxNumberOfIterations):
+	def __init__(self,PEsTopology,maxNumberOfIterations,polynomialDegree):
 
 		super().__init__(PEsTopology)
 
 		self._maxNumberOfIterations = maxNumberOfIterations
+		self.polynomialDegree = polynomialDegree
 
 		# a list of lists in which each element yields the neighbors of a PE
 		self._neighborhoods = PEsTopology.getNeighbours()
@@ -222,3 +272,14 @@ class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 			for r in DPF._r_d_tuples:
 
 				PE.betaConsensus[r] *= self._nPEs
+
+	def messages(self):
+
+		# the length of "part" of the state on which the likelihood depends
+		M = 2
+
+		# theoretically, this is the number of beta components that should result
+		nConsensusAlgorithms = scipy.misc.comb(2*self.polynomialDegree + M, 2*self.polynomialDegree, exact=True) - 1
+
+		# each PE sends "nConsensusAlgorithms" values to each one of its neighbours, once per iteration
+		return sum([len(neighbours) for neighbours in self._neighborhoods])*nConsensusAlgorithms*self._maxNumberOfIterations

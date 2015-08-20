@@ -366,7 +366,18 @@ class Mposterior(SimpleSimulation):
 		
 		self._DRNAexchangeRecipe = smc.exchange_recipe.DRNAexchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
 		self._MposteriorExchangeRecipe = smc.exchange_recipe.MposteriorExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=PRNGcopy)
-		self._likelihoodConsensusExchangeRecipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(self._PEsTopology,self._LCDPFsettings['number of consensus iterations'])
+		self._likelihoodConsensusExchangeRecipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(self._PEsTopology,
+		                                            self._LCDPFsettings['number of consensus iterations'],self._LCDPFsettings['degree of the polynomial approximation'])
+
+		nMessages = self._DRNAexchangeRecipe.messages()
+		print('number of messages DRNA = {}'.format(nMessages))
+		nMessages = self._MposteriorExchangeRecipe.messages()
+		print('number of messages Mposterior = {}'.format(nMessages))
+		nMessages = self._likelihoodConsensusExchangeRecipe.messages()
+		print('number of messages LC = {}'.format(nMessages))
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
 		
 		# ...are plot the connections between them		
 		sensorsNetworkPlot = plot.TightRectangularRoomPainterWithPEs(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],

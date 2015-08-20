@@ -241,6 +241,7 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 		self._logWeights -= np.log(factor)
 		self._aggregatedWeight /= factor
 
+	# NOTE: using np.close may yield quite different results
 	def avoidWeightDegeneracy(self):
 		
 		# if all the weights are zero...
@@ -515,14 +516,12 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		
 		# a exchange of particles among PEs will happen every...
 		self._exchangePeriod = exchangePeriod
-		
+
+		# ...and this object is responsible
 		self._exchangeRecipe = exchangeRecipe
 
 		# period for the normalization of the aggregated weights
 		self._normalizationPeriod = normalizationPeriod
-		
-		# we get a unique exchange map from this network
-		self._exchangeMap,_ = exchangeRecipe.getExchangeTuples()
 		
 		self._estimator = smc.estimator.WeightedMean(self)
 		
