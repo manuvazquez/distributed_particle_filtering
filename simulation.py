@@ -358,23 +358,6 @@ class Mposterior(SimpleSimulation):
 
 		# network topology, which describes the connection among PEs, as well as the exact particles exchanged/shared
 		self._PEsTopology = getattr(PEs_topology,self._topologiesSettings['implementing class'])(self._nPEs,self._topologiesSettings['parameters'])
-		
-		# a copy of the required PRNG is built...so that the exchange particles map is the same for both DRNA and Mposterior
-		# TODO: is this really necesary? a better approach?
-		import copy
-		PRNGcopy = copy.deepcopy(self._PRNGs["topology pseudo random numbers generator"])
-		
-		self._DRNAexchangeRecipe = smc.exchange_recipe.DRNAexchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
-		self._MposteriorExchangeRecipe = smc.exchange_recipe.MposteriorExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=PRNGcopy)
-		self._likelihoodConsensusExchangeRecipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(self._PEsTopology,
-		                                            self._LCDPFsettings['number of consensus iterations'],self._LCDPFsettings['degree of the polynomial approximation'])
-
-		nMessages = self._DRNAexchangeRecipe.messages()
-		print('number of messages DRNA = {}'.format(nMessages))
-		nMessages = self._MposteriorExchangeRecipe.messages()
-		print('number of messages Mposterior = {}'.format(nMessages))
-		nMessages = self._likelihoodConsensusExchangeRecipe.messages()
-		print('number of messages LC = {}'.format(nMessages))
 
 		# import code
 		# code.interact(local=dict(globals(), **locals()))
@@ -435,11 +418,28 @@ class Mposterior(SimpleSimulation):
 		"""Adds the algorithms to be tested by this simulation, defining the required parameters.
 		
 		"""
+
+			# a copy of the required PRNG is built...so that the exchange particles map is the same for both DRNA and Mposterior
+		# TODO: is this really necesary? a better approach?
+		import copy
+		PRNGcopy = copy.deepcopy(self._PRNGs["topology pseudo random numbers generator"])
+
+		DRNA_exchange_recipe = smc.exchange_recipe.DRNAexchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
+		Mposterior_exchange_recipe = smc.exchange_recipe.MposteriorExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=PRNGcopy)
+		likelihood_consensus_exchange_recipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(self._PEsTopology,
+		                                            self._LCDPFsettings['number of consensus iterations'],self._LCDPFsettings['degree of the polynomial approximation'])
+
+		nMessages = DRNA_exchange_recipe.messages()
+		print('number of messages DRNA = {}'.format(nMessages))
+		nMessages = Mposterior_exchange_recipe.messages()
+		print('number of messages Mposterior = {}'.format(nMessages))
+		nMessages = likelihood_consensus_exchange_recipe.messages()
+		print('number of messages LC = {}'.format(nMessages))
 		
 		# consensus
 		self._PFs.append(
 			particle_filter.LikelihoodConsensusDistributedTargetTrackingParticleFilter(
-				self._likelihoodConsensusExchangeRecipe,self._nPEs,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
+				likelihood_consensus_exchange_recipe,self._nPEs,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 				self._sensors,self._PEsSensorsConnections,self._LCDPFsettings['degree of the polynomial approximation'],
 				PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilterWithConsensusCapabilities
 				)
@@ -489,7 +489,7 @@ class Mposterior(SimpleSimulation):
 		# a distributed PF with DRNA
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"],self._DRNAexchangeRecipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
+				self._DRNAsettings["exchange period"],DRNA_exchange_recipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
 				self._prior,self._transitionKernel,self._sensors,self._everySensorWithEveryPEConnector.getConnections(self._nPEs),PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
 		)
@@ -506,7 +506,7 @@ class Mposterior(SimpleSimulation):
 		# a distributed PF using a variation of DRNA in which each PE only sees a subset of the observations
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"],self._DRNAexchangeRecipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
+				self._DRNAsettings["exchange period"],DRNA_exchange_recipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
 				self._prior,self._transitionKernel,self._sensors,self._PEsSensorsConnections,PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
 		)
@@ -538,7 +538,7 @@ class Mposterior(SimpleSimulation):
 		# DPF with M-posterior-based exchange
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-				self._MposteriorExchangeRecipe,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
+				Mposterior_exchange_recipe,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 				self._sensors,self._PEsSensorsConnections,self._MposteriorSettings['findWeiszfeldMedian parameters'],
 				self._MposteriorSettings['sharing period'],PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter)
 		)
@@ -615,7 +615,7 @@ class Mposterior(SimpleSimulation):
 		print(self._estimatedPos)
 		
 		# if a reference to an HDF5 was not received, that means the file was created by this object, and hence it is responsibility to close it...
-		if self._h5pyFile == None:
+		if self._h5pyFile is None:
 			
 			# ...in order to make sure the HDF5 file is valid...
 			self._f.close()
@@ -700,84 +700,118 @@ class Mposterior(SimpleSimulation):
 class MposteriorExchangePercentage(Mposterior):
 		
 	def addAlgorithms(self):
-		
-		# the coordinates associated with a given estimator for summarizing purposes
-		self._estimatorsCoordinates = []
-		
+
+		# # the coordinates associated with a given estimator for summarizing purposes
+		# self._estimatorsCoordinates = []
+
 		# a parameter for the DRNA algorithm
 		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(self._nPEs,self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
-		
+
 		# available colors
 		colors = ['red','blue','green','goldenrod','cyan','crimson','lime','cadetblue','magenta']
 
+		# topology of the network
+		topology = getattr(PEs_topology,self._topologiesSettings['implementing class'])(self._nPEs,self._topologiesSettings['parameters'])
+
 		for iPercentage,(percentage,color) in enumerate(zip(self._simulationParameters["exchanged particles"],colors)):
-			
-			# topologies of the network, which includes the percentage of particles exchanged
-			PEsTopology = getattr(PEs_topology,self._topologiesSettings['implementing class'])(self._nPEs,self._topologiesSettings['parameters'])
-			
-			exchangeMap = smc.exchange_recipe.DRNAexchangeRecipe(PEsTopology,self._K,percentage,PRNG=self._PRNGs["topology pseudo random numbers generator"])
-			
+
+			# import code
+			# code.interact(local=dict(globals(), **locals()))
+
+			DRNA_exchange_recipe = smc.exchange_recipe.DRNAexchangeRecipe(topology,self._K,percentage,PRNG=self._PRNGs["topology pseudo random numbers generator"])
+
 			# a distributed PF with DRNA
 			self._PFs.append(
 				smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-					self._DRNAsettings["exchange period"],exchangeMap,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
+					self._DRNAsettings["exchange period"],DRNA_exchange_recipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
 					self._prior,self._transitionKernel,self._sensors,self._everySensorWithEveryPEConnector.getConnections(self._nPEs),PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 				)
 			)
-			
+
 			self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
-			
+
 			self._estimatorsColors.append('black')
 			self._estimatorsLabels.append('DRNA {}'.format(percentage))
-			
-			self._estimatorsCoordinates.append((0,iPercentage))
-			
+
+			# self._estimatorsCoordinates.append((0,iPercentage))
+
 			# ------------
-			
+
+			Mposterior_exchange_recipe = smc.exchange_recipe.MposteriorExchangeRecipe(self._PEsTopology,self._K,percentage,PRNG=self._PRNGs["topology pseudo random numbers generator"])
+
 			self._PFs.append(
 				smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-					exchangeMap,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
+					Mposterior_exchange_recipe,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 					self._sensors,self._PEsSensorsConnections,self._MposteriorSettings['findWeiszfeldMedian parameters'],
 					self._MposteriorSettings['sharing period'],PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter
 				)
 			)
-			
+
 			self._estimators.append(smc.estimator.GeometricMedian(self._PFs[-1],
-														maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
-			
+			                        maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
+			                            tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
+
 			self._estimatorsColors.append(color)
 			self._estimatorsLabels.append('M-posterior {}'.format(percentage))
-			
-			self._estimatorsCoordinates.append((1,iPercentage))
+
+			# self._estimatorsCoordinates.append((1,iPercentage))
 			
 
 	def saveData(self,targetPosition):
 		
 		# the method from the grandparent
-		Simulation.saveData(self,targetPosition)
-		
-		# the mean of the error (euclidean distance) incurred by the PFs
-		error_vs_time = np.sqrt((np.subtract(self._estimatedPos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
-		
-		estimators_summaries = error_vs_time[self._simulationParameters['starting time instant as percentage of the frame length']*self._nTimeInstants:].sum(axis=0)
-		
-		# the number of percentages tested yields the number of columns, and the number of rows is inferred from that and the number of tuples in "self._estimatorsCoordinates"
-		error_vs_percentage = np.empty((len(self._estimatorsCoordinates)/len(self._simulationParameters['exchanged particles']),len(self._simulationParameters['exchanged particles'])))
-		
-		for summary,coordinates in zip(estimators_summaries,self._estimatorsCoordinates):
-			
-			error_vs_percentage[coordinates] = summary
+		SimpleSimulation.saveData(self,targetPosition)
 
-		# a dictionary encompassing all the data to be saved
-		dataToBeSaved = dict(
-				percentages = self._simulationParameters['exchanged particles'],
-				mean_error = error_vs_percentage
-			)
-		
-		# data is saved
-		#np.savez('res_' + self._outputFile + '.npz',**dataToBeSaved)
-		scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
-		print('results saved in "{}"'.format('res_' + self._outputFile))
+		# FIXME: this shoudn't happen every time save is called
+		del self._f['algorithms/names']
+		h5algorithms = self._f.create_dataset('algorithms/names',shape=(2,),dtype=h5py.special_dtype(vlen=str))
+		h5algorithms[0] = 'DRNA'
+		h5algorithms[1] = 'Mposterior'
+
+		for frame_number in self._f['frames']:
+
+			frame = self._f['frames'][frame_number]
+
+			frame['aux'] = frame['estimated position']
+			del frame['estimated position']
+
+			for i,exchanged_particles in enumerate(self._simulationParameters["exchanged particles"]):
+
+				frame['estimated position/exchanged particles/{}'.format(exchanged_particles)] = frame['aux'][...,i*2:(i+1)*2]
+
+			del frame['aux']
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+		#
+		# # the mean of the error (euclidean distance) incurred by the PFs
+		# error_vs_time = np.sqrt((np.subtract(self._estimatedPos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
+		#
+		# estimators_summaries = error_vs_time[self._simulationParameters['starting time instant as percentage of the frame length']*self._nTimeInstants:].sum(axis=0)
+		#
+		# # the number of percentages tested yields the number of columns, and the number of rows is inferred from that and the number of tuples in "self._estimatorsCoordinates"
+		# error_vs_percentage = np.empty((len(self._estimatorsCoordinates)/len(self._simulationParameters['exchanged particles']),len(self._simulationParameters['exchanged particles'])))
+		#
+		# for summary,coordinates in zip(estimators_summaries,self._estimatorsCoordinates):
+		#
+		# 	error_vs_percentage[coordinates] = summary
+		#
+		# # a dictionary encompassing all the data to be saved
+		# dataToBeSaved = dict(
+		# 		percentages = self._simulationParameters['exchanged particles'],
+		# 		mean_error = error_vs_percentage
+		# 	)
+		#
+		# # data is saved
+		# #np.savez('res_' + self._outputFile + '.npz',**dataToBeSaved)
+		# scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
+		# print('results saved in "{}"'.format('res_' + self._outputFile))
+
+		# if a reference to an HDF5 was not received, that means the file was created by this object, and hence it is responsibility to close it...
+		if self._h5pyFile is None:
+
+			# ...in order to make sure the HDF5 file is valid...
+			self._f.close()
 
 class MposteriorGeometricMedian(Mposterior):
 	
@@ -789,7 +823,7 @@ class MposteriorGeometricMedian(Mposterior):
 		# a distributed PF with DRNA
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"],self._DRNAexchangeRecipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
+				self._DRNAsettings["exchange period"],DRNA_exchange_recipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
 				self._prior,self._transitionKernel,self._sensors,self._everySensorWithEveryPEConnector.getConnections(self._nPEs),PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
 		)
@@ -807,7 +841,7 @@ class MposteriorGeometricMedian(Mposterior):
 		# DPF with M-posterior-based exchange
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-				self._MposteriorExchangeRecipe,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
+				Mposterior_exchange_recipe,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
 				self._sensors,self._PEsSensorsConnections,self._MposteriorSettings['findWeiszfeldMedian parameters'],
 				self._MposteriorSettings['sharing period'],PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,
 			)
