@@ -697,12 +697,9 @@ class Mposterior(SimpleSimulation):
 		# in order to make sure the HDF5 files is valid...
 		self._f.flush()
 
-class MposteriorExchangePercentage(Mposterior):
+class MposteriorExchange(Mposterior):
 		
 	def addAlgorithms(self):
-
-		# # the coordinates associated with a given estimator for summarizing purposes
-		# self._estimatorsCoordinates = []
 
 		# a parameter for the DRNA algorithm
 		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(self._nPEs,self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
@@ -733,8 +730,6 @@ class MposteriorExchangePercentage(Mposterior):
 			self._estimatorsColors.append('black')
 			self._estimatorsLabels.append('DRNA {}'.format(percentage))
 
-			# self._estimatorsCoordinates.append((0,iPercentage))
-
 			# ------------
 
 			Mposterior_exchange_recipe = smc.exchange_recipe.MposteriorExchangeRecipe(self._PEsTopology,self._K,percentage,PRNG=self._PRNGs["topology pseudo random numbers generator"])
@@ -754,8 +749,6 @@ class MposteriorExchangePercentage(Mposterior):
 			self._estimatorsColors.append(color)
 			self._estimatorsLabels.append('M-posterior {}'.format(percentage))
 
-			# self._estimatorsCoordinates.append((1,iPercentage))
-			
 
 	def saveData(self,targetPosition):
 		
@@ -768,44 +761,30 @@ class MposteriorExchangePercentage(Mposterior):
 		h5algorithms[0] = 'DRNA'
 		h5algorithms[1] = 'Mposterior'
 
+		h5_algorithms_colors = self._f.create_dataset('algorithms/colors',shape=(2,),dtype=h5py.special_dtype(vlen=str))
+		h5_algorithms_colors[0] = 'black'
+		h5_algorithms_colors[1] = 'blue'
+
+		# for every frame previously stored
 		for frame_number in self._f['frames']:
 
+			# for the sake of convenience
 			frame = self._f['frames'][frame_number]
 
+			# the estimated position for every algorithm and every "exchange value" is stored in an auxiliar variable...
 			frame['aux'] = frame['estimated position']
+
+			# ...so that we can delete the corresponding dataset and reuse the name
 			del frame['estimated position']
 
+			# for every "exchange value"...
 			for i,exchanged_particles in enumerate(self._simulationParameters["exchanged particles"]):
 
+				# ...the results for all the algorithms are stored in the appropriate place
 				frame['estimated position/exchanged particles/{}'.format(exchanged_particles)] = frame['aux'][...,i*2:(i+1)*2]
 
+			# we don't need this anymore
 			del frame['aux']
-
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-		#
-		# # the mean of the error (euclidean distance) incurred by the PFs
-		# error_vs_time = np.sqrt((np.subtract(self._estimatedPos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
-		#
-		# estimators_summaries = error_vs_time[self._simulationParameters['starting time instant as percentage of the frame length']*self._nTimeInstants:].sum(axis=0)
-		#
-		# # the number of percentages tested yields the number of columns, and the number of rows is inferred from that and the number of tuples in "self._estimatorsCoordinates"
-		# error_vs_percentage = np.empty((len(self._estimatorsCoordinates)/len(self._simulationParameters['exchanged particles']),len(self._simulationParameters['exchanged particles'])))
-		#
-		# for summary,coordinates in zip(estimators_summaries,self._estimatorsCoordinates):
-		#
-		# 	error_vs_percentage[coordinates] = summary
-		#
-		# # a dictionary encompassing all the data to be saved
-		# dataToBeSaved = dict(
-		# 		percentages = self._simulationParameters['exchanged particles'],
-		# 		mean_error = error_vs_percentage
-		# 	)
-		#
-		# # data is saved
-		# #np.savez('res_' + self._outputFile + '.npz',**dataToBeSaved)
-		# scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
-		# print('results saved in "{}"'.format('res_' + self._outputFile))
 
 		# if a reference to an HDF5 was not received, that means the file was created by this object, and hence it is responsibility to close it...
 		if self._h5pyFile is None:

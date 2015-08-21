@@ -7,3 +7,4 @@ TODO
 docs
 *.RandomState
 .pdbrc
+.idea
