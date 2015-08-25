@@ -1,6 +1,5 @@
 import numpy as np
 import math
-import collections
 import networkx as nx
 
 class Topology:

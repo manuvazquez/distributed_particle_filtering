@@ -59,7 +59,8 @@ class DRNAexchangeRecipe(ExchangeRecipe):
 		# named tuples as defined above, each representing a exchange
 		self._exchangeTuples = []
 
-		# a list in which the i-th element is also a list containing tuples of the form (<neighbour index>,<(numpy) array with the indices of particles to be exchanged with that neighbour>)
+		# a list in which the i-th element is also a list containing tuples of the form (<neighbour index>,<numpy array>
+		#  with the indices of particles to be exchanged with that neighbour>)
 		self._neighboursWithParticles = [[] for i in range(self._nPEs)]
 
 		for iPE,neighboursPE in enumerate(neighbours):
@@ -192,11 +193,26 @@ class MposteriorExchangeRecipe(DRNAexchangeRecipe):
 				# exchange only happens between neighbours (no hops)
 				nMessages += len(iParticles)*state.nElements
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-
 		return nMessages
 
+
+class IteratedMposteriorExchangeRecipe(MposteriorExchangeRecipe):
+
+	def __init__(self,PEsTopology,nParticlesPerPE,exchanged_particles,number_iterations,PRNG=np.random.RandomState()):
+
+		super().__init__(PEsTopology,nParticlesPerPE,exchanged_particles,PRNG)
+
+		self._number_iterations = number_iterations
+
+	def performExchange(self,DPF):
+
+		for _ in range(self._number_iterations):
+
+			super().performExchange(DPF)
+
+	def messages(self):
+
+		return super().messages()*self._number_iterations
 
 class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 
@@ -279,7 +295,15 @@ class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 		M = 2
 
 		# theoretically, this is the number of beta components that should result
-		nConsensusAlgorithms = scipy.misc.comb(2*self.polynomialDegree + M, 2*self.polynomialDegree, exact=True) - 1
+		number_consensus_algorithms = scipy.misc.comb(2*self.polynomialDegree + M, 2*self.polynomialDegree, exact=True) - 1
 
-		# each PE sends "nConsensusAlgorithms" values to each one of its neighbours, once per iteration
-		return sum([len(neighbours) for neighbours in self._neighborhoods])*nConsensusAlgorithms*self._maxNumberOfIterations
+		# overall number of neighbours: #neighbours of the 1st PE + #neighbours of the 2nd PE +...
+		number_neighbours = sum([len(neighbours) for neighbours in self._neighborhoods])
+
+		# each PE sends "number_consensus_algorithms" values to each one of its neighbours, once per iteration...
+		number_messages = number_neighbours*number_consensus_algorithms*self._maxNumberOfIterations
+
+		# ...additionally it needs to send each neighbour the number of neighbours it has itself (Metropolis weights)
+		number_messages += number_neighbours
+
+		return number_messages

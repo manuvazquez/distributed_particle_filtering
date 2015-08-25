@@ -15,10 +15,11 @@ import state
 import plot
 import network_nodes
 
+
 class Simulation(metaclass=abc.ABCMeta):
 	
 	@abc.abstractmethod
-	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs):
+	def __init__(self, parameters, resamplingAlgorithm, resamplingCriterion, prior, transitionKernel, outputFile, PRNGs):
 		
 		# these parameters are kept for later use
 		self._resamplingAlgorithm = resamplingAlgorithm
@@ -196,11 +197,6 @@ class Convergence(SimpleSimulation):
 		plot.aggregatedWeightsSupremumVsTime(maxWeights[0,:],self._aggregatedWeightsUpperBounds[0],
 												self._painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),self._DRNAsettings["exchange period"])
 
-		# if requested, save the trajectory
-		if self._painterSettings["display evolution?"]:
-			if 'iTime' in globals() and iTime>0:
-				painter.save(('trajectory_up_to_iTime={}_' + hostname + '_' + date + '.eps').format(repr(iTime)))
-
 		# a dictionary encompassing all the data to be saved
 		dataToBeSaved = dict(
 				aggregatedWeightsUpperBounds = self._aggregatedWeightsUpperBounds,
@@ -277,6 +273,7 @@ class Convergence(SimpleSimulation):
 						self._painter.updateParticlesPositions(state.position(pf.getState()),identifier='centralized',color=self._painterSettings["color for the centralized PF"])
 						self._painter.updateParticlesPositions(state.position(distributedPf.getState()),identifier='distributed',color=self._painterSettings["color for the distributed PF"])
 
+
 class MultipleMposterior(Simulation):
 	
 	def __init__(self,parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs):
@@ -315,6 +312,7 @@ class MultipleMposterior(Simulation):
 		
 		self._f.close()
 
+
 class Mposterior(SimpleSimulation):
 	
 	# TODO: a method of the object is called from within "__init__" (allowed in python...but weird)
@@ -333,7 +331,7 @@ class Mposterior(SimpleSimulation):
 		self._LCDPFsettings = parameters['Likelihood Consensus']
 		
 		# if the number of PEs is not received...
-		if nPEs==None:
+		if nPEs is None:
 			# ...it is looked up in "parameters"
 			self._nPEs = self._topologiesSettings['number of PEs']
 		# otherwise...
@@ -419,13 +417,19 @@ class Mposterior(SimpleSimulation):
 		
 		"""
 
-			# a copy of the required PRNG is built...so that the exchange particles map is the same for both DRNA and Mposterior
+		# a copy of the required PRNG is built...so that the exchange particles map is the same for both DRNA and Mposterior
 		# TODO: is this really necesary? a better approach?
 		import copy
 		PRNGcopy = copy.deepcopy(self._PRNGs["topology pseudo random numbers generator"])
 
-		DRNA_exchange_recipe = smc.exchange_recipe.DRNAexchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
-		Mposterior_exchange_recipe = smc.exchange_recipe.MposteriorExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=PRNGcopy)
+		DRNA_exchange_recipe = smc.exchange_recipe.DRNAexchangeRecipe(
+			self._PEsTopology, self._K, self._simulationParameters["exchanged particles"],
+			PRNG=self._PRNGs["topology pseudo random numbers generator"])
+		# Mposterior_exchange_recipe = smc.exchange_recipe.MposteriorExchangeRecipe(
+		# 	self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=PRNGcopy)
+		Mposterior_exchange_recipe = smc.exchange_recipe.IteratedMposteriorExchangeRecipe(
+			self._PEsTopology, self._K, self._simulationParameters["exchanged particles"],
+			self._MposteriorSettings["number of iterations"], PRNG=PRNGcopy)
 		likelihood_consensus_exchange_recipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(self._PEsTopology,
 		                                            self._LCDPFsettings['number of consensus iterations'],self._LCDPFsettings['degree of the polynomial approximation'])
 
@@ -445,7 +449,7 @@ class Mposterior(SimpleSimulation):
 				)
 		)
 		
-		# the estimator just delegates the calculus of the estimate to the PF
+		# the estimator just delegates the calculus of the estimate to one of the PEs
 		self._estimators.append(smc.estimator.SinglePEmean(self._PFs[-1],0))
 		
 		self._estimatorsColors.append('brown')
@@ -586,6 +590,19 @@ class Mposterior(SimpleSimulation):
 		
 		self._estimatorsColors.append(color)
 		self._estimatorsLabels.append('M-posterior (geometric median with particles from PE \#{})'.format(iPE))
+
+		# ------------
+
+		# DPF with M-posterior-based exchange that gets its estimates from the geometric median of the particles in the first PE
+		iPE= 0
+
+		for radius,color in zip([1,2,3,4,5],['deeppink','cornsilk','sienna','coral','orchid']):
+
+			# an estimator which yields the geometric median of the particles in the "iPE"-th PE
+			self._estimators.append(smc.estimator.SinglePEgeometricMedianWithinRadius(self._PFs[-1],iPE,self._PEsTopology,radius))
+
+			self._estimatorsColors.append(color)
+			self._estimatorsLabels.append('M-posterior ({} hops geometric median with particles from PE \#{})'.format(radius,iPE))
 		
 		# ------------
 		
@@ -712,9 +729,6 @@ class MposteriorExchange(Mposterior):
 
 		for iPercentage,(percentage,color) in enumerate(zip(self._simulationParameters["exchanged particles"],colors)):
 
-			# import code
-			# code.interact(local=dict(globals(), **locals()))
-
 			DRNA_exchange_recipe = smc.exchange_recipe.DRNAexchangeRecipe(topology,self._K,percentage,PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 			# a distributed PF with DRNA
@@ -798,6 +812,14 @@ class MposteriorGeometricMedian(Mposterior):
 		
 		# a parameter for the DRNA algorithm
 		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(self._nPEs,self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
+
+		# a copy of the required PRNG is built...so that the exchange particles map is the same for both DRNA and Mposterior
+		# TODO: is this really necesary? a better approach?
+		import copy
+		PRNGcopy = copy.deepcopy(self._PRNGs["topology pseudo random numbers generator"])
+
+		DRNA_exchange_recipe = smc.exchange_recipe.DRNAexchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
+		Mposterior_exchange_recipe = smc.exchange_recipe.MposteriorExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=PRNGcopy)
 		
 		# a distributed PF with DRNA
 		self._PFs.append(

@@ -140,6 +140,7 @@
 	},
 	"Mposterior": {
 		"sharing period": 10,
+	  	"number of iterations": 1,
 		"findWeiszfeldMedian parameters": {
 			"sigma": 0.1,
 			"maxit": 100,
