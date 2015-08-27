@@ -611,7 +611,7 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 		# ...and the parameters to be passed to the required function are kept
 		self._findWeiszfeldMedianParameters = findWeiszfeldMedianParameters
 		
-	def Mposterior(self,posteriorDistributions):
+	def Mposterior(self, posteriorDistributions):
 		
 		"""Applies the Mposterior algorithm to weight the samples of a list of "subset posterior distribution"s.
 		

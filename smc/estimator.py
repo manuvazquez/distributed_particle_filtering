@@ -141,7 +141,7 @@ class GeometricMedian(Estimator):
 
 class StochasticGeometricMedian(Mposterior):
 
-	def __init__(self,DPF,nParticles,maxIterations=100,tolerance=0.001):
+	def __init__(self, DPF, nParticles, maxIterations=100, tolerance=0.001):
 
 		super().__init__(DPF)
 
@@ -151,13 +151,16 @@ class StochasticGeometricMedian(Mposterior):
 
 	def estimate(self):
 
-		# a number of samples is drawn from the distribution of each PE (all equally weighted) to build a list of tuples (samples and weights)
-		samples = np.hstack([PE.getSamplesAt(self._DPF._resamplingAlgorithm.getIndexes(np.exp(PE.logWeights),self._nParticles)) for PE in self._DPF._PEs])
+		# a number of samples is drawn from the distribution of each PE (all equally weighted)
+		# to build a list of tuples (samples and weights)
+		samples = np.hstack(
+			[PE.getSamplesAt(self._DPF._resamplingAlgorithm.getIndexes(np.exp(PE.logWeights),
+			self._nParticles)) for PE in self._DPF._PEs])
 
 		return geometric_median(samples,max_iterations=self._maxIterations,tolerance=self._tolerance)[:,np.newaxis]
 
 
-class SinglePEmean(Estimator):
+class SinglePE(Estimator, metaclass=abc.ABCMeta):
 
 	def __init__(self,DPF,iPE):
 
@@ -165,12 +168,17 @@ class SinglePEmean(Estimator):
 
 		self._iPE = iPE
 
+	def messages(self, PEs_topology):
+		# only the particles within the PE are used to get an estimate
+		return 0
+
+class SinglePEmean(SinglePE):
+
 	def estimate(self):
 
 		return self._DPF._PEs[self._iPE].computeMean()
 
-
-class SinglePEgeometricMedian(SinglePEmean):
+class SinglePEgeometricMedian(SinglePE):
 
 	def __init__(self, DPF, iPE, maxIterations=100, tolerance=0.001):
 
@@ -181,7 +189,7 @@ class SinglePEgeometricMedian(SinglePEmean):
 
 	def estimate(self):
 
-		return geometric_median(self._DPF._PEs[self._iPE].samples,max_iterations=self._maxIterations,tolerance=self._tolerance)[:,np.newaxis]
+		return geometric_median(self._DPF._PEs[self._iPE].samples, max_iterations=self._maxIterations, tolerance=self._tolerance)[:,np.newaxis]
 
 
 class SinglePEgeometricMedianWithinRadius(SinglePEgeometricMedian):
@@ -191,17 +199,24 @@ class SinglePEgeometricMedianWithinRadius(SinglePEgeometricMedian):
 		super().__init__(DPF, iPE, maxIterations, tolerance)
 
 		self._distances = PEs_topology.distances_between_PEs()
-		self._radius = radius
+
+		# the indexes of the PEs that are at most "radius" hops from the selected PE
+		self._i_relevant_PEs, = np.where((self._distances[self._iPE] > 0) & (self._distances[self._iPE]<=radius))
+
+		# the selected PE is also included
+		self._i_relevant_PEs = np.append(self._i_relevant_PEs,self._iPE)
 
 	def estimate(self):
 
-		# the indexes of the PEs that are at most "radius" hops from the selected PE
-		i_relevant_PEs, = np.where((self._distances[self._iPE] > 0) & (self._distances[self._iPE]<=self._radius))
-
-		# the selected PE is also included
-		i_relevant_PEs = np.append(i_relevant_PEs,self._iPE)
-
 		# one sample from each of the above PEs
-		samples = np.vstack([self._DPF._PEs[iPE].getSamplesAt(0) for iPE in i_relevant_PEs]).T
+		samples = np.vstack([self._DPF._PEs[iPE].getSamplesAt(0) for iPE in self._i_relevant_PEs]).T
 
-		return geometric_median(samples)[:,np.newaxis]
+		return geometric_median(samples, max_iterations=self._maxIterations, tolerance=self._tolerance)[:,np.newaxis]
+	
+	def messages(self, PEs_topology):
+		"""
+		:return: the number of messages exchanged between PEs due to a call to "estimate"
+		"""
+
+		# the number of hops for each neighbour times the number of number sent by message
+		return self._distances[self._iPE,self._i_relevant_PEs].sum()*2

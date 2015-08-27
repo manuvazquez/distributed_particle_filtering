@@ -601,6 +601,8 @@ class Mposterior(SimpleSimulation):
 			# an estimator which yields the geometric median of the particles in the "iPE"-th PE
 			self._estimators.append(smc.estimator.SinglePEgeometricMedianWithinRadius(self._PFs[-1],iPE,self._PEsTopology,radius))
 
+			print(self._estimators[-1].messages(self._PEsTopology))
+
 			self._estimatorsColors.append(color)
 			self._estimatorsLabels.append('M-posterior ({} hops geometric median with particles from PE \#{})'.format(radius,iPE))
 		
