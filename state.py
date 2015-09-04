@@ -2,13 +2,15 @@ import math
 import numpy as np
 
 # a state vector has the structure:
-#	[ pos_x ]
-#	| pos_y ]
-#	| vel_x ]
-#	[ vel_y ]
+# 	[ pos_x ]
+# 	| pos_y ]
+# 	| vel_x ]
+# 	[ vel_y ]
 
 # so that only this module needs to know about implementation details...
 nElements = 4
+n_elements_position = 2
+
 
 def position(state):
 	"""It extracts the position elements out of the state vector.
@@ -18,6 +20,7 @@ def position(state):
 	
 	return state[0:2,:]
 
+
 def velocity(state):
 	"""It extracts the velocity elements out of the state vector.
 	
@@ -25,6 +28,7 @@ def velocity(state):
 	"""
 	
 	return state[2:4,:]
+
 
 def buildState(position,velocity):
 	"""It builds a state vector given a position and a velocity vectors.
@@ -34,11 +38,13 @@ def buildState(position,velocity):
 	
 	return np.vstack((position,velocity))
 
+
 class Prior:
 	
 	def sample(self):
 		
 		pass
+
 
 class UniformBoundedPositionGaussianVelocityPrior(Prior):
 	
@@ -68,6 +74,7 @@ class UniformBoundedPositionGaussianVelocityPrior(Prior):
 		
 		return np.vstack((position,velocity))
 
+
 class TransitionKernel:
 	
 	def __init__(self,stepDuration):
@@ -78,6 +85,7 @@ class TransitionKernel:
 	def nextState(self,state):
 		
 		pass
+
 
 class UnboundedTransitionKernel(TransitionKernel):
 	
@@ -118,6 +126,7 @@ class UnboundedTransitionKernel(TransitionKernel):
 		step = velocity*self._stepDuration + PRNG.normal(0,math.sqrt(self._noiseVariance/2),(2,1))
 		
 		return np.vstack((state[0:2] + step,velocity))
+
 
 class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 	
@@ -216,6 +225,7 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 				velocity = step/np.linalg.norm(step)*np.linalg.norm(velocity)
 
 		return np.vstack((tentativeNewPos,velocity))
+
 
 class OnEdgeResetTransitionKernel(UnboundedTransitionKernel):
 	

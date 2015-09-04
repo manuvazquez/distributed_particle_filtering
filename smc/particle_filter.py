@@ -1,5 +1,4 @@
 import numpy as np
-import math
 import abc
 import itertools
 import scipy.misc
@@ -18,6 +17,7 @@ from rpy2.robjects.packages import importr
 # for automatic conversion from numpy arrays to R data types
 import rpy2.robjects.numpy2ri
 rpy2.robjects.numpy2ri.activate()
+
 
 class ParticleFilter(metaclass=abc.ABCMeta):
 	
@@ -44,6 +44,7 @@ class ParticleFilter(metaclass=abc.ABCMeta):
 		pass
 
 # =========================================================================================================
+
 
 class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 	
@@ -374,6 +375,7 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 
 # =========================================================================================================
 
+
 class DistributedTargetTrackingParticleFilter(ParticleFilter):
 	
 	def __init__(self,nPEs,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
@@ -394,6 +396,11 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 		self._PEs = [PFsClass(nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,
 													[sensors[iSensor] for iSensor in connections],
 													aggregatedWeight=PFsInitialAggregatedWeight) for connections in  PEsSensorsConnections]
+
+	@property
+	def n_PEs(self):
+
+		return self._nPEs
 
 	def initialize(self):
 		

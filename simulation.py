@@ -133,7 +133,7 @@ class Convergence(SimpleSimulation):
 		
 		topologies = [getattr(PEs_topology,t['implementing class'])(t['number of PEs'],t['parameters']) for t in self._topologiesSettings]
 		
-		exchangeRecipes = [smc.exchange_recipe.DRNAexchangeRecipe(t,self._K,self._simulationParameters["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"]) for t in topologies]
+		exchangeRecipes = [smc.exchange_recipe.DRNAExchangeRecipe(t,self._K,self._simulationParameters["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"]) for t in topologies]
 		
 		# we compute the upper bound for the supremum of the aggregated weights that should guarante convergence
 		self._aggregatedWeightsUpperBounds = [drnautil.supremumUpperBound(t['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon']) for t in self._topologiesSettings]
@@ -422,7 +422,7 @@ class Mposterior(SimpleSimulation):
 		import copy
 		PRNGcopy = copy.deepcopy(self._PRNGs["topology pseudo random numbers generator"])
 
-		DRNA_exchange_recipe = smc.exchange_recipe.DRNAexchangeRecipe(
+		DRNA_exchange_recipe = smc.exchange_recipe.DRNAExchangeRecipe(
 			self._PEsTopology, self._K, self._simulationParameters["exchanged particles"],
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 		# Mposterior_exchange_recipe = smc.exchange_recipe.MposteriorExchangeRecipe(
@@ -601,7 +601,7 @@ class Mposterior(SimpleSimulation):
 			# an estimator which yields the geometric median of the particles in the "iPE"-th PE
 			self._estimators.append(smc.estimator.SinglePEgeometricMedianWithinRadius(self._PFs[-1],iPE,self._PEsTopology,radius))
 
-			print(self._estimators[-1].messages(self._PEsTopology))
+			print('messages with radius {} = {}'.format(radius,self._estimators[-1].messages(self._PEsTopology)))
 
 			self._estimatorsColors.append(color)
 			self._estimatorsLabels.append('M-posterior ({} hops geometric median with particles from PE \#{})'.format(radius,iPE))
@@ -731,7 +731,7 @@ class MposteriorExchange(Mposterior):
 
 		for iPercentage,(percentage,color) in enumerate(zip(self._simulationParameters["exchanged particles"],colors)):
 
-			DRNA_exchange_recipe = smc.exchange_recipe.DRNAexchangeRecipe(topology,self._K,percentage,PRNG=self._PRNGs["topology pseudo random numbers generator"])
+			DRNA_exchange_recipe = smc.exchange_recipe.DRNAExchangeRecipe(topology,self._K,percentage,PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 			# a distributed PF with DRNA
 			self._PFs.append(
@@ -820,7 +820,7 @@ class MposteriorGeometricMedian(Mposterior):
 		import copy
 		PRNGcopy = copy.deepcopy(self._PRNGs["topology pseudo random numbers generator"])
 
-		DRNA_exchange_recipe = smc.exchange_recipe.DRNAexchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
+		DRNA_exchange_recipe = smc.exchange_recipe.DRNAExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"])
 		Mposterior_exchange_recipe = smc.exchange_recipe.MposteriorExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"],PRNG=PRNGcopy)
 		
 		# a distributed PF with DRNA

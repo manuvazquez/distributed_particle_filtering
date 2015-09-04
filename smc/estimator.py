@@ -49,6 +49,7 @@ def geometric_median(points,max_iterations=100,tolerance=0.001):
 
 	return estimate
 
+
 class Estimator(metaclass=abc.ABCMeta):
 
 	def __init__(self,DPF):
@@ -65,6 +66,12 @@ class Delegating(Estimator):
 	def estimate(self):
 
 		return self._DPF.computeMean()
+
+	def messages(self):
+
+		# no messages are gathered
+		return 0
+
 
 class Mean(Estimator):
 
