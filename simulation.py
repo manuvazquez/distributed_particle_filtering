@@ -607,6 +607,19 @@ class Mposterior(SimpleSimulation):
 			self._estimatorsLabels.append('M-posterior ({} hops geometric median with particles from PE \#{})'.format(radius,iPE))
 		
 		# ------------
+
+		for estimator,label in zip(self._estimators,self._estimatorsLabels):
+
+			print('{}: messages for estimation= {}'.format(label,estimator.messages(self._PEsTopology)))
+			print('for exchange = ',end='')
+
+			try:
+
+				print(estimator.DPF.exchange_recipe.messages())
+
+			except AttributeError:
+
+				print('0')
 		
 	def saveData(self,targetPosition):
 		

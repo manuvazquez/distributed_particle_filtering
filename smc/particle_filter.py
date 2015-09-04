@@ -448,7 +448,7 @@ class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTarg
 		super().__init__(nPEs,nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass)
 		
 		# the exchange recipe is kept
-		self._exchangeRecipe = exchangeRecipe
+		self.exchange_recipe = exchangeRecipe
 		
 		# for the sake of conveninience when following the pseudocode in "Likelihood Consensus and its Application to Distributed Particle Filtering":
 		# -------------------
@@ -507,7 +507,7 @@ class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTarg
 			PE.preconsensusStep(observations[sensorsConnections])
 		
 		# consensus
-		self._exchangeRecipe.performExchange(self)
+		self.exchange_recipe.performExchange(self)
 		
 		# a step is taken in every PF (ideally, this would occur concurrently)
 		for PE,sensorsConnections in zip(self._PEs,self._PEsSensorsConnections):
@@ -531,7 +531,7 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		self._exchangePeriod = exchangePeriod
 
 		# ...and this object is responsible
-		self._exchangeRecipe = exchangeRecipe
+		self.exchange_recipe = exchangeRecipe
 
 		# period for the normalization of the aggregated weights
 		self._normalizationPeriod = normalizationPeriod
@@ -549,7 +549,7 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		if (self._n % self._exchangePeriod == 0):
 			
 			#self.exchangeParticles()
-			self._exchangeRecipe.performExchange(self)
+			self.exchange_recipe.performExchange(self)
 			
 			# after the exchange, the aggregated weight of every PE must be updated
 			for PE in self._PEs:
@@ -616,7 +616,7 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 		super().__init__(exchangeRecipe.getNumberOfPEs(),nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,PFsClass=PFsClass)
 		
 		self._sharingPeriod = sharingPeriod
-		self._exchangeRecipe = exchangeRecipe
+		self.exchange_recipe = exchangeRecipe
 		
 		# the (R) Mposterior package is imported...
 		self._Mposterior = importr('Mposterior')
@@ -663,4 +663,4 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 		# if it is sharing particles time
 		if (self._n % self._sharingPeriod == 0):
 			
-			self._exchangeRecipe.performExchange(self)
+			self.exchange_recipe.performExchange(self)
