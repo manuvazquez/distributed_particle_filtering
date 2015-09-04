@@ -450,7 +450,7 @@ class Mposterior(SimpleSimulation):
 		)
 		
 		# the estimator just delegates the calculus of the estimate to one of the PEs
-		self._estimators.append(smc.estimator.SinglePEmean(self._PFs[-1],0))
+		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1],0))
 		
 		self._estimatorsColors.append('brown')
 		self._estimatorsLabels.append('LC DPF')
@@ -575,7 +575,7 @@ class Mposterior(SimpleSimulation):
 		iPE,color = 0,'olive'
 		
 		# an estimator which yields the mean of the particles in the "iPE"-th PE
-		self._estimators.append(smc.estimator.SinglePEmean(self._PFs[-1],iPE))
+		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1],iPE))
 		
 		self._estimatorsColors.append(color)
 		self._estimatorsLabels.append('M-posterior (mean with particles from PE \#{})'.format(iPE))
@@ -586,7 +586,7 @@ class Mposterior(SimpleSimulation):
 		iPE,color = 0,'crimson'
 		
 		# an estimator which yields the geometric median of the particles in the "iPE"-th PE
-		self._estimators.append(smc.estimator.SinglePEgeometricMedian(self._PFs[-1],iPE))
+		self._estimators.append(smc.estimator.SinglePEGeometricMedian(self._PFs[-1],iPE))
 		
 		self._estimatorsColors.append(color)
 		self._estimatorsLabels.append('M-posterior (geometric median with particles from PE \#{})'.format(iPE))
@@ -599,7 +599,7 @@ class Mposterior(SimpleSimulation):
 		for radius,color in zip([1,2,3,4,5],['deeppink','cornsilk','sienna','coral','orchid']):
 
 			# an estimator which yields the geometric median of the particles in the "iPE"-th PE
-			self._estimators.append(smc.estimator.SinglePEgeometricMedianWithinRadius(self._PFs[-1],iPE,self._PEsTopology,radius))
+			self._estimators.append(smc.estimator.SinglePEGeometricMedianWithinRadius(self._PFs[-1],iPE,self._PEsTopology,radius))
 
 			print('messages with radius {} = {}'.format(radius,self._estimators[-1].messages(self._PEsTopology)))
 
@@ -633,7 +633,8 @@ class Mposterior(SimpleSimulation):
 		
 		print(self._estimatedPos)
 		
-		# if a reference to an HDF5 was not received, that means the file was created by this object, and hence it is responsibility to close it...
+		# if a reference to an HDF5 was not received, that means the file was created by this object,
+		# and hence it is responsible of closing it...
 		if self._h5pyFile is None:
 			
 			# ...in order to make sure the HDF5 file is valid...

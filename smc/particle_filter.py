@@ -151,7 +151,12 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		"""
 		
 		return self._state[:,indexes]
-	
+
+	@property
+	def n_particles(self):
+
+		return len(self._logWeights)
+
 	@property
 	def samples(self):
 		
@@ -512,6 +517,7 @@ class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTarg
 			PE.step(observations[sensorsConnections])
 		
 # =========================================================================================================
+
 
 class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilter):
 	
