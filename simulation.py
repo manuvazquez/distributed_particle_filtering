@@ -137,7 +137,7 @@ class Convergence(SimpleSimulation):
 		
 		# we compute the upper bound for the supremum of the aggregated weights that should guarante convergence
 		self._aggregatedWeightsUpperBounds = [drnautil.supremumUpperBound(t['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon']) for t in self._topologiesSettings]
-		
+
 		# plain non-parallelized particle filter
 		self._PFsForTopologies = [particle_filter.CentralizedTargetTrackingParticleFilter(self._K*t.getNumberOfPEs(),resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,self._sensors) for t in topologies]
 		
@@ -145,9 +145,9 @@ class Convergence(SimpleSimulation):
 
 		# distributed particle filter
 		self._distributedPFsForTopologies = [particle_filter.TargetTrackingParticleFilterWithDRNA(
-			self._DRNAsettings["exchange period"],e,upperBound,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
+			self._DRNAsettings["exchange period"],e,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
 			self._sensors,sensorsPEsConnector.getConnections(e.getNumberOfPEs())
-			) for e,upperBound in zip(exchangeRecipes,self._aggregatedWeightsUpperBounds)]
+			) for e in exchangeRecipes]
 		
 		#------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
 		
@@ -410,6 +410,31 @@ class Mposterior(SimpleSimulation):
 		
 		# the positions of the sensors
 		self._f.create_dataset(self._h5pyFilePrefix + 'sensors/positions',shape=self._sensorsPositions.shape,data=self._sensorsPositions)
+
+		algorithms_messages = []
+
+		for estimator,label in zip(self._estimators,self._estimatorsLabels):
+
+			messages_during_estimation = estimator.messages(self._PEsTopology)
+
+			messages_algorithm_operation = estimator.DPF.messages(self._PEsTopology,self._PEsSensorsConnections)
+
+			algorithms_messages.append(messages_during_estimation+messages_algorithm_operation)
+
+			print('{}: messages = {}'.format(label,algorithms_messages[-1]))
+
+			# try:
+			#
+			# 	messages_during_exchange = estimator.DPF.exchange_recipe.messages()
+			#
+			# except AttributeError:
+			#
+			# 	messages_during_exchange = 0
+			#
+			# print('{}: messages\n\t during estimation = {}\n\t during exchange = {}'.format(label,messages_during_estimation,messages_during_exchange))
+
+		# the messages (per iteration) required by each algorithm
+		self._f.create_dataset(self._h5pyFilePrefix + 'algorithms/messages',shape=(len(algorithms_messages),),data=algorithms_messages)
 	
 	def addAlgorithms(self):
 		
@@ -472,9 +497,6 @@ class Mposterior(SimpleSimulation):
 		
 		# ------------
 
-		# a parameter for the DRNA algorithm
-		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(self._nPEs,self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
-		
 		# centralized PF
 		self._PFs.append(
 			particle_filter.CentralizedTargetTrackingParticleFilter(
@@ -493,7 +515,7 @@ class Mposterior(SimpleSimulation):
 		# a distributed PF with DRNA
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"],DRNA_exchange_recipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
+				self._DRNAsettings["exchange period"],DRNA_exchange_recipe,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
 				self._prior,self._transitionKernel,self._sensors,self._everySensorWithEveryPEConnector.getConnections(self._nPEs),PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
 		)
@@ -504,13 +526,15 @@ class Mposterior(SimpleSimulation):
 		
 		self._estimatorsColors.append('black')
 		self._estimatorsLabels.append('DRNA')
+
+		print('{}: {}'.format(self._estimatorsLabels[-1],self._PFs[-1].messages(self._PEsTopology,self._PEsSensorsConnections)))
 		
 		# ------------
 		
 		# a distributed PF using a variation of DRNA in which each PE only sees a subset of the observations
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"],DRNA_exchange_recipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
+				self._DRNAsettings["exchange period"],DRNA_exchange_recipe,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
 				self._prior,self._transitionKernel,self._sensors,self._PEsSensorsConnections,PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
 		)
@@ -520,6 +544,8 @@ class Mposterior(SimpleSimulation):
 		
 		self._estimatorsColors.append('magenta')
 		self._estimatorsLabels.append('DRNA (partial observations)')
+
+		print('{}: {}'.format(self._estimatorsLabels[-1],self._PFs[-1].messages(self._PEsTopology,self._PEsSensorsConnections)))
 		
 		# ------------
 		
@@ -536,6 +562,14 @@ class Mposterior(SimpleSimulation):
 		
 		self._estimatorsColors.append('blue')
 		self._estimatorsLabels.append('Plain DPF')
+
+		# ------------
+
+		# an estimator computing the geometric median with 1 particle taken from each PE
+		self._estimators.append(smc.estimator.GeometricMedian(self._PFs[-1],maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
+														tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
+		self._estimatorsColors.append('seagreen')
+		self._estimatorsLabels.append('Plain DPF (geometric median with 1 particle from each PE)')
 		
 		# ------------
 
@@ -608,19 +642,6 @@ class Mposterior(SimpleSimulation):
 		
 		# ------------
 
-		for estimator,label in zip(self._estimators,self._estimatorsLabels):
-
-			print('{}: messages for estimation= {}'.format(label,estimator.messages(self._PEsTopology)))
-			print('for exchange = ',end='')
-
-			try:
-
-				print(estimator.DPF.exchange_recipe.messages())
-
-			except AttributeError:
-
-				print('0')
-		
 	def saveData(self,targetPosition):
 		
 		# let the super class do its thing...
@@ -734,9 +755,6 @@ class MposteriorExchange(Mposterior):
 		
 	def addAlgorithms(self):
 
-		# a parameter for the DRNA algorithm
-		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(self._nPEs,self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
-
 		# available colors
 		colors = ['red','blue','green','goldenrod','cyan','crimson','lime','cadetblue','magenta']
 
@@ -750,7 +768,7 @@ class MposteriorExchange(Mposterior):
 			# a distributed PF with DRNA
 			self._PFs.append(
 				smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-					self._DRNAsettings["exchange period"],DRNA_exchange_recipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
+					self._DRNAsettings["exchange period"],DRNA_exchange_recipe,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
 					self._prior,self._transitionKernel,self._sensors,self._everySensorWithEveryPEConnector.getConnections(self._nPEs),PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 				)
 			)
@@ -826,9 +844,6 @@ class MposteriorGeometricMedian(Mposterior):
 	
 	def addAlgorithms(self):
 		
-		# a parameter for the DRNA algorithm
-		DRNAaggregatedWeightsUpperBound = drnautil.supremumUpperBound(self._nPEs,self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon'])
-
 		# a copy of the required PRNG is built...so that the exchange particles map is the same for both DRNA and Mposterior
 		# TODO: is this really necesary? a better approach?
 		import copy
@@ -840,7 +855,7 @@ class MposteriorGeometricMedian(Mposterior):
 		# a distributed PF with DRNA
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"],DRNA_exchange_recipe,DRNAaggregatedWeightsUpperBound,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
+				self._DRNAsettings["exchange period"],DRNA_exchange_recipe,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
 				self._prior,self._transitionKernel,self._sensors,self._everySensorWithEveryPEConnector.getConnections(self._nPEs),PFsClass=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
 		)

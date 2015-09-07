@@ -43,6 +43,11 @@ class ParticleFilter(metaclass=abc.ABCMeta):
 		
 		pass
 
+	def messages(self, PEs_topology, PEs_sensors_access):
+
+		# to indicate it has not been computed
+		return -1
+
 # =========================================================================================================
 
 
@@ -365,9 +370,6 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 			
 			if deg<=self._R_p:
 				
-				#import code
-				#code.interact(local=dict(globals(), **locals()))
-				
 				self.beta[r] = alpha[r].dot(b) - gamma[r]
 			
 			elif deg<=(2*self._R_p):
@@ -388,8 +390,11 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 		
 		super().__init__(nPEs*nParticlesPerPE,resamplingAlgorithm,resamplingCriterion)
 		
-		# it is handy to keep the number of PEs in a variable
+		# it is handy to keep the number of PEs in a variable...
 		self._nPEs = nPEs
+
+		# ...and the same for the overall number of sensors
+		self._n_sensors = len(sensors)
 		
 		# a list of lists, the first one containing the indices of the sensors "seen" by the first PE...and so on
 		self._PEsSensorsConnections = PEsSensorsConnections
@@ -433,12 +438,43 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 		
 		# the state from every PE is gathered together
 		return np.hstack([PE.getState() for PE in self._PEs])
-	
-	def nMessages(self):
-		
-		return 0
+
+
+	def messages_observations_propagation(self, PEs_topology, PEs_sensors_access):
+
+		i_observation_to_i_PE = np.empty(self._n_sensors)
+
+		# in order to find out to which PE is associated each observation
+		for i_PE, i_sensors in enumerate(PEs_sensors_access):
+
+			for i in i_sensors:
+
+				i_observation_to_i_PE[i] = i_PE
+
+		# the distance in hops between each pair of PEs
+		distances = PEs_topology.distances_between_PEs()
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		n_messages = 0
+
+		# we loop through the observations "required" by each PE
+		for i_PE,i_sensors in enumerate(self._PEsSensorsConnections):
+
+			# for every observation required by the PE...
+			for i in i_sensors:
+
+				# ...if it doesn't have access to it...
+				if i not in PEs_sensors_access[i_PE]:
+
+					# ...it must be sent from the corresponding PE
+					n_messages += distances[i_PE,i_observation_to_i_PE[i]]
+
+		return n_messages
 
 # =========================================================================================================
+
 
 class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTargetTrackingParticleFilter):
 	
@@ -515,13 +551,20 @@ class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTarg
 			# only the appropriate observations are passed to this PE
 			# NOTE: it is assumed that the order in which the observations are passed is the same as that of the sensors when building the PF
 			PE.step(observations[sensorsConnections])
-		
+
+	def messages(self, PEs_topology, PEs_sensors_access):
+
+		messages_observations_propagation = super().messages_observations_propagation(PEs_topology, PEs_sensors_access)
+
+		return messages_observations_propagation + self.exchange_recipe.messages()
+
+
 # =========================================================================================================
 
 
 class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilter):
 	
-	def __init__(self,exchangePeriod,exchangeRecipe,aggregatedWeightsUpperBound,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
+	def __init__(self,exchangePeriod,exchangeRecipe,nParticlesPerPE,normalizationPeriod,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
 			  PFsClass=EmbeddedTargetTrackingParticleFilter):
 		
 		super().__init__(exchangeRecipe.getNumberOfPEs(),nParticlesPerPE,resamplingAlgorithm,resamplingCriterion,prior,stateTransitionKernel,sensors,PEsSensorsConnections,
@@ -538,9 +581,6 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		
 		self._estimator = smc.estimator.WeightedMean(self)
 		
-		# the number of hops to get a message from one node of the network to another
-		self._nAverageHopsOnTransmission = 1
-
 	def step(self,observations):
 		
 		super().step(observations)
@@ -548,7 +588,6 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		# if it is exchanging particles time
 		if (self._n % self._exchangePeriod == 0):
 			
-			#self.exchangeParticles()
 			self.exchange_recipe.performExchange(self)
 			
 			# after the exchange, the aggregated weight of every PE must be updated
@@ -600,11 +639,13 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 	def computeMean(self):
 		
 		return self._estimator.estimate()
-	
-	def nMessages(self):
-		
-		# each sensor must send its observation to every PE, and each transmission entails a certain number of "hops" on average
-		return len(self._sensors)*self._nPEs*self._nAverageHopsOnTransmission
+
+	def messages(self, PEs_topology, PEs_sensors_access):
+
+		messages_observations_propagation = super().messages_observations_propagation(PEs_topology, PEs_sensors_access)
+
+		return messages_observations_propagation + self.exchange_recipe.messages()/self._exchangePeriod
+
 
 # =========================================================================================================
 
@@ -664,3 +705,9 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 		if (self._n % self._sharingPeriod == 0):
 			
 			self.exchange_recipe.performExchange(self)
+
+	def messages(self, PEs_topology, PEs_sensors_access):
+
+		messages_observations_propagation = super().messages_observations_propagation(PEs_topology, PEs_sensors_access)
+
+		return messages_observations_propagation + self.exchange_recipe.messages()/self._sharingPeriod
