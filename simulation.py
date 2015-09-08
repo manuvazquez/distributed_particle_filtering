@@ -161,6 +161,10 @@ class Convergence(SimpleSimulation):
 		
 		# let the super class do its thing...
 		super().saveData(targetPosition)
+
+		# so that the last frame is also saved
+		# FIXME: this method should only be called after completing a frame (never in the middle)
+		self._iFrame += 1
 		
 		# the mean of the MSE incurred by both PFs
 		centralizedPF_MSE = (np.subtract(self._centralizedPF_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).mean(axis=0).mean(axis=1)
@@ -210,6 +214,9 @@ class Convergence(SimpleSimulation):
 		#np.savez('res_' + self._outputFile + '.npz',**dataToBeSaved)
 		scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
 		print('results saved in "{}"'.format('res_' + self._outputFile))
+
+		# the above fix is undone
+		self._iFrame -= 1
 	
 	def processFrame(self,targetPosition,targetVelocity):
 		
