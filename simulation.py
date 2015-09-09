@@ -62,17 +62,17 @@ class Simulation(metaclass=abc.ABCMeta):
 		self._simulationParameters = parameters['simulations'][parameters['simulations']['type']]
 		
 	@abc.abstractmethod
-	def processFrame(self,targetPosition,targetVelocity):
+	def process_frame(self,targetPosition,targetVelocity):
 		
 		self._iFrame += 1
 	
 	# TODO: remove targetPosition as argument?
 	
 	@abc.abstractmethod
-	def saveData(self,targetPosition):
+	def save_data(self,targetPosition):
 
 		if self._iFrame==0:
-			print('saveData: nothing to save...skipping')
+			print('save_data: nothing to save...skipping')
 			return
 
 class SimpleSimulation(Simulation):
@@ -116,9 +116,9 @@ class SimpleSimulation(Simulation):
 		
 		self._sensors = [sensorClass(pos[:,np.newaxis],PRNG=PRNGs['Sensors and Monte Carlo pseudo random numbers generator'],**sensorsSettings[sensorsSettings['type']]['parameters']) for pos in self._sensorsPositions.T]
 		
-	def processFrame(self,targetPosition,targetVelocity):
+	def process_frame(self,targetPosition,targetVelocity):
 		
-		super().processFrame(targetPosition,targetVelocity)
+		super().process_frame(targetPosition,targetVelocity)
 		
 		# observations for all the sensors at every time instant (each list)
 		# NOTE: conversion to float is done so that the observations (either 1 or 0) are amenable to be used in later computations
@@ -157,10 +157,10 @@ class Convergence(SimpleSimulation):
 		# ...and the position estimates
 		self._centralizedPF_pos,self._distributedPF_pos = np.empty((2,self._nTimeInstants,parameters["number of frames"],len(topologies))),np.empty((2,self._nTimeInstants,parameters["number of frames"],len(topologies)))
 		
-	def saveData(self,targetPosition):
+	def save_data(self,targetPosition):
 		
 		# let the super class do its thing...
-		super().saveData(targetPosition)
+		super().save_data(targetPosition)
 
 		# so that the last frame is also saved
 		# FIXME: this method should only be called after completing a frame (never in the middle)
@@ -218,10 +218,10 @@ class Convergence(SimpleSimulation):
 		# the above fix is undone
 		self._iFrame -= 1
 	
-	def processFrame(self,targetPosition,targetVelocity):
+	def process_frame(self,targetPosition,targetVelocity):
 		
 		# let the super class do its thing...
-		super().processFrame(targetPosition,targetVelocity)
+		super().process_frame(targetPosition,targetVelocity)
 		
 		for iTopology,(pf,distributedPf) in enumerate(zip(self._PFsForTopologies,self._distributedPFsForTopologies)):
 			
@@ -303,19 +303,19 @@ class MultipleMposterior(Simulation):
 			self._simulations.append(Mposterior(parameters,resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,outputFile,PRNGs,nPEs,nSensors,
 									   h5pyFile=self._f,h5pyFilePrefix='{} PEs,{} sensors/'.format(nPEs,nSensors)))
 
-	def processFrame(self,targetPosition,targetVelocity):
+	def process_frame(self,targetPosition,targetVelocity):
 		
 		# let the super class do its thing...
-		super().processFrame(targetPosition,targetVelocity)
+		super().process_frame(targetPosition,targetVelocity)
 		
 		for sim in self._simulations:
 		
-			sim.processFrame(targetPosition,targetVelocity)
+			sim.process_frame(targetPosition,targetVelocity)
 		
-	def saveData(self,targetPosition):
+	def save_data(self,targetPosition):
 		
 		# let the super class do its thing...
-		super().saveData(targetPosition)
+		super().save_data(targetPosition)
 		
 		self._f.close()
 
@@ -351,10 +351,11 @@ class Mposterior(SimpleSimulation):
 		# the settings for the selected "sensors-PES connector"
 		sensorsPEsConnectorSettings = parameters['sensors-PEs connectors'][self._simulationParameters['sensors-PEs connector']]
 		
-		# the positions of the PEs are added as a parameters...technically they are "derived" parameters since they are completely determined by: 
-		#	- the corners of the room
-		#	- the positions of the sensors which, in turn, also depend on the corners of the room and the number of sensors
-		#	- the number of PEs
+		# the positions of the PEs are added as a parameters...
+		# technically they are "derived" parameters since they are completely determined by:
+		# 	- the corners of the room
+		# 	- the positions of the sensors which, in turn, also depend on the corners of the room and the number of sensors
+		# 	- the number of PEs
 		self._topologiesSettings['parameters']['PEs positions'] = self._PEsPositions
 		
 		# ...are used to build a connector, from which the links between PEs and sensors are obtained
@@ -381,7 +382,7 @@ class Mposterior(SimpleSimulation):
 		self._estimatorsLabels = []
 		
 		# ...and algorithms are added
-		self.addAlgorithms()
+		self.add_algorithms()
 		
 		# the position estimates
 		self._estimatedPos = np.empty((2,self._nTimeInstants,parameters["number of frames"],len(self._estimators)))
@@ -418,6 +419,7 @@ class Mposterior(SimpleSimulation):
 		# the positions of the sensors
 		self._f.create_dataset(self._h5pyFilePrefix + 'sensors/positions',shape=self._sensorsPositions.shape,data=self._sensorsPositions)
 
+		# a list with the messages required by each estimator at a single time instant
 		algorithms_messages = []
 
 		for estimator,label in zip(self._estimators,self._estimatorsLabels):
@@ -443,7 +445,7 @@ class Mposterior(SimpleSimulation):
 		# the messages (per iteration) required by each algorithm
 		self._f.create_dataset(self._h5pyFilePrefix + 'algorithms/messages',shape=(len(algorithms_messages),),data=algorithms_messages)
 	
-	def addAlgorithms(self):
+	def add_algorithms(self):
 		
 		"""Adds the algorithms to be tested by this simulation, defining the required parameters.
 		
@@ -527,15 +529,12 @@ class Mposterior(SimpleSimulation):
 			)
 		)
 		
-		
 		# the estimator is the mean
 		self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
 		
 		self._estimatorsColors.append('black')
 		self._estimatorsLabels.append('DRNA')
 
-		print('{}: {}'.format(self._estimatorsLabels[-1],self._PFs[-1].messages(self._PEsTopology,self._PEsSensorsConnections)))
-		
 		# ------------
 		
 		# a distributed PF using a variation of DRNA in which each PE only sees a subset of the observations
@@ -649,10 +648,10 @@ class Mposterior(SimpleSimulation):
 		
 		# ------------
 
-	def saveData(self,targetPosition):
+	def save_data(self,targetPosition):
 		
 		# let the super class do its thing...
-		super().saveData(targetPosition)
+		super().save_data(targetPosition)
 		
 		# a dictionary encompassing all the data to be saved
 		dataToBeSaved = dict(
@@ -681,10 +680,10 @@ class Mposterior(SimpleSimulation):
 			# ...in order to make sure the HDF5 file is valid...
 			self._f.close()
 		
-	def processFrame(self,targetPosition,targetVelocity):
+	def process_frame(self,targetPosition,targetVelocity):
 		
 		# let the super class do its thing...
-		super().processFrame(targetPosition,targetVelocity)
+		super().process_frame(targetPosition,targetVelocity)
 		
 		# a reference to the "group" for the current frame (notice the prefix in the name given "self._h5pyFilePrefix")...
 		h5thisFrame = self._f.create_group(self._h5pyFilePrefix + 'frames/{num:0{width}}'.format(num=self._iFrame, width=self._nFramesWidth))
@@ -758,9 +757,10 @@ class Mposterior(SimpleSimulation):
 		# in order to make sure the HDF5 files is valid...
 		self._f.flush()
 
+
 class MposteriorExchange(Mposterior):
 		
-	def addAlgorithms(self):
+	def add_algorithms(self):
 
 		# available colors
 		colors = ['red','blue','green','goldenrod','cyan','crimson','lime','cadetblue','magenta']
@@ -783,7 +783,7 @@ class MposteriorExchange(Mposterior):
 			self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
 
 			self._estimatorsColors.append('black')
-			self._estimatorsLabels.append('DRNA {}'.format(percentage))
+			self._estimatorsLabels.append('DRNA exchanging {}'.format(percentage))
 
 			# ------------
 
@@ -797,18 +797,18 @@ class MposteriorExchange(Mposterior):
 				)
 			)
 
-			self._estimators.append(smc.estimator.GeometricMedian(self._PFs[-1],
-			                        maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
-			                            tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
+			self._estimators.append(
+				smc.estimator.GeometricMedian(self._PFs[-1],
+				maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
+				tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 
 			self._estimatorsColors.append(color)
 			self._estimatorsLabels.append('M-posterior {}'.format(percentage))
 
-
-	def saveData(self,targetPosition):
+	def save_data(self,targetPosition):
 		
 		# the method from the grandparent
-		SimpleSimulation.saveData(self,targetPosition)
+		SimpleSimulation.save_data(self,targetPosition)
 
 		# FIXME: this shoudn't happen every time save is called
 		del self._f['algorithms/names']
@@ -847,9 +847,10 @@ class MposteriorExchange(Mposterior):
 			# ...in order to make sure the HDF5 file is valid...
 			self._f.close()
 
+
 class MposteriorGeometricMedian(Mposterior):
 	
-	def addAlgorithms(self):
+	def add_algorithms(self):
 		
 		# a copy of the required PRNG is built...so that the exchange particles map is the same for both DRNA and Mposterior
 		# TODO: is this really necesary? a better approach?
@@ -893,3 +894,29 @@ class MposteriorGeometricMedian(Mposterior):
 			
 			self._estimatorsColors.append(col)
 			self._estimatorsLabels.append('M-posterior (Stochastic Geometric Median with {} particles from each PE)'.format(nParticles))
+
+
+class MposteriorIterative(Mposterior):
+
+	def add_algorithms(self):
+
+		colors = ['red','blue','green','goldenrod','cyan','crimson','lime','cadetblue','magenta']
+
+		for n_iterations,color in zip(self._simulationParameters["number of iterations"],colors):
+
+			exchange_recipe = smc.exchange_recipe.IteratedMposteriorExchangeRecipe(
+				self._PEsTopology, self._K, self._simulationParameters["exchanged particles"],
+				n_iterations, PRNG=self._PRNGs["topology pseudo random numbers generator"])
+
+			self._PFs.append(
+				smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
+					exchange_recipe,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
+					self._sensors,self._PEsSensorsConnections,self._MposteriorSettings['findWeiszfeldMedian parameters'],
+					self._MposteriorSettings['sharing period'],PFsClass=smc.particle_filter.CentralizedTargetTrackingParticleFilter,
+				)
+			)
+
+			self._estimators.append(smc.estimator.GeometricMedian(self._PFs[-1],maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
+															tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
+			self._estimatorsColors.append(color)
+			self._estimatorsLabels.append('{} iterations'.format(n_iterations))

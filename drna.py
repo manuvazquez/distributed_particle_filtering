@@ -179,7 +179,7 @@ def sigint_handler(signum, frame):
 
 def sigusr1_handler(signum, frame):
 	# plots and data are saved...
-	sim.saveData(targetPosition)
+	sim.save_data(targetPosition)
 
 	# ...and the parameters as well
 	saveParameters()
@@ -237,8 +237,8 @@ sim = simulationClass(parameters, resamplingAlgorithm, resamplingCriterion, prio
 
 # ------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
 
-# NOTE: a "while loop" is here more convenient than a "for loop" because having the "iFrame" variable defined at all times after the processing has started (and finished) 
-# allows to know hown many frames have actually been processed (if any)
+# NOTE: a "while loop" is here more convenient than a "for" because having the "iFrame" variable defined at all times
+# after the processing has started (and finished) allows to know how many frames have actually been processed (if any)
 
 iFrame = 0
 
@@ -247,12 +247,12 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 	targetPosition[:, :, iFrame], targetVelocity = mobile.simulateTrajectory(nTimeInstants)
 
 	# ...processed by the corresponding simulation
-	sim.processFrame(targetPosition[:, :, iFrame], targetVelocity)
+	sim.process_frame(targetPosition[:, :, iFrame], targetVelocity)
 
 	iFrame += 1
 
 # plots and data are saved...
-sim.saveData(targetPosition)
+sim.save_data(targetPosition)
 
 # ...and the parameters too
 saveParameters()

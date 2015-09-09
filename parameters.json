@@ -162,6 +162,7 @@
 		},
 		"Mposterior: exchange": {
 			"implementing class": "MposteriorExchange",
+		  	"network": "randomly strewn sensors and PEs",
 			"exchanged particles": [0.02,0.05,0.1,0.15,0.25,0.50],
 			"starting time instant as percentage of the frame length": 0.2,
 			"file name prefix for the estimation error vs time plot": "errorVsTime"
@@ -182,6 +183,14 @@
 			"exchanged particles": 0.5,
 			"sensors-PEs connector": "sensors connected to the closest PEs",
 			"nPEs-nSensors pairs": [[2,8],[4,16],[8,32]]
+		},
+		"Mposterior: number of iterations": {
+			"implementing class": "MposteriorIterative",
+			"network": "randomly strewn sensors and PEs",
+			"exchanged particles": 3,
+			"sensors-PEs connector": "sensors connected to the closest PEs",
+			"number of iterations": [1,3],
+			"file name prefix for the estimation error vs time plot": "errorVsTime"
 		}
 	},
 	"sensors-PEs connectors": {

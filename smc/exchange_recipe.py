@@ -25,6 +25,7 @@ class ExchangeRecipe(metaclass=abc.ABCMeta):
 
 		return
 
+
 class DRNAExchangeRecipe(ExchangeRecipe):
 
 	def __init__(self,PEsTopology,nParticlesPerPE,exchanged_particles,PRNG=np.random.RandomState()):
