@@ -152,7 +152,7 @@ def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggrega
 									supremumLineProperties={'label':'Supremum','linestyle':':'},
 									supremumAtExchangeStepsLineProperties={'label':'Exchange steps','linestyle':'.','marker':'D','color':'black'},
 									upperBoundLineProperties={'label':'$c^q/M^{q-\\varepsilon}$','linestyle':'dashed','color':'red','linewidth':2},
-									figureId='Aggregated Weights Supremum Vs Time',axesProperties={}):
+									figureId='Aggregated Weights Supremum Vs Time',axesProperties={},plot_everything=True,ybound_factor=4):
 	
 	nTimeInstants = len(maxWeights)
 
@@ -161,9 +161,10 @@ def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggrega
 	
 	# for the x-axis
 	t = np.arange(nTimeInstants)
-	
-	# this is plotted along time
-	ax.plot(t,maxWeights[t],**supremumLineProperties)
+
+	if plot_everything:
+		# this is plotted along time
+		ax.plot(t,maxWeights[t],**supremumLineProperties)
 	
 	# the time instants at which step exchanges occur...
 	tExchangeSteps = np.arange(stepExchangePeriod-1,nTimeInstants,stepExchangePeriod)
@@ -175,7 +176,7 @@ def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggrega
 	ax.set_xbound(lower=t[0],upper=t[-1])
 	
 	# the y-axis goes up to 1
-	ax.set_ybound(upper=upperBound*4,lower=0)
+	ax.set_ybound(upper=upperBound*ybound_factor,lower=0)
 	
 	# the upper bound is plotted
 	ax.axhline(y=upperBound,**upperBoundLineProperties)
@@ -234,7 +235,7 @@ def aggregatedWeightsSupremumVsNumberOfPEs(Ms,maxWeights,upperBounds=None,output
 
 def trajectory(filename,iTrajectory=0,nTimeInstants=-1,ticksFontSize=12):
 	
-	import sensor
+	import network_nodes
 	import pickle
 	import os
 	import scipy.io
@@ -251,10 +252,14 @@ def trajectory(filename,iTrajectory=0,nTimeInstants=-1,ticksFontSize=12):
 		
 		# ...is loaded
 		parameters = pickle.load(f)[0]
-	
+
+	n_PEs = parameters['topologies'][parameters['topologies']['type'][0]]['number of PEs']
+	n_sensors = parameters['sensors']['number']
+
 	# the positions of the sensors are computed
-	sensorsPositions = sensor.EquispacedOnRectangleSensorLayer(parameters["room"]["bottom left corner"],parameters["room"]["top right corner"]).getPositions(parameters["sensors"]["number"])
-	
+	sensorsPositions = network_nodes.PositionlessPEsEquispacedSensors(
+		parameters["room"]["bottom left corner"],parameters["room"]["top right corner"],n_PEs,n_sensors).sensorsPositions
+
 	# a Painter object is created to do the dirty work
 	painter = TightRectangularRoomPainter(parameters["room"]["bottom left corner"],parameters["room"]["top right corner"],sensorsPositions,ticksFontSize=ticksFontSize)
 	

@@ -72,8 +72,8 @@ class Simulation(metaclass=abc.ABCMeta):
 	def save_data(self,targetPosition):
 
 		if self._iFrame==0:
-			print('save_data: nothing to save...skipping')
-			return
+			print('save_data: still in the first frame...maybe nothing will be saved')
+
 
 class SimpleSimulation(Simulation):
 	
@@ -371,7 +371,7 @@ class Mposterior(SimpleSimulation):
 		# ...are plot the connections between them		
 		sensorsNetworkPlot = plot.TightRectangularRoomPainterWithPEs(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],
 														  self._sensorsPositions,self._PEsPositions,self._PEsSensorsConnections,
-														  self._PEsTopology.getNeighbours(),sleepTime=self._painterSettings["sleep time between updates"])
+														  self._PEsTopology.get_neighbours(),sleepTime=self._painterSettings["sleep time between updates"])
 		sensorsNetworkPlot.setup()		
 		sensorsNetworkPlot.save(outputFile='network_topology_{}_PEs.pdf'.format(self._nPEs))
 		

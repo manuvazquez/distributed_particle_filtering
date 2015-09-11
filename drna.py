@@ -42,6 +42,10 @@ startTime = time.time()
 parser = argparse.ArgumentParser(description='Distributed Resampling with Non-proportional Allocation.')
 parser.add_argument('-r', '--reproduce', type=argparse.FileType('r'), dest='parametersToBeReproducedFilename',
                     help='repeat the simulation given by the parameters file')
+
+# a different number of frames when re-running a simulation
+parser.add_argument('-n','--new-number-of-frames',dest='new_n_frames',type=int)
+
 commandArguments = parser.parse_args(sys.argv[1:])
 
 # -----
@@ -58,6 +62,12 @@ if commandArguments.parametersToBeReproducedFilename:
 		# ...to extract the parameters and random state from the previous simulation
 		parameters,randomStates = pickle.load(f)
 
+	# if a new number of frames was passed...
+	if commandArguments.new_n_frames:
+
+		# ...it is used
+		parameters['number of frames'] = commandArguments.new_n_frames
+
 	# every pseudo random numbers generator...
 	for key in PRNGsKeys:
 		# ...is restored via the key
@@ -65,6 +75,11 @@ if commandArguments.parametersToBeReproducedFilename:
 
 # otherwise, we just read the parameters in the usual way
 else:
+
+	# if a new number of frames was passed...
+	if commandArguments.new_n_frames:
+
+		print('ignoring argument "--new-number-of-frames" (only valid when "--reproduce" is also specified')
 
 	with open('parameters.json') as jsonData:
 
@@ -89,21 +104,22 @@ useAgg = ('DISPLAY' not in os.environ) or (not parameters["painter"]["use displa
 
 if useAgg:
 	import matplotlib
-
 	matplotlib.use('agg')
 
 # some of this modules also import matplotlib.pyplot, and since this should be done AFTER calling "matplotlib.use", they have been imported here and not at the very beginning
 import target
 import state
-import sensor
 from smc import resampling
 import simulation
 
 # the name of the machine running the program (supposedly, using the socket module gives rise to portable code)
 hostname = socket.gethostname()
 
+# date and time
+date = time.strftime("%a_%Y-%m-%d_%H:%M:%S")
+
 # output data file
-outputFile = hostname + '_' + str(os.getpid())
+outputFile = hostname + '_' + date + '_' + str(os.getpid())
 
 # how numpy arrays are printed on screen is specified here
 np.set_printoptions(precision=3, linewidth=100)
@@ -111,6 +127,7 @@ np.set_printoptions(precision=3, linewidth=100)
 # ---------------------------------------------
 
 # NOTE: most functions access global variables, though they don't modify them (except one of the handlers)
+
 
 def saveParameters():
 	# in a separate file with the same name as the data file but different extension...

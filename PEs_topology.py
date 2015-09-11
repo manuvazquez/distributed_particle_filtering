@@ -13,7 +13,7 @@ class Topology:
 		
 		return self._nPEs
 	
-	def getNeighbours(self):
+	def get_neighbours(self):
 		
 		"""Get the list of neighbours of every PE.
 		
