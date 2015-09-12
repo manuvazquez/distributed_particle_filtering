@@ -191,11 +191,11 @@ class Convergence(SimpleSimulation):
 		# ...and the position estimates
 		self._centralizedPF_pos,self._distributedPF_pos = np.empty((2,self._nTimeInstants,parameters["number of frames"],len(topologies))),np.empty((2,self._nTimeInstants,parameters["number of frames"],len(topologies)))
 
+		# saving of the aggregated weights upper bounds for each topology
+		self._f.create_dataset(self._h5py_prefix + 'upper bounds for the aggregated weights', shape=(len(self._topologiesSettings),), data=self._aggregatedWeightsUpperBounds)
+
 	def save_data(self,targetPosition):
 		
-		# let the super class do its thing...
-		super().save_data(targetPosition)
-
 		# so that the last frame is also saved
 		# FIXME: this method should only be called after completing a frame (never in the middle)
 		self._iFrame += 1
@@ -249,15 +249,29 @@ class Convergence(SimpleSimulation):
 		scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
 		print('results saved in "{}"'.format('res_' + self._outputFile))
 
+		# HDF5
+		for i, array in enumerate(normalizedAggregatedWeights):
+
+			self._f.create_dataset(
+				self._h5py_prefix + 'normalized aggregated weights/{}'.format(i), shape=array.shape,
+				data=array)
+
 		# the above fix is undone
 		self._iFrame -= 1
+
+		# let the super class do its thing...
+		super().save_data(targetPosition)
 	
 	def process_frame(self,targetPosition,targetVelocity):
 		
 		# let the super class do its thing...
 		super().process_frame(targetPosition,targetVelocity)
+
+		h5_estimated_pos = self._h5_current_frame.create_dataset(
+			'estimated position', shape=(2, self._nTimeInstants, 2),dtype=float,
+			data=np.full((2,self._nTimeInstants, 2), np.nan))
 		
-		for iTopology,(pf,distributedPf) in enumerate(zip(self._PFsForTopologies,self._distributedPFsForTopologies)):
+		for iTopology, (pf, distributedPf) in enumerate(zip(self._PFsForTopologies, self._distributedPFsForTopologies)):
 			
 			# initialization of the particle filters
 			pf.initialize()
@@ -290,8 +304,11 @@ class Convergence(SimpleSimulation):
 				
 				# the mean computed by the centralized and distributed PFs
 				centralizedPF_mean,distributedPF_mean = pf.computeMean(),distributedPf.computeMean()
+
+				h5_estimated_pos[:, iTime:iTime+1, 0] = state.position(centralizedPF_mean)
+				h5_estimated_pos[:, iTime:iTime+1, 1] = state.position(distributedPF_mean)
 				
-				self._centralizedPF_pos[:,iTime:iTime+1,self._iFrame,iTopology],self._distributedPF_pos[:,iTime:iTime+1,self._iFrame,iTopology] = state.position(centralizedPF_mean),state.position(distributedPF_mean)
+				self._centralizedPF_pos[:,iTime:iTime+1,self._iFrame,iTopology],self._distributedPF_pos[:,iTime:iTime+1,self._iFrame,iTopology] = state.position(centralizedPF_mean), state.position(distributedPF_mean)
 				
 				# the aggregated weights of the different PEs in the distributed PF are stored
 				self._distributedPFaggregatedWeights[iTopology][iTime,:,self._iFrame] = distributedPf.getAggregatedWeights()
@@ -736,7 +753,7 @@ class Mposterior(SimpleSimulation):
 				self._estimatedPos[:,iTime:iTime+1,self._iFrame,iEstimator] = state.position(estimator.estimate())
 				
 				# the position given by this estimator at the current time instant is written to the HDF5 file
-				h5_estimated_pos[:,iTime:iTime+1,iEstimator] = state.position(estimator.estimate())
+				h5_estimated_pos[:, iTime:iTime+1, iEstimator] = state.position(estimator.estimate())
 				
 				print('position estimated by {}\n'.format(label),self._estimatedPos[:,iTime:iTime+1,self._iFrame,iEstimator])
 			
