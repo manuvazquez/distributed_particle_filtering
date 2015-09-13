@@ -99,14 +99,16 @@ stateTransitionSettings = parameters["state transition"]
 # type of simulation and the corresponding parameters
 simulationSettings = parameters['simulations']
 
-# we use the "agg" backend if the DISPLAY variable is not present (the program is running without a display server) or the parameters file says so
+# we use the "agg" backend if the DISPLAY variable is not present
+# (the program is running without a display server) or the parameters file says so
 useAgg = ('DISPLAY' not in os.environ) or (not parameters["painter"]["use display server if available?"])
 
 if useAgg:
 	import matplotlib
 	matplotlib.use('agg')
 
-# some of this modules also import matplotlib.pyplot, and since this should be done AFTER calling "matplotlib.use", they have been imported here and not at the very beginning
+# some of this modules also import matplotlib.pyplot, and since this should be done AFTER calling "matplotlib.use",
+# they have been imported here and not at the very beginning
 import target
 import state
 from smc import resampling

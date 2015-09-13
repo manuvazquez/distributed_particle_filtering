@@ -159,22 +159,22 @@ class SimpleSimulation(Simulation):
 
 
 class Convergence(SimpleSimulation):
-	
+
 	def __init__(self,parameters, resamplingAlgorithm, resamplingCriterion, prior, transitionKernel, outputFile, PRNGs, h5py_file=None, h5py_prefix=''):
-		
+
 		# let the super class do its thing...
 		super().__init__(parameters, resamplingAlgorithm, resamplingCriterion, prior, transitionKernel, outputFile, PRNGs, h5py_file, h5py_prefix)
-		
+
 		topologies = [getattr(PEs_topology,t['implementing class'])(t['number of PEs'],t['parameters']) for t in self._topologiesSettings]
-		
+
 		exchange_recipes = [smc.exchange_recipe.DRNAExchangeRecipe(t,self._K,self._simulationParameters["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"]) for t in topologies]
-		
+
 		# we compute the upper bound for the supremum of the aggregated weights that should guarante convergence
 		self._aggregatedWeightsUpperBounds = [drnautil.supremumUpperBound(t['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon']) for t in self._topologiesSettings]
 
 		# plain non-parallelized particle filter
 		self._PFsForTopologies = [particle_filter.CentralizedTargetTrackingParticleFilter(self._K*t.getNumberOfPEs(),resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,self._sensors) for t in topologies]
-		
+
 		PEs_sensors_requirements = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensorsPositions)
 
 		# distributed particle filter
@@ -182,28 +182,47 @@ class Convergence(SimpleSimulation):
 			self._DRNAsettings["exchange period"],e,self._K,self._DRNAsettings["normalization period"],resamplingAlgorithm,resamplingCriterion,prior,transitionKernel,
 			self._sensors,PEs_sensors_requirements.getConnections(e.getNumberOfPEs())
 			) for e in exchange_recipes]
-		
+
 		#------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
-		
+
 		# we store the aggregated weights...
 		self._distributedPFaggregatedWeights = [np.empty((self._nTimeInstants,t.getNumberOfPEs(),parameters["number of frames"])) for t in topologies]
 
 		# ...and the position estimates
 		self._centralizedPF_pos,self._distributedPF_pos = np.empty((2,self._nTimeInstants,parameters["number of frames"],len(topologies))),np.empty((2,self._nTimeInstants,parameters["number of frames"],len(topologies)))
 
+		# HDF5
+
+		# the names of the algorithms are also stored
+		h5_algorithms_names = self._f.create_dataset(self._h5py_prefix + 'algorithms/names', shape=(2,), dtype=h5py.special_dtype(vlen=str))
+		h5_algorithms_names[0] = 'Centralized PF'
+		h5_algorithms_names[1] = 'Distributed PF'
+
+		# the colors
+		h5_algorithms_colors = self._f.create_dataset(self._h5py_prefix + 'algorithms/plot/colors', shape=(2,), dtype=h5py.special_dtype(vlen=str))
+		h5_algorithms_colors[0] = self._painterSettings["color for the centralized PF"]
+		h5_algorithms_colors[1] = self._painterSettings["color for the distributed PF"]
+
+		# markers
+		h5_algorithms_markers = self._f.create_dataset(self._h5py_prefix + 'algorithms/plot/markers', shape=(2,), dtype=h5py.special_dtype(vlen=str))
+		h5_algorithms_markers[0] = self._painterSettings["marker for the centralized PF"]
+		h5_algorithms_markers[1] = self._painterSettings["marker for the distributed PF"]
+
 		# saving of the aggregated weights upper bounds for each topology
-		self._f.create_dataset(self._h5py_prefix + 'upper bounds for the aggregated weights', shape=(len(self._topologiesSettings),), data=self._aggregatedWeightsUpperBounds)
+		self._f.create_dataset(
+			self._h5py_prefix + 'upper bounds for the aggregated weights', shape=(len(self._topologiesSettings),),
+			data=self._aggregatedWeightsUpperBounds)
 
 	def save_data(self,targetPosition):
-		
+
 		# so that the last frame is also saved
 		# FIXME: this method should only be called after completing a frame (never in the middle)
 		self._iFrame += 1
-		
+
 		# the mean of the MSE incurred by both PFs
 		centralizedPF_MSE = (np.subtract(self._centralizedPF_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).mean(axis=0).mean(axis=1)
 		distributedPF_MSE = (np.subtract(self._distributedPF_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).mean(axis=0).mean(axis=1)
-		
+
 		# ...the same for the error (euclidean distance)
 		centralizedPF_error = np.sqrt((np.subtract(self._centralizedPF_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
 		distributedPF_error = np.sqrt((np.subtract(self._distributedPF_pos[:,:,:self._iFrame,:],targetPosition[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
@@ -224,10 +243,10 @@ class Convergence(SimpleSimulation):
 
 		# the aggregated weights are normalized at ALL TIMES, for EVERY frame and EVERY topology
 		normalizedAggregatedWeights = [np.divide(w[:,:,:self._iFrame],w[:,:,:self._iFrame].sum(axis=1)[:,np.newaxis,:]) for w in self._distributedPFaggregatedWeights]
-		
+
 		# ...the same data structured in a dictionary
 		normalizedAggregatedWeightsDic = {'normalizedAggregatedWeights_{}'.format(i):array for i,array in enumerate(normalizedAggregatedWeights)}
-		
+
 		# ...and the maximum weight, also at ALL TIMES and for EVERY frame, is obtained
 		maxWeights = np.array([(w.max(axis=1)**self._DRNAsettings['q']).mean(axis=1) for w in normalizedAggregatedWeights])
 
@@ -243,7 +262,7 @@ class Convergence(SimpleSimulation):
 				distributedPF_pos = self._distributedPF_pos[:,:,:self._iFrame,:],
 				**normalizedAggregatedWeightsDic
 			)
-		
+
 		# data is saved
 		#np.savez('res_' + self._outputFile + '.npz',**dataToBeSaved)
 		scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
@@ -261,27 +280,37 @@ class Convergence(SimpleSimulation):
 
 		# let the super class do its thing...
 		super().save_data(targetPosition)
-	
+
 	def process_frame(self,targetPosition,targetVelocity):
-		
+
 		# let the super class do its thing...
 		super().process_frame(targetPosition,targetVelocity)
 
-		h5_estimated_pos = self._h5_current_frame.create_dataset(
-			'estimated position', shape=(2, self._nTimeInstants, 2),dtype=float,
-			data=np.full((2,self._nTimeInstants, 2), np.nan))
-		
+
 		for iTopology, (pf, distributedPf) in enumerate(zip(self._PFsForTopologies, self._distributedPFsForTopologies)):
-			
+
+			n_PEs = self._topologiesSettings[iTopology]['number of PEs']
+
+			# the last dimension is for the number of algorithms (centralized and distributed)
+			h5_estimated_pos = self._h5_current_frame.create_dataset(
+				'topology/{}/estimated position'.format(iTopology), shape=(2, self._nTimeInstants, 2), dtype=float,
+				data=np.full((2, self._nTimeInstants, 2), np.nan))
+
+			h5_estimated_pos.attrs['M'] = n_PEs
+
+			h5_aggregated_weights = self._h5_current_frame.create_dataset(
+				'topology/{}/DPF aggregated weights'.format(iTopology), shape=(self._nTimeInstants, n_PEs), dtype=float,
+				data=np.full((self._nTimeInstants, n_PEs), np.nan))
+
 			# initialization of the particle filters
 			pf.initialize()
 			distributedPf.initialize()
 
 			if self._painterSettings['display evolution?']:
-				
+
 				# if this is not the first iteration...
 				if hasattr(self,'_painter'):
-					
+
 					# ...then, the previous figure is closed
 					self._painter.close()
 
@@ -290,37 +319,38 @@ class Convergence(SimpleSimulation):
 
 				# ...e.g., draw the sensors
 				self._painter.setup()
-				
+
 			for iTime in range(self._nTimeInstants):
-				
+
 				print('---------- iFrame = {}, iTopology = {}, iTime = {}'.format(repr(self._iFrame),repr(iTopology),repr(iTime)))
 
-				print('position:\n',targetPosition[:,iTime:iTime+1])
-				print('velocity:\n',targetVelocity[:,iTime:iTime+1])
-				
+				print('position:\n',targetPosition[:, iTime:iTime+1])
+				print('velocity:\n',targetVelocity[:, iTime:iTime+1])
+
 				# particle filters are updated
 				pf.step(self._observations[iTime])
 				distributedPf.step(self._observations[iTime])
-				
+
 				# the mean computed by the centralized and distributed PFs
-				centralizedPF_mean,distributedPF_mean = pf.computeMean(),distributedPf.computeMean()
+				centralizedPF_mean, distributedPF_mean = pf.computeMean(),distributedPf.computeMean()
 
 				h5_estimated_pos[:, iTime:iTime+1, 0] = state.position(centralizedPF_mean)
 				h5_estimated_pos[:, iTime:iTime+1, 1] = state.position(distributedPF_mean)
-				
+
 				self._centralizedPF_pos[:,iTime:iTime+1,self._iFrame,iTopology],self._distributedPF_pos[:,iTime:iTime+1,self._iFrame,iTopology] = state.position(centralizedPF_mean), state.position(distributedPF_mean)
-				
+
 				# the aggregated weights of the different PEs in the distributed PF are stored
 				self._distributedPFaggregatedWeights[iTopology][iTime,:,self._iFrame] = distributedPf.getAggregatedWeights()
-				
+				h5_aggregated_weights[iTime,:] = distributedPf.getAggregatedWeights()
+
 				print('centralized PF\n',centralizedPF_mean)
 				print('distributed PF\n',distributedPF_mean)
-				
+
 				if self._painterSettings["display evolution?"]:
 
 					# the plot is updated with the position of the target...
 					self._painter.updateTargetPosition(targetPosition[:,iTime:iTime+1])
-					
+
 					# ...those estimated by the PFs
 					self._painter.updateEstimatedPosition(state.position(centralizedPF_mean),identifier='centralized',color=self._painterSettings["color for the centralized PF"])
 					self._painter.updateEstimatedPosition(state.position(distributedPF_mean),identifier='distributed',color=self._painterSettings["color for the distributed PF"])
@@ -440,8 +470,8 @@ class Mposterior(SimpleSimulation):
 		# HDF5
 
 		# the names of the algorithms are also stored
-		h5algorithms = self._f.create_dataset(self._h5py_prefix + 'algorithms/names',shape=(len(self._estimators),),dtype=h5py.special_dtype(vlen=str))
-		for il,l in enumerate(self._estimatorsLabels):
+		h5algorithms = self._f.create_dataset(self._h5py_prefix + 'algorithms/names', shape=(len(self._estimators),), dtype=h5py.special_dtype(vlen=str))
+		for il, l in enumerate(self._estimatorsLabels):
 			h5algorithms[il] = l
 		
 		# the position and connected sensors of each PE
