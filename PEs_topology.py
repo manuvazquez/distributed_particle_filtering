@@ -2,6 +2,7 @@ import numpy as np
 import math
 import networkx as nx
 
+
 class Topology:
 	
 	def __init__(self,nPEs,topologySpecificParameters):
