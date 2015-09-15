@@ -61,6 +61,20 @@ class Topology:
 
 		return distances
 
+	def i_neighbours_within_hops(self,n_hops):
+
+		distances_between_PEs = self.distances_between_PEs()
+
+		exchanging_PEs = []
+
+		for neighbours in distances_between_PEs:
+
+			i_within_radius, = np.where((neighbours > 0) & (neighbours <= n_hops))
+
+			exchanging_PEs.append(list(i_within_radius))
+
+		return exchanging_PEs
+
 class Customized(Topology):
 	
 	def __init__(self,nPEs,topologySpecificParameters):

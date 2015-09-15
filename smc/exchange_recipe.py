@@ -36,8 +36,8 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 
 		super().__init__(PEsTopology)
 
-		# ...and the all_PEs_neighbours of each PE are extracted from the topology
-		all_PEs_neighbours = PEsTopology.get_neighbours()
+		# the "contacts" of each PE are the PEs it is going to exchange/share particles with
+		PEs_contacts = self.get_PEs_contacts()
 
 		# a named tuple for a more intuitive access to a "exchange tuple"
 		ExchangeTuple = collections.namedtuple(
@@ -57,8 +57,8 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 
 		elif type(exchanged_particles) is float:
 
-			# it is computed accounting for the maximum number of all_PEs_neighbours a given PE can have
-			self.n_particles_exchanged_between_neighbours = int((n_particles_per_PE*exchanged_particles)//max([len(neighbourhood) for neighbourhood in all_PEs_neighbours]))
+			# it is computed accounting for the maximum number of PEs_contacts a given PE can have
+			self.n_particles_exchanged_between_neighbours = int((n_particles_per_PE*exchanged_particles)//max([len(neighbourhood) for neighbourhood in PEs_contacts]))
 
 		else:
 
@@ -66,7 +66,7 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 
 		if self.n_particles_exchanged_between_neighbours is 0:
 
-			raise Exception('no particles are to be shared by a PE with its all_PEs_neighbours')
+			raise Exception('no particles are to be shared by a PE with its PEs_contacts')
 
 		# an array to keep tabs on pairs of PEs already processed
 		already_processed_PEs = np.zeros((self._n_PEs,self._n_PEs),dtype=bool)
@@ -81,7 +81,7 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 		#  with the indices of particles to be exchanged with that neighbour>)
 		self._neighbours_particles = [[] for i in range(self._n_PEs)]
 
-		for iPE,i_this_PE_neighbours in enumerate(all_PEs_neighbours):
+		for iPE,i_this_PE_neighbours in enumerate(PEs_contacts):
 
 			for iNeighbour in i_this_PE_neighbours:
 
@@ -105,11 +105,16 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 					i_particles_not_swapped_yet[iPE,i_exchanged_particles_within_PE] = False
 					i_particles_not_swapped_yet[iNeighbour,i_exchanged_particles_within_neighbour] = False
 
-					# we "mark" this pair of PEs as already processed (only "already_processed_PEs[iNeighbour,iPe]" should be accessed later on, though...)
+					# we "mark" this pair of PEs as already processed
+					# (only "already_processed_PEs[iNeighbour,iPe]" should be accessed later on, though...)
 					already_processed_PEs[iNeighbour,iPE] = already_processed_PEs[iPE,iNeighbour] = True
 
 					self._neighbours_particles[iPE].append(NeighbourParticlesTuple(iNeighbour,i_exchanged_particles_within_PE))
 					self._neighbours_particles[iNeighbour].append(NeighbourParticlesTuple(iPE,i_exchanged_particles_within_neighbour))
+
+	def get_PEs_contacts(self):
+
+		return self._PEs_topology.get_neighbours()
 
 	def getNumberOfPEs(self):
 
@@ -148,9 +153,6 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 
 			# we also need to send the aggregated weight to each neighbour
 			n_messages += len(neighboursList)
-
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
 
 		return n_messages
 
@@ -195,6 +197,20 @@ class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 
 		return nMessages
 
+
+class MposteriorWithinRadiusExchangeRecipe(MposteriorExchangeRecipe):
+
+	def __init__(self, PEsTopology, n_particles_per_PE, exchanged_particles, radius, PRNG=np.random.RandomState()):
+
+		# this needs be before super() because the ancestor class is depends on "get_PEs_contacts" which,
+		#  in turn, depends on radius
+		self.radius = radius
+
+		super().__init__(PEsTopology, n_particles_per_PE, exchanged_particles, PRNG)
+
+	def get_PEs_contacts(self):
+
+		return self._PEs_topology.i_neighbours_within_hops(self.radius)
 
 class IteratedMposteriorExchangeRecipe(MposteriorExchangeRecipe):
 
