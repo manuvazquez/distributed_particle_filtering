@@ -1,15 +1,17 @@
 import numpy as np
 
-def supremumUpperBound(M,c,q,epsilon):
+
+def supremum_upper_bound(M, c, q, epsilon):
 	
 	return (c**q) / M**(q-epsilon)
 
-f = lambda c,z,K,M: c/(M**z*np.sqrt(K))
+f = lambda c, z, K, M: c/(M**z*np.sqrt(K))
 
-def error_fit(Ms,f_Ms,K,step = 0.01,n_iter = 1000000):
+
+def error_fit(Ms, f_Ms, K, step=0.01, n_iter=1000000):
 	
 	# initial values for c,z
-	c,z = np.random.rand(2)
+	c, z = np.random.rand(2)
 	
 	for i in range(n_iter):
 
@@ -27,6 +29,6 @@ def error_fit(Ms,f_Ms,K,step = 0.01,n_iter = 1000000):
 		c -= step*grad_c
 		z -= step*grad_z
 		
-		print('c = {}, z = {}'.format(c,z))
+		# print('c = {}, z = {}'.format(c,z))
 	
-	return c,z
+	return c, z

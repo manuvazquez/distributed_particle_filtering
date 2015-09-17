@@ -195,15 +195,16 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 	def computeMean(self):
 		
 		# if all the weights in this PF/PE are zero...
-		if self._aggregatedWeight==0:
+		if self._aggregatedWeight == 0:
 			
 			# ...then an all-zeros estimate is returned...though any should do since this estimate must contribute zero
-			return np.zeros((state.nElements,1))
+			# return np.zeros((state.nElements, 1))
+			return np.full((state.nElements, 1), np.pi)
 		
 		normalizedLogWeights = self._logWeights - np.log(self._aggregatedWeight)
 
 		# element-wise multiplication of the state vectors and their correspondent weights...followed by addition => weighted mean
-		return np.multiply(self._state,np.exp(normalizedLogWeights)).sum(axis=1)[np.newaxis].T
+		return (self._state*np.exp(normalizedLogWeights)[np.newaxis, :]).sum(axis=1)[:, np.newaxis]
 
 	# this methods encapsulates the parts within the code of "step" which are different in this class and its children
 	def avoidWeightDegeneracy(self):

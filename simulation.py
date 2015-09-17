@@ -160,28 +160,35 @@ class SimpleSimulation(Simulation):
 
 class Convergence(SimpleSimulation):
 
-	def __init__(self,parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs, h5py_file=None, h5py_prefix=''):
+	def __init__(self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs, h5py_file=None, h5py_prefix=''):
 
 		# let the super class do its thing...
 		super().__init__(parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs, h5py_file, h5py_prefix)
 
-		topologies = [getattr(PEs_topology,t['implementing class'])(t['number of PEs'],t['parameters']) for t in self._settings_topologies]
+		topologies = [getattr(PEs_topology,t['implementing class'])(
+			t['number of PEs'], t['parameters']) for t in self._settings_topologies]
 
-		exchange_recipes = [smc.exchange_recipe.DRNAExchangeRecipe(t,self._K,self._simulationParameters["exchanged particles"],PRNG=self._PRNGs["topology pseudo random numbers generator"]) for t in topologies]
+		exchange_recipes = [smc.exchange_recipe.DRNAExchangeRecipe(
+			t, self._K, self._simulationParameters["exchanged particles"],
+			PRNG=self._PRNGs["topology pseudo random numbers generator"]) for t in topologies]
 
 		# we compute the upper bound for the supremum of the aggregated weights that should guarante convergence
-		self._aggregatedWeightsUpperBounds = [drnautil.supremumUpperBound(t['number of PEs'],self._DRNAsettings['c'],self._DRNAsettings['q'],self._DRNAsettings['epsilon']) for t in self._settings_topologies]
+		self._aggregatedWeightsUpperBounds = [drnautil.supremum_upper_bound(
+			t['number of PEs'], self._DRNAsettings['c'], self._DRNAsettings['q'], self._DRNAsettings['epsilon'])
+		                                      for t in self._settings_topologies]
 
 		# plain non-parallelized particle filter
-		self._PFsForTopologies = [particle_filter.CentralizedTargetTrackingParticleFilter(self._K*t.getNumberOfPEs(),resampling_algorithm,resampling_criterion,prior,transition_kernel,self._sensors) for t in topologies]
+		self._PFsForTopologies = [particle_filter.CentralizedTargetTrackingParticleFilter(
+			self._K*t.getNumberOfPEs(), resampling_algorithm, resampling_criterion, prior, transition_kernel, self._sensors)
+												for t in topologies]
 
 		PEs_sensors_requirements = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensorsPositions)
 
 		# distributed particle filter
 		self._distributedPFsForTopologies = [particle_filter.TargetTrackingParticleFilterWithDRNA(
-			self._DRNAsettings["exchange period"],e,self._K,self._DRNAsettings["normalization period"],resampling_algorithm,resampling_criterion,prior,transition_kernel,
-			self._sensors,PEs_sensors_requirements.getConnections(e.getNumberOfPEs())
-			) for e in exchange_recipes]
+			self._DRNAsettings["exchange period"], e, self._K, self._DRNAsettings["normalization period"],
+			resampling_algorithm,resampling_criterion,prior,transition_kernel, self._sensors,
+			PEs_sensors_requirements.getConnections(e.getNumberOfPEs()) ) for e in exchange_recipes]
 
 		#------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
 
@@ -189,7 +196,8 @@ class Convergence(SimpleSimulation):
 		self._distributedPFaggregatedWeights = [np.empty((self._nTimeInstants,t.getNumberOfPEs(),parameters["number of frames"])) for t in topologies]
 
 		# ...and the position estimates
-		self._centralizedPF_pos,self._distributedPF_pos = np.empty((2,self._nTimeInstants,parameters["number of frames"],len(topologies))),np.empty((2,self._nTimeInstants,parameters["number of frames"],len(topologies)))
+		self._centralizedPF_pos = np.empty((2, self._nTimeInstants, parameters["number of frames"], len(topologies)))
+		self._distributedPF_pos = np.empty((2, self._nTimeInstants, parameters["number of frames"], len(topologies)))
 
 		# HDF5
 
@@ -223,12 +231,12 @@ class Convergence(SimpleSimulation):
 		self._iFrame += 1
 
 		# the mean of the MSE incurred by both PFs
-		centralizedPF_MSE = (np.subtract(self._centralizedPF_pos[:,:,:self._iFrame,:],target_position[:,:,:self._iFrame,np.newaxis])**2).mean(axis=0).mean(axis=1)
-		distributedPF_MSE = (np.subtract(self._distributedPF_pos[:,:,:self._iFrame,:],target_position[:,:,:self._iFrame,np.newaxis])**2).mean(axis=0).mean(axis=1)
+		centralizedPF_MSE = (np.subtract(self._centralizedPF_pos[:, :, :self._iFrame, :], target_position[:, :, :self._iFrame, np.newaxis])**2).mean(axis=0).mean(axis=1)
+		distributedPF_MSE = (np.subtract(self._distributedPF_pos[:, :, :self._iFrame, :], target_position[:, :, :self._iFrame, np.newaxis])**2).mean(axis=0).mean(axis=1)
 
 		# ...the same for the error (euclidean distance)
-		centralizedPF_error = np.sqrt((np.subtract(self._centralizedPF_pos[:,:,:self._iFrame,:],target_position[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
-		distributedPF_error = np.sqrt((np.subtract(self._distributedPF_pos[:,:,:self._iFrame,:],target_position[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
+		centralizedPF_error = np.sqrt((np.subtract(self._centralizedPF_pos[:, :, :self._iFrame, :], target_position[:, :, :self._iFrame, np.newaxis])**2).sum(axis=0)).mean(axis=1)
+		distributedPF_error = np.sqrt((np.subtract(self._distributedPF_pos[:, :, :self._iFrame, :], target_position[:, :, :self._iFrame, np.newaxis])**2).sum(axis=0)).mean(axis=1)
 
 		# MSE vs time (only the results for the first topology are plotted)
 		plot.distributedPFagainstCentralizedPF(np.arange(self._nTimeInstants),centralizedPF_MSE[:,0],distributedPF_MSE[:,0],
@@ -278,7 +286,6 @@ class Convergence(SimpleSimulation):
 
 		# let the super class do its thing...
 		super().process_frame(target_position, target_velocity)
-
 
 		for iTopology, (pf, distributedPf) in enumerate(zip(self._PFsForTopologies, self._distributedPFsForTopologies)):
 
@@ -330,7 +337,8 @@ class Convergence(SimpleSimulation):
 				h5_estimated_pos[:, iTime:iTime+1, 0] = state.position(centralizedPF_mean)
 				h5_estimated_pos[:, iTime:iTime+1, 1] = state.position(distributedPF_mean)
 
-				self._centralizedPF_pos[:,iTime:iTime+1,self._iFrame,iTopology],self._distributedPF_pos[:,iTime:iTime+1,self._iFrame,iTopology] = state.position(centralizedPF_mean), state.position(distributedPF_mean)
+				self._centralizedPF_pos[:, iTime:iTime+1, self._iFrame, iTopology] = state.position(centralizedPF_mean)
+				self._distributedPF_pos[:, iTime:iTime+1, self._iFrame, iTopology] = state.position(distributedPF_mean)
 
 				# the aggregated weights of the different PEs in the distributed PF are stored
 				self._distributedPFaggregatedWeights[iTopology][iTime,:,self._iFrame] = distributedPf.getAggregatedWeights()

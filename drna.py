@@ -60,7 +60,7 @@ if commandArguments.parametersToBeReproducedFilename:
 	with open(commandArguments.parametersToBeReproducedFilename.name, "rb") as f:
 
 		# ...to extract the parameters and random state from the previous simulation
-		parameters,randomStates = pickle.load(f)
+		parameters, randomStates = pickle.load(f)
 
 	# if a new number of frames was passed...
 	if commandArguments.new_n_frames:
