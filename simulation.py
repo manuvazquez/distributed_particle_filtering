@@ -88,7 +88,8 @@ class SimpleSimulation(Simulation):
 		# if a reference to an HDF5 file was not received...
 		if h5py_file is None:
 			# ...a new HDF5 file is created
-			self._f = h5py.File('res_' + self._outputFile + '.hdf5','w')
+			self._f = h5py.File('res_' + self._outputFile + '.hdf5', 'w', driver='core')
+			# self._f = h5py.File('res_' + self._outputFile + '.hdf5', 'w')
 		# otherwise...
 		else:
 			# the value received is assumed to be a reference to an already open file
