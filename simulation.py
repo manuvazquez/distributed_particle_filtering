@@ -160,6 +160,27 @@ class SimpleSimulation(Simulation):
 
 class Convergence(SimpleSimulation):
 
+	@staticmethod
+	def parse_hdf5(data_file):
+
+		n_state, n_time_instants, n_algorithms = data_file['frames/0/topology/0/estimated position'].shape
+		n_topologies = len(data_file['frames/0/topology'])
+		n_frames = len(data_file['frames'])
+
+		estimated_position = np.empty((n_state, n_time_instants, n_algorithms, n_frames, n_topologies))
+
+		for i_frame, frame in enumerate(data_file['frames']):
+
+			for i_topology, topology in enumerate(data_file['frames/{}/topology'.format(i_frame)]):
+				estimated_position[..., i_frame, i_topology] = data_file[
+					'frames/{}/topology/{}/estimated position'.format(i_frame, i_topology)]
+
+		actual_position = np.concatenate(
+			[data_file['frames/{}/actual position'.format(i)][...][..., np.newaxis] for i in data_file['frames']],
+			axis=2)
+
+		return actual_position, estimated_position
+
 	def __init__(self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs, h5py_file=None, h5py_prefix=''):
 
 		# let the super class do its thing...
@@ -539,13 +560,6 @@ class Mposterior(SimpleSimulation):
 
 		likelihood_consensus_exchange_recipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(self._PEsTopology,
 		                                            self._LCDPFsettings['number of consensus iterations'],self._LCDPFsettings['degree of the polynomial approximation'])
-
-		nMessages = DRNA_exchange_recipe.messages()
-		print('number of messages DRNA = {}'.format(nMessages))
-		nMessages = Mposterior_exchange_recipe.messages()
-		print('number of messages Mposterior = {}'.format(nMessages))
-		nMessages = likelihood_consensus_exchange_recipe.messages()
-		print('number of messages LC = {}'.format(nMessages))
 		
 		# consensus
 		self._PFs.append(
@@ -689,33 +703,33 @@ class Mposterior(SimpleSimulation):
 		iPE,color = 0,'olive'
 		
 		# an estimator which yields the mean of the particles in the "iPE"-th PE
-		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1],iPE))
+		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], iPE))
 		
 		self._estimatorsColors.append(color)
 		self._estimatorsLabels.append('M-posterior (mean with particles from PE \#{})'.format(iPE))
 		
 		# ------------
 		
-		# DPF with M-posterior-based exchange that gets its estimates from the geometric median of the particles in the first PE
+		# DPF with M-posterior-based exchange that gets its estimates from the geometric median of the particles
+		# in the first PE
 		iPE,color = 0,'crimson'
 		
 		# an estimator which yields the geometric median of the particles in the "iPE"-th PE
-		self._estimators.append(smc.estimator.SinglePEGeometricMedian(self._PFs[-1],iPE))
+		self._estimators.append(smc.estimator.SinglePEGeometricMedian(self._PFs[-1], iPE))
 		
 		self._estimatorsColors.append(color)
 		self._estimatorsLabels.append('M-posterior (geometric median with particles from PE \#{})'.format(iPE))
 
 		# ------------
 
-		# DPF with M-posterior-based exchange that gets its estimates from the geometric median of the particles in the first PE
+		# DPF with M-posterior-based exchange that gets its estimates from the geometric median
+		#  of the particles in the first PE
 		iPE= 0
 
 		for radius,color in zip([1,2,3,4,5],['deeppink','cornsilk','sienna','coral','orchid']):
 
 			# an estimator which yields the geometric median of the particles in the "iPE"-th PE
 			self._estimators.append(smc.estimator.SinglePEGeometricMedianWithinRadius(self._PFs[-1],iPE,self._PEsTopology,radius))
-
-			print('messages with radius {} = {}'.format(radius,self._estimators[-1].messages(self._PEsTopology)))
 
 			self._estimatorsColors.append(color)
 			self._estimatorsLabels.append('M-posterior ({} hops geometric median with particles from PE \#{})'.format(radius,iPE))

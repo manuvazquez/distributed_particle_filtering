@@ -2,17 +2,18 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
-def setupAxes(figureId,clearFigure=True):
+
+def setup_axes(figure_id, clear_figure=True):
 	
 	# interactive mode on
 	plt.ion()
 
 	# a new figure is created...
-	fig = plt.figure(figureId)
+	fig = plt.figure(figure_id)
 	
 	# ...and, if requested,...
-	if clearFigure:
-		# ...cleared, just in case this method is called several times with the same "figureId"
+	if clear_figure:
+		# ...cleared, just in case this method is called several times with the same "figure_id"
 		plt.clf()
 	
 	# ...and the corresponding axes created
@@ -27,7 +28,7 @@ def distributedPFagainstCentralizedPF(x, centralizedPF, distributedPF, extraLine
                                       extraLineParameters={}, figureId='vs Time',axesProperties={}):
 
 	# a new pair of axes is set up
-	ax,fig = setupAxes(figureId)
+	ax, fig = setup_axes(figureId)
 	
 	ax.plot(x, centralizedPF, **centralizedPFparameters)
 
@@ -56,7 +57,7 @@ def distributedPFagainstCentralizedPF(x, centralizedPF, distributedPF, extraLine
 def PFs(x,y,outputFile,parameters,figureId='vs Time',axesProperties={},maximized=False):
 
 	# a new pair of axes is set up
-	ax,fig = setupAxes(figureId)
+	ax,fig = setup_axes(figureId)
 	
 	assert y.shape[0] == len(x)
 	assert y.shape[1] == len(parameters)
@@ -116,7 +117,7 @@ def PFs(x,y,outputFile,parameters,figureId='vs Time',axesProperties={},maximized
 def aggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregatedWeightsVsTime.pdf',xticksStep=10):
 
 	# the corresponding axes are created
-	ax,_ = setupAxes('Aggregated Weights Evolution')
+	ax,_ = setup_axes('Aggregated Weights Evolution')
 	
 	# the shape of the array with the aggregated weights is used to figure out the number of PEs and time instants
 	nTimeInstants,nPEs = aggregatedWeights.shape
@@ -157,7 +158,7 @@ def aggregatedWeightsSupremumVsTime(maxWeights,upperBound,outputFile='maxAggrega
 	nTimeInstants = len(maxWeights)
 
 	# the corresponding axes are created
-	ax,fig = setupAxes(figureId)
+	ax,fig = setup_axes(figureId)
 	
 	# for the x-axis
 	t = np.arange(nTimeInstants)
@@ -199,10 +200,10 @@ def aggregatedWeightsSupremumVsNumberOfPEs(Ms,maxWeights,upperBounds=None,output
 										   figureId='Aggregated Weights Supremum Vs M',axesProperties={}):
 	
 	# the corresponding axes are created
-	ax,fig = setupAxes(figureId)
+	ax, fig = setup_axes(figureId)
 	
 	# this is plotted along time
-	ax.loglog(Ms,maxWeights,**supremumLineProperties)
+	ax.loglog(Ms, maxWeights, **supremumLineProperties)
 	
 	if upperBounds:
 	
@@ -300,7 +301,7 @@ class RoomPainter:
 		self._legendEntries = []
 		
 		# a new pair of axes is set up
-		self._ax,self._figure = setupAxes('Room',clearFigure=False)
+		self._ax,self._figure = setup_axes('Room', clear_figure=False)
 		
 	def setup(self,sensorsLineProperties = {'marker':'+','color':'red'}):
 		

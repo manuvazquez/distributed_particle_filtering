@@ -131,11 +131,15 @@ np.set_printoptions(precision=3, linewidth=100)
 # NOTE: most functions access global variables, though they don't modify them (except one of the handlers)
 
 
-def saveParameters():
+def save_parameters():
 	# in a separate file with the same name as the data file but different extension...
-	with open('res_' + outputFile + '.parameters', mode='wb') as f:
+	parameters_file = 'res_{}.parameters'.format(outputFile)
+
+	with open(parameters_file, mode='wb') as f:
 		#  ...parameters and pseudo random numbers generators are pickled
 		pickle.dump((parameters, frozenPRNGs), f)
+
+	print('parameters saved in "{}"'.format(parameters_file))
 
 # ---------------------------------------------
 
@@ -201,7 +205,7 @@ def sigusr1_handler(signum, frame):
 	sim.save_data(targetPosition)
 
 	# ...and the parameters as well
-	saveParameters()
+	save_parameters()
 
 # Ctrl-C has not been pressed yet...well, if it has, then the program has not even reached here
 ctrlCpressed = False
@@ -274,7 +278,7 @@ while iFrame < parameters["number of frames"] and not ctrlCpressed:
 sim.save_data(targetPosition)
 
 # ...and the parameters too
-saveParameters()
+save_parameters()
 
 # ------------------------------------------------------------------ benchmarking  -----------------------------------------------------------------------
 
