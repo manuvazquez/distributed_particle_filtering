@@ -117,7 +117,7 @@ class Mposterior(Estimator):
 	def estimate(self):
 
 		# the (FULL) distributions computed by all the PEs are gathered in a list of tuples (samples and weights)
-		posteriors = [(PE.getState().T,np.exp(PE.logWeights)) for PE in self.DPF._PEs]
+		posteriors = [(PE.get_state().T,np.exp(PE.logWeights)) for PE in self.DPF._PEs]
 
 		return self.combine_posterior_distributions(posteriors)
 

@@ -88,7 +88,7 @@ class SimpleSimulation(Simulation):
 		# if a reference to an HDF5 file was not received...
 		if h5py_file is None:
 			# ...a new HDF5 file is created
-			self._f = h5py.File('res_' + self._outputFile + '.hdf5', 'w', driver='core')
+			self._f = h5py.File('res_' + self._outputFile + '.hdf5', 'w', driver='core', libver='latest')
 			# self._f = h5py.File('res_' + self._outputFile + '.hdf5', 'w')
 		# otherwise...
 		else:
@@ -381,8 +381,8 @@ class Convergence(SimpleSimulation):
 					if self._painterSettings["display particles evolution?"]:
 
 						# ...and those of the particles...
-						self._painter.updateParticlesPositions(state.position(pf.getState()),identifier='centralized',color=self._painterSettings["color for the centralized PF"])
-						self._painter.updateParticlesPositions(state.position(distributedPf.getState()),identifier='distributed',color=self._painterSettings["color for the distributed PF"])
+						self._painter.updateParticlesPositions(state.position(pf.get_state()),identifier='centralized',color=self._painterSettings["color for the centralized PF"])
+						self._painter.updateParticlesPositions(state.position(distributedPf.get_state()),identifier='distributed',color=self._painterSettings["color for the distributed PF"])
 
 
 class MultipleMposterior(Simulation):
@@ -575,7 +575,7 @@ class Mposterior(SimpleSimulation):
 		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1],0))
 		
 		self._estimatorsColors.append('brown')
-		self._estimatorsLabels.append('LC DPF')
+		self._estimatorsLabels.append('LC DPF with {} iterations'.format(self._LCDPFsettings['number of consensus iterations']))
 		
 		# ------------
 
@@ -585,10 +585,10 @@ class Mposterior(SimpleSimulation):
 				self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,self._sensors
 				)
 		)
-			
+
 		# the estimator just delegates the calculus of the estimate to the PF
 		self._estimators.append(smc.estimator.Delegating(self._PFs[-1]))
-		
+
 		self._estimatorsColors.append('indigo')
 		self._estimatorsLabels.append('Single know-it-all PE')
 		
@@ -845,7 +845,7 @@ class Mposterior(SimpleSimulation):
 					
 					if self._painterSettings["display particles evolution?"]:
 						
-						self._painter.updateParticlesPositions(state.position(pf.getState()),identifier='#{}'.format(iEstimator),color=color)
+						self._painter.updateParticlesPositions(state.position(pf.get_state()),identifier='#{}'.format(iEstimator),color=color)
 
 		# in order to make sure the HDF5 files is valid...
 		self._f.flush()
