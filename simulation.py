@@ -354,7 +354,7 @@ class Convergence(SimpleSimulation):
 				distributedPf.step(self._observations[iTime])
 
 				# the mean computed by the centralized and distributed PFs
-				centralizedPF_mean, distributedPF_mean = pf.computeMean(),distributedPf.computeMean()
+				centralizedPF_mean, distributedPF_mean = pf.compute_mean(),distributedPf.compute_mean()
 
 				h5_estimated_pos[:, iTime:iTime+1, 0] = state.position(centralizedPF_mean)
 				h5_estimated_pos[:, iTime:iTime+1, 1] = state.position(distributedPF_mean)
@@ -559,8 +559,9 @@ class Mposterior(SimpleSimulation):
 		Mposterior_within_radius_exchange_recipe = smc.exchange_recipe.MposteriorWithinRadiusExchangeRecipe(
 			self._PEsTopology, self._K, self._simulationParameters["exchanged particles"], 2, PRNG=PRNGcopy)
 
-		likelihood_consensus_exchange_recipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(self._PEsTopology,
-		                                            self._LCDPFsettings['number of consensus iterations'],self._LCDPFsettings['degree of the polynomial approximation'])
+		likelihood_consensus_exchange_recipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(
+			self._PEsTopology, self._LCDPFsettings['number of consensus iterations'],
+			self._LCDPFsettings['degree of the polynomial approximation'])
 		
 		# consensus
 		self._PFs.append(

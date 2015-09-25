@@ -22,10 +22,9 @@ def setup_axes(figure_id, clear_figure=True):
 	return axes,fig
 
 
-def distributedPFagainstCentralizedPF(x, centralizedPF, distributedPF, extraLine=None, outputFile=None,
-                                      centralizedPFparameters={'label':'Centralized PF'},
-                                      distributedPFparameters={'label':'Distributed PF'},
-                                      extraLineParameters={}, figureId='vs Time',axesProperties={}):
+def distributedPFagainstCentralizedPF(
+		x, centralizedPF, distributedPF, extraLine=None, outputFile=None, centralizedPFparameters={'label':'Centralized PF'},
+		distributedPFparameters={'label':'Distributed PF'}, extraLineParameters={}, figureId='vs Time',axesProperties={}):
 
 	# a new pair of axes is set up
 	ax, fig = setup_axes(figureId)

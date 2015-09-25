@@ -53,16 +53,17 @@ class ParticleFilter(metaclass=abc.ABCMeta):
 
 class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 	
-	def __init__(self, n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
-					aggregated_weight=1.0):
+	def __init__(
+			self, n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
+			aggregated_weight=1.0):
 		
 		super().__init__(n_particles, resampling_algorithm, resampling_criterion)
 		
 		# a vector with the weights is created...but not initialized (that must be done by the "initialize" method)
-		self._logWeights = np.empty(n_particles)
+		self._log_weights = np.empty(n_particles)
 		
 		# the state equation is encoded in the transition kernel
-		self._stateTransitionKernel = state_transition_kernel
+		self._state_transition_kernel = state_transition_kernel
 		
 		# the prior is needed to inialize the state
 		self._prior = prior
@@ -71,7 +72,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		self._sensors = sensors
 		
 		# this variable just keeps tabs on the sum of all the weights
-		self._aggregatedWeight = aggregated_weight
+		self._aggregated_weight = aggregated_weight
 	
 	def initialize(self):
 		
@@ -79,7 +80,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		self._state = self._prior.sample(self._nParticles)
 		
 		# the weights are assigned equal probabilities
-		self._logWeights.fill(np.log(self._aggregatedWeight)-np.log(self._nParticles))
+		self._log_weights.fill(np.log(self._aggregated_weight)-np.log(self._nParticles))
 		
 	def step(self,observations):
 		
@@ -87,7 +88,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		
 		# every particle is updated (previous state is not stored...)
 		self._state = np.hstack(
-			[self._stateTransitionKernel.nextState(self._state[:, i:i+1]) for i in range(self._nParticles)])
+			[self._state_transition_kernel.nextState(self._state[:, i:i+1]) for i in range(self._nParticles)])
 		
 		# TODO: this may cause a "divide by zero" warning when a likelihood is very small
 		# for each sensor, we compute the likelihood of EVERY particle (position)
@@ -97,13 +98,13 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		loglikelihoodsProduct = loglikelihoods.sum(axis=0)
 		
 		# the weights are updated
-		self._logWeights += loglikelihoodsProduct
+		self._log_weights += loglikelihoodsProduct
 		
 		# the aggregated weight is kept up to date at all times
-		self.updateAggregatedWeight()
+		self.update_aggregated_weight()
 		
 		# whatever is required (it depends on the algorithm) to avoid weights degeneracy...
-		self.avoidWeightDegeneracy()
+		self.avoid_weight_degeneracy()
 
 	def get_state(self):
 		
@@ -132,14 +133,14 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 			# the above indexes are used to update the state
 			self._state = self._state[:,i_particles_to_be_kept]
 			
-			# note that if the weights have been normalized ("standard" centralized particle filter), then "self._aggregatedWeight" is equal to 1
-			self._logWeights.fill(np.log(self._aggregatedWeight)-np.log(self._nParticles))
+			# note that if the weights have been normalized ("standard" centralized particle filter), then "self._aggregated_weight" is equal to 1
+			self._log_weights.fill(np.log(self._aggregated_weight)-np.log(self._nParticles))
 		
-	def getParticle(self, index):
+	def get_particle(self, index):
 		
-		return self._state[:, index:index+1].copy(), self._logWeights[index]
+		return self._state[:, index:index+1].copy(), self._log_weights[index]
 	
-	def getSamplesAt(self,indexes):
+	def get_samples_at(self,indexes):
 		
 		"""Obtain (just) the samples at certain given indexes.
 		
@@ -161,7 +162,7 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 	@property
 	def n_particles(self):
 
-		return len(self._logWeights)
+		return len(self._log_weights)
 
 	@property
 	def samples(self):
@@ -179,63 +180,64 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 			
 			raise Exception('the number and/or dimensions of the samples are not equal to the current ones')
 	
-	def setParticle(self, index, particle):
+	def set_particle(self, index, particle):
 		
 		self._state[:,index:index+1] = particle[0]
-		self._logWeights[index] = particle[1]
+		self._log_weights[index] = particle[1]
 		
 		# the sum of the weights might have changed...
-		self.updateAggregatedWeight()
+		self.update_aggregated_weight()
 
-	def updateAggregatedWeight(self):
+	def update_aggregated_weight(self):
 		
 		# the aggregated weight is simply the sum of the non-normalized weights
-		self._aggregatedWeight = np.exp(self._logWeights).sum()
+		self._aggregated_weight = np.exp(self._log_weights).sum()
 
-	def computeMean(self):
+	def compute_mean(self):
 		
 		# if all the weights in this PF/PE are zero...
-		if self._aggregatedWeight == 0:
+		if self._aggregated_weight == 0:
 			
 			# ...then an all-zeros estimate is returned...though any should do since this estimate must contribute zero
 			# return np.zeros((state.nElements, 1))
 			return np.full((state.nElements, 1), np.pi)
 		
-		normalizedLogWeights = self._logWeights - np.log(self._aggregatedWeight)
+		normalized_log_weights = self._log_weights - np.log(self._aggregated_weight)
 
-		# element-wise multiplication of the state vectors and their correspondent weights...followed by addition => weighted mean
-		return (self._state*np.exp(normalizedLogWeights)[np.newaxis, :]).sum(axis=1)[:, np.newaxis]
+		# element-wise multiplication of the state vectors and their correspondent weights,
+		# followed by addition => weighted mean
+		return (self._state*np.exp(normalized_log_weights)[np.newaxis, :]).sum(axis=1)[:, np.newaxis]
 
 	# this methods encapsulates the parts within the code of "step" which are different in this class and its children
-	def avoidWeightDegeneracy(self):
+	def avoid_weight_degeneracy(self):
 		
 		# if all the weights are zero...
-		if self._aggregatedWeight==0:
+		if self._aggregated_weight==0:
 			
 			# ...then normalization makes no sense and we just initialize the weights again
-			self._logWeights.fill(-np.log(self._nParticles))
+			self._log_weights.fill(-np.log(self._nParticles))
 
 		else:
 		
-			self._logWeights -= np.log(self._aggregatedWeight)
+			self._log_weights -= np.log(self._aggregated_weight)
 			
 		# we forced this above
-		self._aggregatedWeight = 1.0
+		self._aggregated_weight = 1.0
 		
 		# the normalized weights are used to resample
-		self.resample(self._logWeights)
+		self.resample(self._log_weights)
 	
 	@property
-	def logWeights(self):
+	def log_weights(self):
 		
-		return self._logWeights
+		return self._log_weights
 	
-	@logWeights.setter
-	def logWeights(self,value):
+	@log_weights.setter
+	def log_weights(self,value):
 		
-		if self._logWeights.shape==value.shape:
+		if self._log_weights.shape==value.shape:
 			
-			self._logWeights=value
+			self._log_weights=value
 			
 		else:
 			
@@ -247,25 +249,25 @@ class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilt
 	
 	def getAggregatedWeight(self):
 		
-		return self._aggregatedWeight
+		return self._aggregated_weight
 	
 	def divideWeights(self,factor):
 		
-		self._logWeights -= np.log(factor)
-		self._aggregatedWeight /= factor
+		self._log_weights -= np.log(factor)
+		self._aggregated_weight /= factor
 
 	# NOTE: using np.close may yield quite different results
-	def avoidWeightDegeneracy(self):
+	def avoid_weight_degeneracy(self):
 		
 		# if all the weights are zero...
-		if self._aggregatedWeight==0:
+		if self._aggregated_weight==0:
 			
 			# ...there is nothing we can do
 			return
 		
 		else:
 			# the normalized weights are used to resample
-			self.resample(self._logWeights - np.log(self._aggregatedWeight))
+			self.resample(self._log_weights - np.log(self._aggregated_weight))
 
 # =========================================================================================================
 
@@ -281,7 +283,19 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 		
 		# the position of every sensor
 		self._sensorsPositions = np.hstack([s.position for s in sensors])
-	
+
+	def initialize(self, M, R_p, r_a_tuples, r_a, r_d_tuples, r_d, rs_gamma):
+
+		super().initialize()
+
+		self._M = M
+		self._R_p = R_p
+		self._r_a_tuples = r_a_tuples
+		self._r_a = r_a
+		self._r_d_tuples = r_d_tuples
+		self._r_d = r_d
+		self._rs_gamma = rs_gamma
+
 	def likelihood_mean(self, positions):
 		
 		# each row gives the distances from a sensor to ALL the positions
@@ -309,13 +323,13 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 		
 		# the weights should be multiplied by e^shifted_S and divided by the sum thereof, and when taking
 		# the logarithm this yields
-		self._logWeights += shifted_S - np.log(np.exp(shifted_S).sum())
+		self._log_weights += shifted_S - np.log(np.exp(shifted_S).sum())
 		
 		# the aggregated weight is kept up to date at all times
-		self.updateAggregatedWeight()
+		self.update_aggregated_weight()
 		
 		# whatever is required (it depends on the algorithm) to avoid weights degeneracy...
-		self.avoidWeightDegeneracy()
+		self.avoid_weight_degeneracy()
 		
 	def pre_consensus_step(self, observations):
 		
@@ -323,7 +337,7 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 		
 		# every particle is updated (previous state is not stored...)
 		self._state = np.hstack(
-			[self._stateTransitionKernel.nextState(self._state[:,i:i+1]) for i in range(self._nParticles)])
+			[self._state_transition_kernel.nextState(self._state[:, i:i+1]) for i in range(self._nParticles)])
 		
 		self.polynomial_approximation(observations)
 
@@ -331,7 +345,7 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 		
 		x = state.position(self._state)
 		
-		# in the first matrix, we just replicate the samples matrix (<number of sample>,<component within sample>)
+		# in the first matrix, we just replicate the samples matrix (<component within sample>,<number of sample>)
 		# along the third dimension; in the second matrix, the third dimension gives the number of monomial
 		phi = (x[:, :, np.newaxis]**self._r_a.T[:, np.newaxis, :]).prod(axis=0)
 		
@@ -506,61 +520,57 @@ class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTarg
 		self._R_p = polynomial_degree
 		
 		# a list of tuples, each one representing a combination of possible exponents for a monomial
-		self._r_a_tuples = list(itertools.filterfalse(lambda x: sum(x)>self._R_p, itertools.product(range(self._R_p+1),repeat=self._M)))
+		self._r_a_tuples = list(itertools.filterfalse(
+			lambda x: sum(x)>self._R_p, itertools.product(range(self._R_p+1), repeat=self._M)))
 		
 		# each row contains the exponents for a monomial
 		self._r_a = np.array(self._r_a_tuples)
 		
 		# theoretical number of monomials in the approximation
-		R_a = scipy.misc.comb(self._R_p + self._M,self._R_p,exact=True)
+		R_a = scipy.misc.comb(self._R_p + self._M, self._R_p, exact=True)
 		
-		assert(R_a==len(self._r_a_tuples))
+		assert(R_a == len(self._r_a_tuples))
 		
 		# exponents for computing d
-		self._r_d_tuples = list(itertools.filterfalse(lambda x: sum(x)>(2*self._R_p), itertools.product(range(2*self._R_p+1),repeat=self._M)))
+		self._r_d_tuples = list(itertools.filterfalse(
+			lambda x: sum(x)>(2*self._R_p), itertools.product(range(2*self._R_p+1), repeat=self._M)))
 		self._r_d = np.array(self._r_d_tuples)
 		
-		# we generate the *two* vectors of exponents (r' and r'' in the paper) jointly, and then drop those combinations that don't satisy the required constraints
+		# we generate the *two* vectors of exponents (r' and r'' in the paper) jointly,
+		# and then drop those combinations that don't satisfy the required constraints
 		self._rs_gamma = [list(itertools.filterfalse(
-			lambda x: not np.allclose((np.array(x)[:self._M] + x[self._M:]),r) or sum(x[:self._M])>self._R_p or sum(x[self._M:])>self._R_p,
-			itertools.product(range(self._R_p+1),repeat=2*self._M))) for r in self._r_d]
+			lambda x:
+			not np.allclose((np.array(x)[:self._M] + x[self._M:]),r) or sum(x[:self._M]) > self._R_p or sum(x[self._M:]) > self._R_p,
+			itertools.product(range(self._R_p+1), repeat=2*self._M))) for r in self._r_d]
 	
 		# theoretically, this is the number of beta components that should result
 		N_c = scipy.misc.comb(2*self._R_p + self._M, 2*self._R_p, exact=True)
 		
-		assert(N_c==len(self._r_d_tuples))
+		assert(N_c == len(self._r_d_tuples))
 
 	def initialize(self):
 		
 		# all the PFs are initialized
 		for PE in self._PEs:
 			
-			PE.initialize()
-			
-			PE._M = self._M
-			PE._R_p = self._R_p
-			PE._r_a_tuples = self._r_a_tuples
-			PE._r_a = self._r_a
-			PE._r_d_tuples = self._r_d_tuples
-			PE._r_d = self._r_d
-			PE._rs_gamma = self._rs_gamma
+			PE.initialize(self._M, self._R_p, self._r_a_tuples, self._r_a, self._r_d_tuples, self._r_d, self._rs_gamma)
 
-	def step(self,observations):
+	def step(self, observations):
 		
 		# each PE initializes its local state
-		for PE,sensorsConnections in zip(self._PEs,self._PEsSensorsConnections):
+		for PE, sensors_connections in zip(self._PEs, self._PEsSensorsConnections):
 			
-			PE.pre_consensus_step(observations[sensorsConnections])
+			PE.pre_consensus_step(observations[sensors_connections])
 		
 		# consensus
 		self.exchange_recipe.perform_exchange(self)
 		
 		# a step is taken in every PF (ideally, this would occur concurrently)
-		for PE,sensorsConnections in zip(self._PEs,self._PEsSensorsConnections):
+		for PE, sensors_connections in zip(self._PEs, self._PEsSensorsConnections):
 			
-			# only the appropriate observations are passed to this PE
-			# NOTE: it is assumed that the order in which the observations are passed is the same as that of the sensors when building the PF
-			PE.step(observations[sensorsConnections])
+			# only the appropriate observations are passed to this PE. Note that it is assumed that the order in which
+			# the observations are passed is the same as that of the sensors when building the PF
+			PE.step(observations[sensors_connections])
 
 	def messages(self, PEs_topology, PEs_sensors_access):
 
@@ -605,7 +615,7 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 			# after the exchange, the aggregated weight of every PE must be updated
 			for PE in self._PEs:
 				
-				PE.updateAggregatedWeight()
+				PE.update_aggregated_weight()
 		
 		# needed to perform the normalization below
 		aggregatedWeightsSum = self.getAggregatedWeights().sum()
@@ -637,18 +647,18 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		"""
 		
 		# every PE will be assigned the same aggregated weight:
-		aggregatedWeight = 1.0/self._nPEs
+		aggregated_weight = 1.0/self._nPEs
 		
 		# for every PE in this DPF...
 		for PE in self._PEs:
 			
 			# the aggregated weight is set...
-			PE._aggregatedWeight = aggregatedWeight
+			PE._aggregated_weight = aggregated_weight
 			
 			# ...along with the individual weights within the PE
-			PE.logWeights = np.full(PE._nParticles,-np.log(self._nPEs)-np.log(PE._nParticles))
+			PE.log_weights = np.full(PE._nParticles,-np.log(self._nPEs)-np.log(PE._nParticles))
 
-	def computeMean(self):
+	def compute_mean(self):
 		
 		return self._estimator.estimate()
 
