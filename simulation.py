@@ -402,11 +402,11 @@ class MultipleMposterior(Simulation):
 		self._sensors = []
 		
 		# for every pair nPEs-nSensors we aim to simulate...
-		for (nPEs,nSensors) in self._simulationParameters["nPEs-nSensors pairs"]:
+		for (nPEs, nSensors) in self._simulationParameters["nPEs-nSensors pairs"]:
 			
 			self._simulations.append(Mposterior(
 				parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs,
-				self._f, '{} PEs,{} sensors/'.format(nPEs, nSensors), nPEs,nSensors))
+				self._f, '{} PEs,{} sensors/'.format(nPEs, nSensors), nPEs, nSensors))
 
 	def process_frame(self,target_position,target_velocity):
 		
@@ -426,6 +426,28 @@ class MultipleMposterior(Simulation):
 
 
 class Mposterior(SimpleSimulation):
+
+	@staticmethod
+	def parse_hdf5(data_file, prefix = ''):
+
+		h5_frames = data_file[prefix + '/frames']
+
+		n_frames = len(h5_frames)
+
+		any_frame = list(h5_frames.keys())[0]
+
+		# n_state, n_time_instants, n_algorithms = data_file['frames/{}/estimated position'.format(any_frame)].shape
+		n_state, n_time_instants, n_algorithms = h5_frames['{}/estimated position'.format(any_frame)].shape
+
+		estimated_position = np.empty((n_state, n_time_instants, n_algorithms, n_frames))
+		actual_position = np.empty((n_state, n_time_instants, n_frames))
+
+		for i_frame, frame in enumerate(h5_frames):
+
+			estimated_position[..., i_frame] = h5_frames['{}/estimated position'.format(frame)]
+			actual_position[...,i_frame] = h5_frames['{}/actual position'.format(frame)]
+
+		return actual_position, estimated_position, n_frames
 	
 	# TODO: a method of the object is called from within "__init__" (allowed in python...but weird)
 	
@@ -634,10 +656,10 @@ class Mposterior(SimpleSimulation):
 				self._prior,self._transitionKernel,self._sensors,self._PEsSensorsConnections, PFs_class=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
 		)
-		
+
 		# the estimator is still the mean
 		self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
-		
+
 		self._estimatorsColors.append('magenta')
 		self._estimatorsLabels.append('DRNA (partial observations)')
 
@@ -652,18 +674,20 @@ class Mposterior(SimpleSimulation):
 				self._sensors,self._PEsSensorsConnections, PFs_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter
 			)
 		)
-		
+
 		# yes...still the mean
 		self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
-		
+
 		self._estimatorsColors.append('blue')
 		self._estimatorsLabels.append('Plain DPF')
 
 		# ------------
 
 		# an estimator computing the geometric median with 1 particle taken from each PE
-		self._estimators.append(smc.estimator.GeometricMedian(self._PFs[-1],maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
-														tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
+		self._estimators.append(smc.estimator.GeometricMedian(
+			self._PFs[-1], maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
+			tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
+
 		self._estimatorsColors.append('seagreen')
 		self._estimatorsLabels.append('Plain DPF (geometric median with 1 particle from each PE)')
 		
@@ -695,7 +719,7 @@ class Mposterior(SimpleSimulation):
 		
 		# an estimator which yields the mean of ALL the particles
 		self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
-		
+
 		self._estimatorsColors.append('red')
 		self._estimatorsLabels.append('M-posterior (Mean)')
 		
@@ -703,10 +727,10 @@ class Mposterior(SimpleSimulation):
 		
 		# DPF with M-posterior-based exchange that gets its estimates from the mean of the particles in the first PE
 		iPE,color = 0,'olive'
-		
+
 		# an estimator which yields the mean of the particles in the "iPE"-th PE
 		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], iPE))
-		
+
 		self._estimatorsColors.append(color)
 		self._estimatorsLabels.append('M-posterior (mean with particles from PE \#{})'.format(iPE))
 		
@@ -773,8 +797,10 @@ class Mposterior(SimpleSimulation):
 		# the mean of the error (euclidean distance) incurred by the PFs
 		PF_error = np.sqrt((np.subtract(self._estimatedPos[:,:,:self._iFrame,:],target_position[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
 		
-		plot.PFs(range(self._nTimeInstants),PF_error,
-		   self._simulationParameters["file name prefix for the estimation error vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
+		plot.PFs(
+			range(self._nTimeInstants),PF_error,
+			self._simulationParameters["file name prefix for the estimation error vs time plot"] +
+			'_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
 			[{'label':l,'color':c} for l,c in zip(self._estimatorsLabels,self._estimatorsColors)])
 		
 		print(self._estimatedPos)
