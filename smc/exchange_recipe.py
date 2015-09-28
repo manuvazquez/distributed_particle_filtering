@@ -188,21 +188,21 @@ class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 	def messages(self):
 
 		# same as for DRNA...
-		nMessages = super().messages()
+		n_messages = super().messages()
 
 		# ...but there is no need for a PE to send its aggregated weight to each one of its neighbours
 		for neighboursList in self._neighbours_particles:
 
-			nMessages -= len(neighboursList)
+			n_messages -= len(neighboursList)
 
-		return nMessages
+		return n_messages
 
 
 class MposteriorWithinRadiusExchangeRecipe(MposteriorExchangeRecipe):
 
 	def __init__(self, PEsTopology, n_particles_per_PE, exchanged_particles, radius, PRNG=np.random.RandomState()):
 
-		# this needs be before super() because the ancestor class is depends on "get_PEs_contacts" which,
+		# this needs be before super() because the ancestor class is depends "get_PEs_contacts" which,
 		#  in turn, depends on radius
 		self.radius = radius
 

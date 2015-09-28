@@ -561,25 +561,13 @@ class Mposterior(SimpleSimulation):
 		
 		"""
 
-		# a copy of the required PRNG is built...so that the exchange particles map is the same for both DRNA and Mposterior
-		# TODO: is this really necesary? a better approach?
-		import copy
-		PRNGcopy = copy.deepcopy(self._PRNGs["topology pseudo random numbers generator"])
-		copy_PRNG = copy.deepcopy(self._PRNGs["topology pseudo random numbers generator"])
-
 		DRNA_exchange_recipe = smc.exchange_recipe.DRNAExchangeRecipe(
 			self._PEsTopology, self._K, self._simulationParameters["exchanged particles"],
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
-		# Mposterior_exchange_recipe = smc.exchange_recipe.MposteriorExchangeRecipe(
-		# 	self._PEsTopology, self._K, self._simulationParameters["exchanged particles"], PRNG=PRNGcopy)
-
 		Mposterior_exchange_recipe = smc.exchange_recipe.IteratedMposteriorExchangeRecipe(
 			self._PEsTopology, self._K, self._simulationParameters["exchanged particles"],
-			self._MposteriorSettings["number of iterations"], PRNG=PRNGcopy)
-
-		Mposterior_within_radius_exchange_recipe = smc.exchange_recipe.MposteriorWithinRadiusExchangeRecipe(
-			self._PEsTopology, self._K, self._simulationParameters["exchanged particles"], 2, PRNG=PRNGcopy)
+			self._MposteriorSettings["number of iterations"], PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 		likelihood_consensus_exchange_recipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(
 			self._PEsTopology, self._LCDPFsettings['number of consensus iterations'],
@@ -588,8 +576,9 @@ class Mposterior(SimpleSimulation):
 		# consensus
 		self._PFs.append(
 			particle_filter.LikelihoodConsensusDistributedTargetTrackingParticleFilter(
-				likelihood_consensus_exchange_recipe,self._nPEs,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
-				self._sensors,self._PEsSensorsConnections,self._LCDPFsettings['degree of the polynomial approximation'],
+				likelihood_consensus_exchange_recipe, self._nPEs, self._K, self._resamplingAlgorithm,
+				self._resamplingCriterion,self._prior,self._transitionKernel, self._sensors, self._PEsSensorsConnections,
+				self._LCDPFsettings['degree of the polynomial approximation'],
 				PFs_class=smc.particle_filter.CentralizedTargetTrackingParticleFilterWithConsensusCapabilities
 				)
 		)
@@ -620,7 +609,8 @@ class Mposterior(SimpleSimulation):
 		# centralized PF
 		self._PFs.append(
 			particle_filter.CentralizedTargetTrackingParticleFilter(
-				self._K*self._nPEs,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,self._sensors
+				self._K*self._nPEs, self._resamplingAlgorithm, self._resamplingCriterion, self._prior,
+				self._transitionKernel, self._sensors
 				)
 		)
 			
@@ -635,8 +625,10 @@ class Mposterior(SimpleSimulation):
 		# a distributed PF with DRNA
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"],DRNA_exchange_recipe,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
-				self._prior,self._transitionKernel,self._sensors,self._everySensorWithEveryPEConnector.getConnections(self._nPEs),
+				self._DRNAsettings["exchange period"], DRNA_exchange_recipe, self._K,
+				self._DRNAsettings["normalization period"], self._resamplingAlgorithm, self._resamplingCriterion,
+				self._prior, self._transitionKernel, self._sensors,
+				self._everySensorWithEveryPEConnector.getConnections(self._nPEs),
 				PFs_class=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
 		)
@@ -652,8 +644,10 @@ class Mposterior(SimpleSimulation):
 		# a distributed PF using a variation of DRNA in which each PE only sees a subset of the observations
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"],DRNA_exchange_recipe,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
-				self._prior,self._transitionKernel,self._sensors,self._PEsSensorsConnections, PFs_class=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
+				self._DRNAsettings["exchange period"], DRNA_exchange_recipe, self._K,
+				self._DRNAsettings["normalization period"], self._resamplingAlgorithm, self._resamplingCriterion,
+				self._prior, self._transitionKernel, self._sensors, self._PEsSensorsConnections,
+				PFs_class=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
 		)
 
@@ -663,25 +657,15 @@ class Mposterior(SimpleSimulation):
 		self._estimatorsColors.append('magenta')
 		self._estimatorsLabels.append('DRNA (partial observations)')
 
-		print('{}: {}'.format(self._estimatorsLabels[-1],self._PFs[-1].messages(self._PEsTopology,self._PEsSensorsConnections)))
-		
 		# ------------
 		
 		# a "distributed" PF in which each PE does its computation independently of the rest
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilter(
-				self._nPEs,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
-				self._sensors,self._PEsSensorsConnections, PFs_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter
+				self._nPEs, self._K, self._resamplingAlgorithm, self._resamplingCriterion, self._prior, self._transitionKernel,
+				self._sensors, self._PEsSensorsConnections, PFs_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter
 			)
 		)
-
-		# yes...still the mean
-		self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
-
-		self._estimatorsColors.append('blue')
-		self._estimatorsLabels.append('Plain DPF')
-
-		# ------------
 
 		# an estimator computing the geometric median with 1 particle taken from each PE
 		self._estimators.append(smc.estimator.GeometricMedian(
@@ -696,85 +680,61 @@ class Mposterior(SimpleSimulation):
 		# DPF with M-posterior-based exchange
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-				Mposterior_exchange_recipe,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
-				self._sensors,self._PEsSensorsConnections,self._MposteriorSettings['findWeiszfeldMedian parameters'],
-				self._MposteriorSettings['sharing period'], PFs_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter)
+				Mposterior_exchange_recipe, self._K, self._resamplingAlgorithm, self._resamplingCriterion, self._prior,
+				self._transitionKernel, self._sensors, self._PEsSensorsConnections,
+				self._MposteriorSettings['findWeiszfeldMedian parameters'], self._MposteriorSettings['sharing period'],
+				PFs_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter)
 		)
 		
-		## an estimator combining all the particles from all the PEs through M-posterior to give a distribution whose mean is the estimate
-		#self._estimators.append(smc.estimator.Mposterior(self._PFs[-1]))
-		
-		#self._estimatorsColors.append('darkred')
-		#self._estimatorsLabels.append('M-posterior (M-posterior with ALL particles - mean)')
-		
-		# ------------
-		
 		# an estimator computing the geometric median with 1 particle taken from each PE
-		self._estimators.append(smc.estimator.GeometricMedian(self._PFs[-1],maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
-														tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
+		self._estimators.append(smc.estimator.GeometricMedian(
+			self._PFs[-1], maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
+			tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
+
 		self._estimatorsColors.append('green')
 		self._estimatorsLabels.append('M-posterior (geometric median with 1 particle from each PE)')
 		
 		# ------------
-		
-		# an estimator which yields the mean of ALL the particles
-		self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
-
-		self._estimatorsColors.append('red')
-		self._estimatorsLabels.append('M-posterior (Mean)')
-		
-		# ------------
-		
-		# DPF with M-posterior-based exchange that gets its estimates from the mean of the particles in the first PE
-		iPE,color = 0,'olive'
-
-		# an estimator which yields the mean of the particles in the "iPE"-th PE
-		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], iPE))
-
-		self._estimatorsColors.append(color)
-		self._estimatorsLabels.append('M-posterior (mean with particles from PE \#{})'.format(iPE))
-		
-		# ------------
-		
-		# DPF with M-posterior-based exchange that gets its estimates from the geometric median of the particles
-		# in the first PE
-		iPE,color = 0,'crimson'
-		
-		# an estimator which yields the geometric median of the particles in the "iPE"-th PE
-		self._estimators.append(smc.estimator.SinglePEGeometricMedian(self._PFs[-1], iPE))
-		
-		self._estimatorsColors.append(color)
-		self._estimatorsLabels.append('M-posterior (geometric median with particles from PE \#{})'.format(iPE))
-
-		# ------------
 
 		# DPF with M-posterior-based exchange that gets its estimates from the geometric median
 		#  of the particles in the first PE
-		iPE= 0
+		iPE = 0
 
-		for radius,color in zip([1,2,3,4,5],['deeppink','cornsilk','sienna','coral','orchid']):
+		for radius, color in zip([1, 4, 5], ['deeppink', 'coral', 'orchid']):
 
 			# an estimator which yields the geometric median of the particles in the "iPE"-th PE
-			self._estimators.append(smc.estimator.SinglePEGeometricMedianWithinRadius(self._PFs[-1],iPE,self._PEsTopology,radius))
+			self._estimators.append(
+				smc.estimator.SinglePEGeometricMedianWithinRadius(self._PFs[-1], iPE, self._PEsTopology, radius))
 
 			self._estimatorsColors.append(color)
-			self._estimatorsLabels.append('M-posterior ({} hops geometric median with particles from PE \#{})'.format(radius,iPE))
+			self._estimatorsLabels.append(
+				'M-posterior ({} hops geometric median with particles from PE \#{})'.format(radius, iPE))
 		
 		# ------------
 
-		# DPF with M-posterior-based exchange, using a certain radius
-		self._PFs.append(
-			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-				Mposterior_within_radius_exchange_recipe,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
-				self._sensors,self._PEsSensorsConnections,self._MposteriorSettings['findWeiszfeldMedian parameters'],
-				self._MposteriorSettings['sharing period'], PFs_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter)
-		)
+		for radius, color in zip([2, 4], ['blue', 'red']):
 
-		# an estimator computing the geometric median with 1 particle taken from each PE
-		self._estimators.append(smc.estimator.GeometricMedian(self._PFs[-1],maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
-														tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
-		self._estimatorsColors.append('green')
-		self._estimatorsLabels.append('Radius 2 M-posterior (geometric median with 1 particle from each PE)')
+			Mposterior_within_radius_exchange_recipe = smc.exchange_recipe.MposteriorWithinRadiusExchangeRecipe(
+			self._PEsTopology, self._K, self._simulationParameters["exchanged particles"], radius,
+				PRNG=self._PRNGs["topology pseudo random numbers generator"])
+
+			# DPF with M-posterior-based exchange, using a certain radius
+			self._PFs.append(
+				smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
+					Mposterior_within_radius_exchange_recipe, self._K, self._resamplingAlgorithm, self._resamplingCriterion,
+					self._prior, self._transitionKernel, self._sensors, self._PEsSensorsConnections,
+					self._MposteriorSettings['findWeiszfeldMedian parameters'], self._MposteriorSettings['sharing period'],
+					PFs_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter)
+			)
+
+			# an estimator computing the geometric median with 1 particle taken from each PE
+			self._estimators.append(smc.estimator.GeometricMedian(
+				self._PFs[-1], maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
+				tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
+
+			self._estimatorsColors.append(color)
+			self._estimatorsLabels.append(
+				'M-posterior - depth {} (geometric median with 1 particle from each PE)'.format(radius))
 
 		# ------------
 
@@ -908,7 +868,8 @@ class MposteriorExchange(Mposterior):
 
 			# ------------
 
-			Mposterior_exchange_recipe = smc.exchange_recipe.MposteriorExchangeRecipe(self._PEsTopology,self._K,percentage,PRNG=self._PRNGs["topology pseudo random numbers generator"])
+			Mposterior_exchange_recipe = smc.exchange_recipe.MposteriorExchangeRecipe(
+				self._PEsTopology, self._K, percentage, PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 			self._PFs.append(
 				smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
