@@ -139,13 +139,15 @@ class SimpleSimulation(Simulation):
 		
 		# observations for all the sensors at every time instant (each list)
 		# NOTE: conversion to float is done so that the observations (1 or 0) are amenable to be used in later computations
-		self._observations = [np.array([sensor.detect(state.position(s[:,np.newaxis])) for sensor in self._sensors],dtype=float) for s in target_position.T]
+		self._observations = [np.array(
+			[sensor.detect(state.position(s[:, np.newaxis])) for sensor in self._sensors], dtype=float
+		) for s in target_position.T]
 		
 		# a reference to the "group" for the current frame (notice the prefix in the name given "self._h5py_prefix")...
 		self._h5_current_frame = self._f.create_group(self._h5py_prefix + 'frames/{num:0{width}}'.format(num=self._iFrame, width=self._nFramesWidth))
 		
 		# ...where a new dataset is created for the "actual position" of the target...
-		self._h5_current_frame.create_dataset('actual position',shape=(2,self._nTimeInstants),dtype=float,data=target_position)
+		self._h5_current_frame.create_dataset('actual position',shape=(2,self._nTimeInstants),dtype=float, data=target_position)
 
 	def save_data(self, target_position):
 
@@ -182,10 +184,14 @@ class Convergence(SimpleSimulation):
 
 		return actual_position, estimated_position
 
-	def __init__(self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs, h5py_file=None, h5py_prefix=''):
+	def __init__(
+			self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			PRNGs, h5py_file=None, h5py_prefix=''):
 
 		# let the super class do its thing...
-		super().__init__(parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs, h5py_file, h5py_prefix)
+		super().__init__(
+			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			PRNGs, h5py_file, h5py_prefix)
 
 		topologies = [getattr(PEs_topology,t['implementing class'])(
 			t['number of PEs'], t['parameters']) for t in self._settings_topologies]
@@ -196,13 +202,13 @@ class Convergence(SimpleSimulation):
 
 		# we compute the upper bound for the supremum of the aggregated weights that should guarante convergence
 		self._aggregatedWeightsUpperBounds = [drnautil.supremum_upper_bound(
-			t['number of PEs'], self._DRNAsettings['c'], self._DRNAsettings['q'], self._DRNAsettings['epsilon'])
-		                                      for t in self._settings_topologies]
+			t['number of PEs'], self._DRNAsettings['c'], self._DRNAsettings['q'], self._DRNAsettings['epsilon']
+		) for t in self._settings_topologies]
 
 		# plain non-parallelized particle filter
 		self._PFsForTopologies = [particle_filter.CentralizedTargetTrackingParticleFilter(
-			self._K*t.getNumberOfPEs(), resampling_algorithm, resampling_criterion, prior, transition_kernel, self._sensors)
-												for t in topologies]
+			self._K*t.n_processing_elements, resampling_algorithm, resampling_criterion, prior,
+			transition_kernel, self._sensors) for t in topologies]
 
 		PEs_sensors_requirements = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensorsPositions)
 
@@ -210,12 +216,12 @@ class Convergence(SimpleSimulation):
 		self._distributedPFsForTopologies = [particle_filter.TargetTrackingParticleFilterWithDRNA(
 			self._DRNAsettings["exchange period"], e, self._K, self._DRNAsettings["normalization period"],
 			resampling_algorithm,resampling_criterion,prior,transition_kernel, self._sensors,
-			PEs_sensors_requirements.getConnections(e.getNumberOfPEs()) ) for e in exchange_recipes]
+			PEs_sensors_requirements.getConnections(e.n_processing_elements) ) for e in exchange_recipes]
 
 		#------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
 
 		# we store the aggregated weights...
-		self._distributedPFaggregatedWeights = [np.empty((self._nTimeInstants,t.getNumberOfPEs(),parameters["number of frames"])) for t in topologies]
+		self._distributedPFaggregatedWeights = [np.empty((self._nTimeInstants,t.n_processing_elements,parameters["number of frames"])) for t in topologies]
 
 		# ...and the position estimates
 		self._centralizedPF_pos = np.empty((2, self._nTimeInstants, parameters["number of frames"], len(topologies)))
@@ -801,8 +807,8 @@ class Mposterior(SimpleSimulation):
 
 			print('---------- iFrame = {}, iTime = {}'.format(repr(self._iFrame),repr(iTime)))
 
-			print('position:\n',target_position[:,iTime:iTime+1])
-			print('velocity:\n',target_velocity[:,iTime:iTime+1])
+			print('position:\n',target_position[:, iTime:iTime+1])
+			print('velocity:\n',target_velocity[:, iTime:iTime+1])
 			
 			# for every PF (different from estimator)...
 			for pf in self._PFs:
@@ -811,19 +817,19 @@ class Mposterior(SimpleSimulation):
 				pf.step(self._observations[iTime])
 			
 			# for every estimator, along with its corresponding label,...
-			for iEstimator,(estimator,label) in enumerate(zip(self._estimators,self._estimatorsLabels)):
+			for iEstimator,(estimator,label) in enumerate(zip(self._estimators, self._estimatorsLabels)):
 				
-				self._estimatedPos[:,iTime:iTime+1,self._iFrame,iEstimator] = state.position(estimator.estimate())
+				self._estimatedPos[:, iTime:iTime+1, self._iFrame, iEstimator] = state.position(estimator.estimate())
 				
 				# the position given by this estimator at the current time instant is written to the HDF5 file
 				h5_estimated_pos[:, iTime:iTime+1, iEstimator] = state.position(estimator.estimate())
 				
-				print('position estimated by {}\n'.format(label),self._estimatedPos[:,iTime:iTime+1,self._iFrame,iEstimator])
+				print('position estimated by {}\n'.format(label), self._estimatedPos[:,iTime:iTime+1, self._iFrame, iEstimator])
 			
 			if self._painterSettings["display evolution?"]:
 
 				# the plot is updated with the position of the target...
-				self._painter.updateTargetPosition(target_position[:,iTime:iTime+1])
+				self._painter.updateTargetPosition(target_position[:, iTime:iTime+1])
 				
 				# ...those estimated by the PFs
 				for iEstimator,(pf,color) in enumerate(zip(self._estimators,self._estimatorsColors)):

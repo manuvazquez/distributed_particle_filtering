@@ -13,7 +13,7 @@ class ExchangeRecipe(metaclass=abc.ABCMeta):
 		self._PEs_topology = PEsTopology
 
 		# for the sake of convenience, we keep the number of PEs...
-		self._n_PEs = PEsTopology.getNumberOfPEs()
+		self._n_PEs = PEsTopology.n_processing_elements
 
 	@abc.abstractmethod
 	def perform_exchange(self):
@@ -139,7 +139,8 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 
 		return self._PEs_topology.get_neighbours()
 
-	def getNumberOfPEs(self):
+	@property
+	def n_processing_elements(self):
 
 		return self._n_PEs
 
@@ -166,10 +167,10 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 		n_messages = 0
 
 		# for every PE (index) along with its list of neighbours
-		for iPE,neighboursList in enumerate(self._neighbours_particles):
+		for iPE, neighboursList in enumerate(self._neighbours_particles):
 
 			# each element of the list is a tuple (<index neighbour>,<indexes of the particles exchanged with that neighbour>)
-			for iNeighbour,iParticles in  neighboursList:
+			for iNeighbour, iParticles in neighboursList:
 
 				# the number of messages required to send the samples
 				n_messages += distances[iPE,iNeighbour]*len(iParticles)*state.nElements
@@ -204,8 +205,8 @@ class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 			# the indexes of the particles to be kept
 			i_new_particles = DPF._resamplingAlgorithm.getIndexes(joint_weights, PE._nParticles)
 
-			PE.samples = joint_particles[:,i_new_particles]
-			PE.log_weights = np.full(PE._nParticles,-np.log(PE._nParticles))
+			PE.samples = joint_particles[:, i_new_particles]
+			PE.log_weights = np.full(PE._nParticles, -np.log(PE._nParticles))
 			PE.update_aggregated_weight()
 
 	def messages(self):

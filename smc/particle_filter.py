@@ -588,9 +588,9 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 			resampling_criterion, prior, state_transition_kernel, sensors, PEs_i_used_sensors,
 			PFs_class=EmbeddedTargetTrackingParticleFilter):
 		
-		super().__init__(exchange_recipe.getNumberOfPEs(), n_particles_perPE, resampling_algorithm, resampling_criterion, prior,
+		super().__init__(exchange_recipe.n_processing_elements, n_particles_perPE, resampling_algorithm, resampling_criterion, prior,
 			state_transition_kernel, sensors, PEs_i_used_sensors, PFs_class=PFs_class,
-			PFs_initial_aggregated_weight=1.0/exchange_recipe.getNumberOfPEs())
+			PFs_initial_aggregated_weight=1.0/exchange_recipe.n_processing_elements)
 		
 		# a exchange of particles among PEs will happen every...
 		self._exchangePeriod = exchange_period
@@ -677,7 +677,7 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 			state_transition_kernel, sensors, PEs_i_used_sensors, findWeiszfeldMedianParameters, sharingPeriod,
 			PFs_class=CentralizedTargetTrackingParticleFilter):
 		
-		super().__init__(exchange_recipe.getNumberOfPEs(), n_particles_perPE, resampling_algorithm, resampling_criterion, prior,
+		super().__init__(exchange_recipe.n_processing_elements, n_particles_perPE, resampling_algorithm, resampling_criterion, prior,
 			state_transition_kernel, sensors, PEs_i_used_sensors, PFs_class=PFs_class)
 		
 		self._sharingPeriod = sharingPeriod

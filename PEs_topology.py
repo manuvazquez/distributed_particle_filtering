@@ -9,8 +9,9 @@ class Topology:
 		
 		self._nPEs = nPEs
 		self._topologySpecificParameters = topologySpecificParameters
-		
-	def getNumberOfPEs(self):
+
+	@property
+	def n_processing_elements(self):
 		
 		return self._nPEs
 	
