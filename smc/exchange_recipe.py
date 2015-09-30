@@ -28,7 +28,9 @@ class ExchangeRecipe(metaclass=abc.ABCMeta):
 
 class DRNAExchangeRecipe(ExchangeRecipe):
 
-	def __init__(self, PEsTopology, n_particles_per_PE, exchanged_particles, PRNG=np.random.RandomState()):
+	def __init__(
+			self, PEsTopology, n_particles_per_PE, exchanged_particles, PRNG=np.random.RandomState(),
+			allow_exchange_one_particle_more_than_once=False):
 
 		"""Computes which particles from which PEs are exchanged.
 		
@@ -41,14 +43,14 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 
 		# a named tuple for a more intuitive access to a "exchange tuple"
 		ExchangeTuple = collections.namedtuple(
-			'ExchangeTuple',['iPE', 'iParticleWithinPE', 'iNeighbour', 'iParticleWithinNeighbour'])
+			'ExchangeTuple',['i_PE', 'i_particle_within_PE', 'i_neighbour', 'i_particle_within_neighbour'])
 
 		# a named tuple for a more intuitive access to a "exchange tuple"
 		NeighbourParticlesTuple = collections.namedtuple(
-			'NeighbourParticlesTuple', ['iNeighbour', 'iParticles'])
+			'NeighbourParticlesTuple', ['i_neighbour', 'i_particles'])
 
 		# indexes of the particles...just for the sake of efficiency (this array will be used many times)
-		iParticles = np.arange(n_particles_per_PE)
+		i_particles = np.arange(n_particles_per_PE)
 
 		# the number of particles that are to be exchanged between a couple of neighbours is computed (or set)
 		if type(exchanged_particles) is int:
@@ -58,7 +60,8 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 		elif type(exchanged_particles) is float:
 
 			# it is computed accounting for the maximum number of PEs_contacts a given PE can have
-			self.n_particles_exchanged_between_neighbours = int((n_particles_per_PE*exchanged_particles)//max([len(neighbourhood) for neighbourhood in PEs_contacts]))
+			self.n_particles_exchanged_between_neighbours = int((n_particles_per_PE*exchanged_particles)//max(
+				[len(neighbourhood) for neighbourhood in PEs_contacts]))
 
 		else:
 
@@ -69,10 +72,23 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 			raise Exception('no particles are to be shared by a PE with its PEs_contacts')
 
 		# an array to keep tabs on pairs of PEs already processed
-		already_processed_PEs = np.zeros((self._n_PEs,self._n_PEs),dtype=bool)
+		already_processed_PEs = np.zeros((self._n_PEs, self._n_PEs), dtype=bool)
 
 		# in order to keep tabs on which particles a given PE has already "promised" to exchange
-		i_particles_not_swapped_yet = np.ones((self._n_PEs,n_particles_per_PE),dtype=bool)
+		particles_not_swapped_yet = np.ones((self._n_PEs, n_particles_per_PE), dtype=bool)
+
+		# this will be always true across all the iterations of the loop below
+		candidate_particles_all_true = particles_not_swapped_yet.copy()
+
+		if allow_exchange_one_particle_more_than_once:
+
+			# the "reference" below is set to a fixed all-true array
+			candidate_particles = candidate_particles_all_true
+
+		else:
+
+			# # the "reference" is set to the (varying) "particles_not_swapped_yet"
+			candidate_particles = particles_not_swapped_yet
 
 		# named tuples as defined above, each representing an exchange
 		self._exchangeTuples = []
@@ -81,36 +97,43 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 		#  with the indices of particles to be exchanged with that neighbour>)
 		self._neighbours_particles = [[] for i in range(self._n_PEs)]
 
-		for iPE,i_this_PE_neighbours in enumerate(PEs_contacts):
+		for iPE, i_this_PE_neighbours in enumerate(PEs_contacts):
 
 			for iNeighbour in i_this_PE_neighbours:
 
-				if not already_processed_PEs[iPE,iNeighbour]:
+				if not already_processed_PEs[iPE, iNeighbour]:
 
-					# the particles to be exchanged are chosen randomly (with no replacement) for both, the considered PE...
+					# the particles to be exchanged are chosen randomly (with no replacement) for both, the this PE...
 					i_exchanged_particles_within_PE = PRNG.choice(
-						iParticles[i_particles_not_swapped_yet[iPE,:]],
+						i_particles[candidate_particles[iPE, :]],
 						size=self.n_particles_exchanged_between_neighbours, replace=False)
 
 					# ...and the corresponding neighbour
 					i_exchanged_particles_within_neighbour = PRNG.choice(
-						iParticles[i_particles_not_swapped_yet[iNeighbour,:]],
+						i_particles[candidate_particles[iNeighbour, :]],
 						size=self.n_particles_exchanged_between_neighbours, replace=False)
 
 					# new "exchange tuple"s are generated
-					self._exchangeTuples.extend([ExchangeTuple(iPE=iPE,iParticleWithinPE=iParticleWithinPE,iNeighbour=iNeighbour,iParticleWithinNeighbour=iParticleWithinNeighbour)
-							for iParticleWithinPE,iParticleWithinNeighbour in zip(i_exchanged_particles_within_PE,i_exchanged_particles_within_neighbour)])
+					self._exchangeTuples.extend([ExchangeTuple(
+						i_PE=iPE, i_particle_within_PE=iParticleWithinPE, i_neighbour=iNeighbour,
+						i_particle_within_neighbour=iParticleWithinNeighbour
+					) for iParticleWithinPE, iParticleWithinNeighbour in zip(
+						i_exchanged_particles_within_PE, i_exchanged_particles_within_neighbour)])
 
-					# these PEs (the one considered in the main loop and the neighbour being processed) should not exchange the selected particles (different in each case) with other PEs
-					i_particles_not_swapped_yet[iPE,i_exchanged_particles_within_PE] = False
-					i_particles_not_swapped_yet[iNeighbour,i_exchanged_particles_within_neighbour] = False
+					# these PEs (the one considered in the main loop and the neighbour being processed) should not
+					# exchange the selected particles (different in each case) with other PEs
+					particles_not_swapped_yet[iPE, i_exchanged_particles_within_PE] = False
+					particles_not_swapped_yet[iNeighbour, i_exchanged_particles_within_neighbour] = False
 
-					# we "mark" this pair of PEs as already processed
-					# (only "already_processed_PEs[iNeighbour,iPe]" should be accessed later on, though...)
-					already_processed_PEs[iNeighbour,iPE] = already_processed_PEs[iPE,iNeighbour] = True
+					# we "mark" this pair of PEs as already processed; despite the symmetry,
+					# only "already_processed_PEs[iNeighbour, iPe]" should be accessed later on
+					already_processed_PEs[iNeighbour, iPE] = already_processed_PEs[iPE, iNeighbour] = True
 
-					self._neighbours_particles[iPE].append(NeighbourParticlesTuple(iNeighbour,i_exchanged_particles_within_PE))
-					self._neighbours_particles[iNeighbour].append(NeighbourParticlesTuple(iPE,i_exchanged_particles_within_neighbour))
+					self._neighbours_particles[iPE].append(
+						NeighbourParticlesTuple(iNeighbour, i_exchanged_particles_within_PE))
+
+					self._neighbours_particles[iNeighbour].append(
+						NeighbourParticlesTuple(iPE, i_exchanged_particles_within_neighbour))
 
 	def get_PEs_contacts(self):
 
@@ -126,13 +149,13 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 		aux = []
 		for exchangeTuple in self._exchangeTuples:
 			aux.append(
-				(DPF._PEs[exchangeTuple.iPE].get_particle(exchangeTuple.iParticleWithinPE),
-				DPF._PEs[exchangeTuple.iNeighbour].get_particle(exchangeTuple.iParticleWithinNeighbour)))
+				(DPF._PEs[exchangeTuple.i_PE].get_particle(exchangeTuple.i_particle_within_PE),
+				DPF._PEs[exchangeTuple.i_neighbour].get_particle(exchangeTuple.i_particle_within_neighbour)))
 
 		# afterwards, we loop through all the exchange tuples performing the real exchange
 		for (exchangeTuple,particles) in zip(self._exchangeTuples,aux):
-			DPF._PEs[exchangeTuple.iPE].set_particle(exchangeTuple.iParticleWithinPE,particles[1])
-			DPF._PEs[exchangeTuple.iNeighbour].set_particle(exchangeTuple.iParticleWithinNeighbour,particles[0])
+			DPF._PEs[exchangeTuple.i_PE].set_particle(exchangeTuple.i_particle_within_PE,particles[1])
+			DPF._PEs[exchangeTuple.i_neighbour].set_particle(exchangeTuple.i_particle_within_neighbour,particles[0])
 
 	def messages(self):
 
@@ -165,7 +188,7 @@ class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 
 			# a list with the subset posterior of each neighbour
 			subset_posterior_distributions = [
-				(DPF._PEs[neighbour_particles.iNeighbour].get_samples_at(neighbour_particles.iParticles).T,
+				(DPF._PEs[neighbour_particles.i_neighbour].get_samples_at(neighbour_particles.i_particles).T,
 				np.full(self.n_particles_exchanged_between_neighbours, 1.0/self.n_particles_exchanged_between_neighbours))
 				for neighbour_particles in this_PE_neighbours_particles]
 
@@ -200,13 +223,16 @@ class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 
 class MposteriorWithinRadiusExchangeRecipe(MposteriorExchangeRecipe):
 
-	def __init__(self, PEsTopology, n_particles_per_PE, exchanged_particles, radius, PRNG=np.random.RandomState()):
+	def __init__(
+			self, PEsTopology, n_particles_per_PE, exchanged_particles, radius, PRNG=np.random.RandomState(),
+			allow_exchange_one_particle_more_than_once=False):
 
 		# this needs be before super() because the ancestor class is depends "get_PEs_contacts" which,
 		#  in turn, depends on radius
 		self.radius = radius
 
-		super().__init__(PEsTopology, n_particles_per_PE, exchanged_particles, PRNG)
+		super().__init__(
+			PEsTopology, n_particles_per_PE, exchanged_particles, PRNG, allow_exchange_one_particle_more_than_once)
 
 	def get_PEs_contacts(self):
 
@@ -214,9 +240,12 @@ class MposteriorWithinRadiusExchangeRecipe(MposteriorExchangeRecipe):
 
 class IteratedMposteriorExchangeRecipe(MposteriorExchangeRecipe):
 
-	def __init__(self, PEsTopology, n_particles_per_PE, exchanged_particles, number_iterations, PRNG=np.random.RandomState()):
+	def __init__(
+			self, PEsTopology, n_particles_per_PE, exchanged_particles, number_iterations,
+			PRNG=np.random.RandomState(), allow_exchange_one_particle_more_than_once=False):
 
-		super().__init__(PEsTopology, n_particles_per_PE, exchanged_particles, PRNG)
+		super().__init__(
+			PEsTopology, n_particles_per_PE, exchanged_particles, PRNG, allow_exchange_one_particle_more_than_once)
 
 		self._number_iterations = number_iterations
 
