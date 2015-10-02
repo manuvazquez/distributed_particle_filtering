@@ -19,7 +19,7 @@ def setup_axes(figure_id, clear_figure=True):
 	# ...and the corresponding axes created
 	axes = plt.axes()
 	
-	return axes,fig
+	return axes, fig
 
 
 def distributedPFagainstCentralizedPF(
@@ -50,10 +50,10 @@ def distributedPFagainstCentralizedPF(
 	
 		plt.savefig(outputFile)
 	
-	return ax,fig
+	return ax, fig
 
 
-def PFs(x,y,outputFile,parameters,figureId='vs Time',axesProperties={},maximized=False):
+def PFs(x, y, outputFile, parameters, figureId='vs Time', axesProperties={}, maximized=False):
 
 	# a new pair of axes is set up
 	ax,fig = setup_axes(figureId)
@@ -116,13 +116,13 @@ def PFs(x,y,outputFile,parameters,figureId='vs Time',axesProperties={},maximized
 def aggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregatedWeightsVsTime.pdf',xticksStep=10):
 
 	# the corresponding axes are created
-	ax,_ = setup_axes('Aggregated Weights Evolution')
+	ax, _ = setup_axes('Aggregated Weights Evolution')
 	
 	# the shape of the array with the aggregated weights is used to figure out the number of PEs and time instants
 	nTimeInstants,nPEs = aggregatedWeights.shape
 
 	# the aggregated weights are represented normalized
-	normalizedAggregatedWeights = np.divide(aggregatedWeights,aggregatedWeights.sum(axis=1)[np.newaxis].T)
+	normalizedAggregatedWeights = np.divide(aggregatedWeights, aggregatedWeights.sum(axis=1)[np.newaxis].T)
 
 	# in order to keep tabs on the sum of the aggregated weights already represented at each time instant
 	accum = np.zeros(nTimeInstants)
@@ -131,18 +131,18 @@ def aggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregated
 	t = range(nTimeInstants)
 
 	# the colors associated to the different PEs are generated randomly
-	PEsColors = np.random.rand(nPEs,3)
+	PEsColors = np.random.rand(nPEs, 3)
 
 	for i in range(nPEs):
 		
-		ax.bar(t,normalizedAggregatedWeights[:,i],bottom=accum,color=PEsColors[i,:])
-		accum += normalizedAggregatedWeights[:,i]
+		ax.bar(t,normalizedAggregatedWeights[:, i],bottom=accum, color=PEsColors[i, :])
+		accum += normalizedAggregatedWeights[:, i]
 	
-	ax.set_xticks(np.arange(0.5,nTimeInstants,xticksStep))
-	ax.set_xticklabels(range(0,nTimeInstants,xticksStep))
+	ax.set_xticks(np.arange(0.5, nTimeInstants, xticksStep))
+	ax.set_xticklabels(range(0, nTimeInstants, xticksStep))
 	ax.set_xbound(upper=nTimeInstants)
 	
-	ax.set_yticks([0,0.5,1])
+	ax.set_yticks([0, 0.5, 1])
 	ax.set_ybound(upper=1)
 
 	plt.savefig(outputFile)
@@ -300,12 +300,12 @@ class RoomPainter:
 		self._legendEntries = []
 		
 		# a new pair of axes is set up
-		self._ax,self._figure = setup_axes('Room', clear_figure=False)
+		self._ax, self._figure = setup_axes('Room', clear_figure=False)
 		
-	def setup(self,sensorsLineProperties = {'marker':'+','color':'red'}):
+	def setup(self, sensorsLineProperties={'marker':'+','color':'red'}):
 		
 		# linewidth=0 so that the points are not joined...
-		self._ax.plot(self._sensorsPositions[0,:], self._sensorsPositions[1,:],linewidth=0,**sensorsLineProperties)
+		self._ax.plot(self._sensorsPositions[0,:], self._sensorsPositions[1,:], linewidth=0, **sensorsLineProperties)
 
 		self._ax.set_aspect('equal', 'datalim')
 		

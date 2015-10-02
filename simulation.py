@@ -99,7 +99,7 @@ class SimpleSimulation(Simulation):
 		self._nFramesWidth = math.ceil(math.log10(parameters["number of frames"]))
 
 		# for the sake of convenience
-		sensorsSettings = parameters["sensors"]
+		sensors_settings = parameters["sensors"]
 
 		if n_sensors is None:
 			
@@ -119,19 +119,25 @@ class SimpleSimulation(Simulation):
 				pass
 		
 		# for the sake of convenience below...
-		networkNodesSettings = parameters['network nodes'][self._simulationParameters['network']]
-		networkNodesClass = getattr(network_nodes, networkNodesSettings['implementing class'])
+		network_nodes_settings = parameters['network nodes'][self._simulationParameters['network']]
+		network_nodes_class = getattr(network_nodes, network_nodes_settings['implementing class'])
 		
 		# the appropriate class is instantiated with the given parameters
-		self._network = networkNodesClass(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],n_PEs,n_sensors,**networkNodesSettings['parameters'])
+		self._network = network_nodes_class(
+			self._roomSettings["bottom left corner"], self._roomSettings["top right corner"], n_PEs, n_sensors,
+			**network_nodes_settings['parameters'])
 		
 		# the positions of the PEs and the sensors are collected from the network just built
-		self._sensorsPositions,self._PEsPositions = self._network.sensorsPositions,self._network.PEsPositions
+		self._sensorsPositions, self._PEsPositions = self._network.sensorsPositions, self._network.PEsPositions
 		
 		# the class to be instantiated is figured out from the settings for that particular sensor type
-		sensorClass = getattr(sensor,sensorsSettings[sensorsSettings['type']]['implementing class'])
+		sensor_class = getattr(sensor,sensors_settings[sensors_settings['type']]['implementing class'])
 		
-		self._sensors = [sensorClass(pos[:,np.newaxis],PRNG=PRNGs['Sensors and Monte Carlo pseudo random numbers generator'],**sensorsSettings[sensorsSettings['type']]['parameters']) for pos in self._sensorsPositions.T]
+		self._sensors = [sensor_class(
+			pos[:, np.newaxis],
+			pseudo_random_numbers_generator=PRNGs['Sensors and Monte Carlo pseudo random numbers generator'],
+			**sensors_settings[sensors_settings['type']]['parameters']
+		) for pos in self._sensorsPositions.T]
 		
 	def process_frame(self,target_position,target_velocity):
 		
@@ -538,7 +544,7 @@ class Mposterior(SimpleSimulation):
 		# a list with the messages required by each estimator at a single time instant
 		algorithms_messages = []
 
-		for estimator,label in zip(self._estimators,self._estimatorsLabels):
+		for estimator, label in zip(self._estimators, self._estimatorsLabels):
 
 			messages_during_estimation = estimator.messages(self._PEsTopology)
 
@@ -548,18 +554,9 @@ class Mposterior(SimpleSimulation):
 
 			print('{}: messages = {}'.format(label,algorithms_messages[-1]))
 
-			# try:
-			#
-			# 	messages_during_exchange = estimator.DPF.exchange_recipe.messages()
-			#
-			# except AttributeError:
-			#
-			# 	messages_during_exchange = 0
-			#
-			# print('{}: messages\n\t during estimation = {}\n\t during exchange = {}'.format(label,messages_during_estimation,messages_during_exchange))
-
 		# the messages (per iteration) required by each algorithm
-		self._f.create_dataset(self._h5py_prefix + 'algorithms/messages',shape=(len(algorithms_messages),),data=algorithms_messages)
+		self._f.create_dataset(
+			self._h5py_prefix + 'algorithms/messages', shape=(len(algorithms_messages),), data=algorithms_messages)
 	
 	def add_algorithms(self):
 		
@@ -583,14 +580,14 @@ class Mposterior(SimpleSimulation):
 		self._PFs.append(
 			particle_filter.LikelihoodConsensusDistributedTargetTrackingParticleFilter(
 				likelihood_consensus_exchange_recipe, self._nPEs, self._K, self._resamplingAlgorithm,
-				self._resamplingCriterion,self._prior,self._transitionKernel, self._sensors, self._PEsSensorsConnections,
+				self._resamplingCriterion,self._prior, self._transitionKernel, self._sensors, self._PEsSensorsConnections,
 				self._LCDPFsettings['degree of the polynomial approximation'],
 				PFs_class=smc.particle_filter.CentralizedTargetTrackingParticleFilterWithConsensusCapabilities
 				)
 		)
 		
 		# the estimator just delegates the calculus of the estimate to one of the PEs
-		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1],0))
+		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], 0))
 		
 		self._estimatorsColors.append('brown')
 		self._estimatorsLabels.append('LC DPF with {} iterations'.format(self._LCDPFsettings['number of consensus iterations']))
@@ -718,10 +715,21 @@ class Mposterior(SimpleSimulation):
 		
 		# ------------
 
-		for radius, color in zip([2, 4], ['blue', 'red']):
+		for i_PE in range(self._nPEs):
+
+			# an estimator which yields the mean of the particles in the "iPE"-th PE
+			self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], i_PE))
+
+			self._estimatorsColors.append('olive')
+			self._estimatorsLabels.append('M-posterior (mean with particles from PE \#{})'.format(i_PE))
+
+		# ------------
+
+		for radius, color, exchange in zip(
+				[2, 2], ['blue', 'red'], [self._simulationParameters["exchanged particles"], 10]):
 
 			Mposterior_within_radius_exchange_recipe = smc.exchange_recipe.MposteriorWithinRadiusExchangeRecipe(
-			self._PEsTopology, self._K, self._simulationParameters["exchanged particles"], radius,
+			self._PEsTopology, self._K, exchange, radius,
 				PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 			# DPF with M-posterior-based exchange, using a certain radius
@@ -740,28 +748,30 @@ class Mposterior(SimpleSimulation):
 
 			self._estimatorsColors.append(color)
 			self._estimatorsLabels.append(
-				'M-posterior - depth {} (geometric median with 1 particle from each PE)'.format(radius))
+				'M-posterior - depth {} exchanging {}'.format(radius,exchange))
+
 
 		# ------------
 
-	def save_data(self,target_position):
+	def save_data(self, target_position):
 		
 		# let the super class do its thing...
 		super().save_data(target_position)
 		
 		# a dictionary encompassing all the data to be saved
 		dataToBeSaved = dict(
-				targetPosition = target_position[:,:,:self._iFrame],
-				PF_pos = self._estimatedPos[:,:,:self._iFrame,:]
+				targetPosition = target_position[:, :, :self._iFrame],
+				PF_pos = self._estimatedPos[:, :, :self._iFrame, :]
 			)
 		
 		# data is saved
-		#np.savez('res_' + self._outputFile + '.npz',**dataToBeSaved)
 		scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
 		print('results saved in "{}"'.format('res_' + self._outputFile))
 		
 		# the mean of the error (euclidean distance) incurred by the PFs
-		PF_error = np.sqrt((np.subtract(self._estimatedPos[:,:,:self._iFrame,:],target_position[:,:,:self._iFrame,np.newaxis])**2).sum(axis=0)).mean(axis=1)
+		PF_error = np.sqrt(
+			(np.subtract(self._estimatedPos[:, :, :self._iFrame, :], target_position[:, :, :self._iFrame, np.newaxis])**2)
+				.sum(axis=0)).mean(axis=1)
 		
 		plot.PFs(
 			range(self._nTimeInstants),PF_error,
@@ -790,7 +800,7 @@ class Mposterior(SimpleSimulation):
 		if self._painterSettings['display evolution?']:
 			
 			# if this is not the first iteration...
-			if hasattr(self,'_painter'):
+			if hasattr(self, '_painter'):
 				
 				# ...then, the previous figure is closed
 				self._painter.close()

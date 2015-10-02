@@ -39,10 +39,10 @@ class Topology:
 		edges = []
 
 		# for every PE...
-		for iPE,thisPEneighbours in enumerate(self._neighbours):
+		for iPE, thisPEneighbours in enumerate(self._neighbours):
 
 			# an edge is added for every one of its neighbours
-			edges.extend([(iPE,n) for n in thisPEneighbours])
+			edges.extend([(iPE, n) for n in thisPEneighbours])
 
 		# all the edges are added
 		G.add_edges_from(edges)
@@ -51,7 +51,7 @@ class Topology:
 		paths = nx.all_pairs_shortest_path(G)
 
 		# a numpy array in which each row yields the distance (in hops) from each node to every other node
-		distances = np.empty((self._nPEs,self._nPEs),dtype=int)
+		distances = np.empty((self._nPEs, self._nPEs), dtype=int)
 
 		for iPE in range(self._nPEs):
 
@@ -62,7 +62,7 @@ class Topology:
 
 		return distances
 
-	def i_neighbours_within_hops(self,n_hops):
+	def i_neighbours_within_hops(self, n_hops):
 
 		distances_between_PEs = self.distances_between_PEs()
 
@@ -76,36 +76,39 @@ class Topology:
 
 		return exchanging_PEs
 
+
 class Customized(Topology):
 	
-	def __init__(self,nPEs,topologySpecificParameters):
+	def __init__(self, nPEs, topologySpecificParameters):
 		
-		super().__init__(nPEs,topologySpecificParameters)
+		super().__init__(nPEs, topologySpecificParameters)
 		
 		# each element in the list is another list specifying the neighbours of the corresponding PE
 		self._neighbours = self._topologySpecificParameters["neighbourhoods"]
-		
+
+
 class Ring(Topology):
 	
-	def __init__(self,nPEs,topologySpecificParameters):
+	def __init__(self, nPEs,topologySpecificParameters):
 		
-		super().__init__(nPEs,topologySpecificParameters)
+		super().__init__(nPEs, topologySpecificParameters)
 		
-		self._neighbours = [[(i-1) % nPEs,(i+1) % nPEs] for i in range(nPEs)]
+		self._neighbours = [[(i-1) % nPEs, (i+1) % nPEs] for i in range(nPEs)]
+
 
 class Mesh(Topology):
 	
-	def __init__(self,nPEs,topologySpecificParameters):
+	def __init__(self, nPEs, topologySpecificParameters):
 		
 		super().__init__(nPEs,topologySpecificParameters)
 		
 		potentialNeighboursRelativePosition = self._topologySpecificParameters["neighbours"]
-		nRows,nCols = self._topologySpecificParameters["geometry"]
+		nRows, nCols = self._topologySpecificParameters["geometry"]
 		
 		assert nRows*nCols == nPEs
 		
 		# for the sake of clarity, and in order to avoid some computations...
-		arrayedPEs = np.arange(nPEs).reshape((nRows,nCols),order='F')
+		arrayedPEs = np.arange(nPEs).reshape((nRows, nCols), order='F')
 		
 		self._neighbours = []
 		
@@ -123,11 +126,11 @@ class Mesh(Topology):
 					# if the neighbours of a certain PE are allowed to "wrap around" the other side (either horizontally or vertically) of the mesh...
 					if topologySpecificParameters['wraparound']:
 					
-						iNeighbour,jNeighbour = (i+neighbourRelativePosition[0])%nRows,(j+neighbourRelativePosition[1])%nCols
+						iNeighbour, jNeighbour = (i+neighbourRelativePosition[0]) % nRows, (j+neighbourRelativePosition[1]) % nCols
 						
 					else:
 						
-						iNeighbour,jNeighbour = i+neighbourRelativePosition[0],j+neighbourRelativePosition[1]
+						iNeighbour, jNeighbour = i+neighbourRelativePosition[0], j+neighbourRelativePosition[1]
 					
 						# if the position does not corresponds to that of a PE (i.e., it is NOT within the PEs array)
 						if not ( (0 <= iNeighbour < nRows) and (0 <= jNeighbour < nCols) ):
@@ -135,16 +138,17 @@ class Mesh(Topology):
 							continue
 						
 					# we add this neighbour to the list
-					currentPEneighbours.append(arrayedPEs[iNeighbour,jNeighbour])
+					currentPEneighbours.append(arrayedPEs[iNeighbour, jNeighbour])
 				
 				# the list of neighbours of this PE is added to the list of lists of neighbours
 				self._neighbours.append(currentPEneighbours)
 
+
 class ConstantDegreeSimpleGraph(Topology):
 	
-	def __init__(self,nPEs,topologySpecificParameters):
+	def __init__(self, nPEs, topologySpecificParameters):
 		
-		super().__init__(nPEs,topologySpecificParameters)
+		super().__init__(nPEs, topologySpecificParameters)
 		
 		nNeighbours = math.ceil(topologySpecificParameters['number of neighbours as a percentage of the number of PEs']*nPEs)
 		
@@ -154,20 +158,22 @@ class ConstantDegreeSimpleGraph(Topology):
 		graph = nx.havel_hakimi_graph([nNeighbours]*nPEs)
 		
 		self._neighbours = [graph.neighbors(i) for i in range(nPEs)]
-		
+
+
 class FullyConnected(Topology):
 	
-	def __init__(self,nPEs,topologySpecificParameters):
+	def __init__(self, nPEs, topologySpecificParameters):
 		
-		super().__init__(nPEs,topologySpecificParameters)
+		super().__init__(nPEs, topologySpecificParameters)
 		
-		self._neighbours = [[j for j in range(nPEs) if j!=i] for i in range(nPEs)]
+		self._neighbours = [[j for j in range(nPEs) if j != i] for i in range(nPEs)]
+
 
 class LOSbased(Topology):
 	
-	def __init__(self,nPEs,topologySpecificParameters):
+	def __init__(self, nPEs, topologySpecificParameters):
 		
-		super().__init__(nPEs,topologySpecificParameters)
+		super().__init__(nPEs, topologySpecificParameters)
 		
 		import operator
 		
@@ -189,8 +195,9 @@ class LOSbased(Topology):
 			distances = np.linalg.norm(diff,axis=0)
 			
 			# we need to use the "and" operator for all the comparisons except the one for the left, which requires the "or"
-			for (low,up),op in zip(topologySpecificParameters['ranges of vision for right, up, left and down'],
-						  [operator.and_,operator.and_,operator.or_,operator.and_]):
+			for (low, up), op in zip(
+					topologySpecificParameters['ranges of vision for right, up, left and down'],
+					[operator.and_, operator.and_, operator.or_, operator.and_]):
 			
 				# the index of the PEs that are within the range of angles specified
 				iPEsWithinRange, = np.where(op(angles >= low,angles<=up) & (distances>0))

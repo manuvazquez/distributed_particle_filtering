@@ -37,14 +37,14 @@ PRNGsKeys = ['Sensors and Monte Carlo pseudo random numbers generator',
 # in order to clock the execution time...
 startTime = time.time()
 
-# ----------------------------------------------------------------- arguments parser ---------------------------------------------------------------------
+# ----------------------------------------------------------------- arguments parser -----------------------------------
 
 parser = argparse.ArgumentParser(description='Distributed Resampling with Non-proportional Allocation.')
 parser.add_argument('-r', '--reproduce', type=argparse.FileType('r'), dest='parametersToBeReproducedFilename',
                     help='repeat the simulation given by the parameters file')
 
 # a different number of frames when re-running a simulation
-parser.add_argument('-n','--new-number-of-frames',dest='new_n_frames',type=int)
+parser.add_argument('-n', '--new-number-of-frames', dest='new_n_frames', type=int)
 
 commandArguments = parser.parse_args(sys.argv[1:])
 
@@ -147,15 +147,16 @@ def save_parameters():
 roomSettings["bottom left corner"] = np.array(roomSettings["bottom left corner"])
 roomSettings["top right corner"] = np.array(roomSettings["top right corner"])
 
-# ------------------------------------------------------------------ random numbers ----------------------------------------------------------------------
+# ------------------------------------------------------------------ random numbers ------------------------------------
 
 # if this is NOT a rerun of a previous simulation... (dictionary with PRNGs is empty)
 if not PRNGs:
 
-	for withinParametersFileQuestion, key in zip(["load sensors and Monte Carlo pseudo random numbers generator?",
-	                                              "load trajectory pseudo random numbers generator?",
-	                                              "load topology pseudo random numbers generator?"],
-	                                             PRNGsKeys):
+	for withinParametersFileQuestion, key in zip([
+		"load sensors and Monte Carlo pseudo random numbers generator?",
+		"load trajectory pseudo random numbers generator?",
+		"load topology pseudo random numbers generator?"],
+			PRNGsKeys):
 
 		# if loading the corresponding previous pseudo random numbers generator is requested...
 		if parameters[withinParametersFileQuestion]:
@@ -182,7 +183,7 @@ if not PRNGs:
 # the PRNGs will change as the program runs, and we want to store them as they were in the beginning
 frozenPRNGs = copy.deepcopy(PRNGs)
 
-# ---------------------------------------------------------------- signals handling ----------------------------------------------------------------------
+# ---------------------------------------------------------------- signals handling ------------------------------------
 
 # within the handler, once Ctrl-C is pressed once, the default behaviour is restored
 original_sigint_handler = signal.getsignal(signal.SIGINT)
@@ -216,13 +217,13 @@ signal.signal(signal.SIGINT, sigint_handler)
 ## handler for SIGUSR1 is installed
 # signal.signal(signal.SIGUSR1, sigusr1_handler)
 
-# ----------------------------------------------------------------- dynamic model ------------------------------------------------------------------------
+# ----------------------------------------------------------------- dynamic model --------------------------------------
 
 # a object that represents the prior distribution is instantiated...
-prior = state.UniformBoundedPositionGaussianVelocityPrior(roomSettings["bottom left corner"],
-                                                          roomSettings["top right corner"],
-                                                          velocityVariance=parameters["prior distribution"]["velocity variance"],
-                                                          PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
+prior = state.UniformBoundedPositionGaussianVelocityPrior(
+	roomSettings["bottom left corner"], roomSettings["top right corner"],
+	velocityVariance=parameters["prior distribution"]["velocity variance"],
+	PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ...and a different one for the transition kernel belonging to class...
 transitionKernelSettings = stateTransitionSettings[stateTransitionSettings['type']]
@@ -234,7 +235,7 @@ transitionKernel = getattr(state, transitionKernelSettings['implementing class']
 	noiseVariance=stateTransitionSettings["position variance"], stepDuration=stateTransitionSettings['time step size'],
 	PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"], **transitionKernelSettings['parameters'])
 
-# ------------------------------------------------------------------- SMC stuff --------------------------------------------------------------------------
+# ------------------------------------------------------------------- SMC stuff ----------------------------------------
 
 # a resampling algorithm...
 resamplingAlgorithm = resampling.MultinomialResamplingAlgorithm(
@@ -244,7 +245,7 @@ resamplingAlgorithm = resampling.MultinomialResamplingAlgorithm(
 # resamplingCriterion = resampling.EffectiveSampleSizeBasedResamplingCriterion(parameters["SMC"]["resampling ratio"])
 resamplingCriterion = resampling.AlwaysResamplingCriterion()
 
-# -------------------------------------------------------------------- other stuff  -----------------------------------------------------------------------
+# -------------------------------------------------------------------- other stuff  ------------------------------------
 
 # there will be as many trajectories as frames
 targetPosition = np.empty((2, nTimeInstants, parameters["number of frames"]))
@@ -258,7 +259,7 @@ simulationClass = getattr(simulation, simulationSettings[simulationSettings['typ
 # ...is used to instantiate the latter
 sim = simulationClass(parameters, resamplingAlgorithm, resamplingCriterion, prior, transitionKernel, outputFile, PRNGs)
 
-# ------------------------------------------------------------------ PF estimation  -----------------------------------------------------------------------
+# ------------------------------------------------------------------ PF estimation  ------------------------------------
 
 # NOTE: a "while loop" is here more convenient than a "for" because having the "iFrame" variable defined at all times
 # after the processing has started (and finished) allows to know how many frames have actually been processed (if any)
@@ -280,7 +281,7 @@ sim.save_data(targetPosition)
 # ...and the parameters too
 save_parameters()
 
-# ------------------------------------------------------------------ benchmarking  -----------------------------------------------------------------------
+# ------------------------------------------------------------------ benchmarking  -------------------------------------
 
 # for benchmarking purposes, it is assumed that the execution ends here
 endTime = time.time()
@@ -297,7 +298,7 @@ elif elapsedTime > 60:
 else:
 	print('Execution time: {} seconds'.format(repr(elapsedTime)))
 
-# --------------------------------------------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
 # if using the agg backend (no pictures shown), there is no point in bringing up the interactive prompt before exiting
 if not useAgg:
