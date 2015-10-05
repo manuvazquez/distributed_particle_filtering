@@ -150,7 +150,8 @@ class SimpleSimulation(Simulation):
 		) for s in target_position.T]
 		
 		# a reference to the "group" for the current frame (notice the prefix in the name given "self._h5py_prefix")...
-		self._h5_current_frame = self._f.create_group(self._h5py_prefix + 'frames/{num:0{width}}'.format(num=self._iFrame, width=self._nFramesWidth))
+		self._h5_current_frame = self._f.create_group(
+			self._h5py_prefix + 'frames/{num:0{width}}'.format(num=self._iFrame, width=self._nFramesWidth))
 		
 		# ...where a new dataset is created for the "actual position" of the target...
 		self._h5_current_frame.create_dataset('actual position',shape=(2,self._nTimeInstants),dtype=float, data=target_position)
@@ -165,6 +166,55 @@ class SimpleSimulation(Simulation):
 
 			# ...in order to make sure the HDF5 file is valid...
 			self._f.close()
+
+	def save_pseudo_random_numbers_generators(self, pseudo_random_numbers_generators):
+
+		self.save_pseudo_random_numbers_generators_in_hdf5_group(pseudo_random_numbers_generators, self._h5_current_frame)
+
+	@staticmethod
+	def save_pseudo_random_numbers_generators_in_hdf5_group(pseudo_random_numbers_generators, group):
+
+		for key, value in pseudo_random_numbers_generators.items():
+
+			prng_state = value.get_state()
+
+			group.create_dataset(
+				'pseudo random numbers generators/{}/1'.format(key), shape=(1,), dtype=h5py.special_dtype(vlen=str))
+			group['pseudo random numbers generators/{}/1'.format(key)][0] = 'MT19937'
+
+			group.create_dataset(
+				'pseudo random numbers generators/{}/2'.format(key), shape=prng_state[1].shape, dtype=np.uint, data=prng_state[1])
+			group.create_dataset(
+				'pseudo random numbers generators/{}/3'.format(key), shape=(1,), dtype=int, data=prng_state[2])
+			group.create_dataset(
+				'pseudo random numbers generators/{}/4'.format(key), shape=(1,), dtype=int, data=prng_state[3])
+			group.create_dataset(
+				'pseudo random numbers generators/{}/5'.format(key), shape=(1,), dtype=float, data=prng_state[4])
+
+
+
+	@staticmethod
+	def pseudo_random_numbers_generators_from_file(filename, i_frame):
+
+		data_file = h5py.File(filename,'r')
+		prngs = data_file['frames/{}/pseudo random numbers generators'.format(i_frame)]
+
+		res = {}
+
+		for p in prngs:
+
+			state = [None]*5
+
+			state[0] = prngs[p]['1'][0]
+			state[1] = prngs[p]['2'][...]
+			state[2] = prngs[p]['3'][0]
+			state[3] = prngs[p]['4'][0]
+			state[4] = prngs[p]['5'][0]
+
+			res[p] = np.random.RandomState()
+			res[p].set_state(tuple(state))
+
+		return res
 
 
 class Convergence(SimpleSimulation):

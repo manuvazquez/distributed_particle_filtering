@@ -48,7 +48,8 @@ class Prior:
 
 class UniformBoundedPositionGaussianVelocityPrior(Prior):
 	
-	def __init__(self,bottomLeftCorner,topRightCorner,velocityMean=0,velocityVariance=0.25,PRNG=np.random.RandomState()):
+	def __init__(
+			self, bottomLeftCorner, topRightCorner, velocityMean=0, velocityVariance=0.25, PRNG=np.random.RandomState()):
 		
 		self._bottomLeftCorner = bottomLeftCorner
 		self._topRightCorner = topRightCorner
@@ -58,38 +59,42 @@ class UniformBoundedPositionGaussianVelocityPrior(Prior):
 		
 		self._PRNG = PRNG
 		
-	def sample(self,nSamples=1,PRNG=None):
+	def sample(self, nSamples=1, PRNG=None):
 		
 		# if for this particular call, no pseudo random numbers generator is received...
 		if PRNG is None:
+
 			# ...the corresponding class attribute is used
 			PRNG = self._PRNG
 		
 		# position
-		position = np.empty((2,nSamples))
-		position[0,:],position[1,:] = PRNG.uniform(self._bottomLeftCorner[0],self._topRightCorner[0],nSamples),PRNG.uniform(self._bottomLeftCorner[1],self._topRightCorner[1],nSamples)
+		position = np.empty((2, nSamples))
+		position[0,:] = PRNG.uniform(self._bottomLeftCorner[0], self._topRightCorner[0], nSamples)
+		position[1,:] = PRNG.uniform(self._bottomLeftCorner[1], self._topRightCorner[1], nSamples)
 		
 		# velocity
-		velocity = PRNG.normal(self._velocityMean,math.sqrt(self._velocityVariance/2),(2,nSamples))
+		velocity = PRNG.normal(self._velocityMean, math.sqrt(self._velocityVariance/2), (2, nSamples))
 		
-		return np.vstack((position,velocity))
+		return np.vstack((position, velocity))
 
 
 class TransitionKernel:
 	
-	def __init__(self,stepDuration):
+	def __init__(self, stepDuration):
 		
 		# a step lasts this time units (distance travelled each step equals velocity times this value)
 		self._stepDuration = stepDuration
 	
-	def nextState(self,state):
+	def nextState(self, state):
 		
 		pass
 
 
 class UnboundedTransitionKernel(TransitionKernel):
 	
-	def __init__(self,bottomLeftCorner,topRightCorner,velocityVariance=0.5,noiseVariance=0.1,stepDuration=1,PRNG=np.random.RandomState()):
+	def __init__(
+			self, bottomLeftCorner, topRightCorner, velocityVariance=0.5, noiseVariance=0.1, stepDuration=1,
+			PRNG=np.random.RandomState()):
 		
 		# the parent's constructor is called
 		super().__init__(stepDuration)
@@ -109,7 +114,7 @@ class UnboundedTransitionKernel(TransitionKernel):
 		# top right, top left, bottom left, and bottom right corners stored as column vectors
 		self._corners = [topRightCorner[np.newaxis].T,np.array([[bottomLeftCorner[0]],[topRightCorner[1]]]),bottomLeftCorner[np.newaxis].T,np.array([[topRightCorner[0]],[bottomLeftCorner[1]]])]
 		
-	def nextState(self,state,PRNG=None):
+	def nextState(self, state, PRNG=None):
 		
 		# if for this particular call, no pseudo random numbers generator is received...
 		if PRNG is None:
@@ -130,19 +135,23 @@ class UnboundedTransitionKernel(TransitionKernel):
 
 class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 	
-	def __init__(self,bottomLeftCorner,topRightCorner,velocityVariance=0.5,noiseVariance=0.1,stepDuration=1,PRNG=np.random.RandomState()):
+	def __init__(
+			self, bottomLeftCorner, topRightCorner, velocityVariance=0.5, noiseVariance=0.1, stepDuration=1,
+			PRNG=np.random.RandomState()):
 		
 		# the parent's constructor is called
 		super().__init__(bottomLeftCorner,topRightCorner,velocityVariance,noiseVariance,stepDuration,PRNG)
 		
 		# canonical vectors used in computations
-		self._iVector = np.array([[1.0],[0.0]])
-		self._jVector = np.array([[0.0],[1.0]])
+		self._iVector = np.array([[1.0], [0.0]])
+		self._jVector = np.array([[0.0], [1.0]])
 		
 		# top right, top left, bottom left, and bottom right corners stored as column vectors
-		self._corners = [topRightCorner[np.newaxis].T,np.array([[bottomLeftCorner[0]],[topRightCorner[1]]]),bottomLeftCorner[np.newaxis].T,np.array([[topRightCorner[0]],[bottomLeftCorner[1]]])]
+		self._corners = [
+			topRightCorner[np.newaxis].T, np.array([[bottomLeftCorner[0]], [topRightCorner[1]]]),
+			bottomLeftCorner[np.newaxis].T, np.array([[topRightCorner[0]], [bottomLeftCorner[1]]])]
 		
-	def nextState(self,state,PRNG=None):
+	def nextState(self, state, PRNG=None):
 		
 		# this may be updated in the while loop when bouncing off several walls
 		previousPos = state[0:2].copy()

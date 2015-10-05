@@ -3,6 +3,8 @@
 import numpy as np
 import json
 import time
+import timeit
+import datetime
 import sys
 import os
 import copy
@@ -10,6 +12,7 @@ import signal
 import socket
 import pickle
 import argparse
+
 
 # def info(type, value, tb):
 #    if hasattr(sys, 'ps1') or not sys.stderr.isatty():
@@ -35,9 +38,9 @@ PRNGsKeys = ['Sensors and Monte Carlo pseudo random numbers generator',
              'Trajectory pseudo random numbers generator', 'topology pseudo random numbers generator']
 
 # in order to clock the execution time...
-startTime = time.time()
+start_time = timeit.default_timer()
 
-# ----------------------------------------------------------------- arguments parser -----------------------------------
+# -------------------------------------------- arguments parser --------------------------------------------------------
 
 parser = argparse.ArgumentParser(description='Distributed Resampling with Non-proportional Allocation.')
 parser.add_argument('-r', '--reproduce', type=argparse.FileType('r'), dest='parametersToBeReproducedFilename',
@@ -46,7 +49,7 @@ parser.add_argument('-r', '--reproduce', type=argparse.FileType('r'), dest='para
 # a different number of frames when re-running a simulation
 parser.add_argument('-n', '--new-number-of-frames', dest='new_n_frames', type=int)
 
-commandArguments = parser.parse_args(sys.argv[1:])
+command_arguments = parser.parse_args(sys.argv[1:])
 
 # -----
 
@@ -54,19 +57,18 @@ commandArguments = parser.parse_args(sys.argv[1:])
 PRNGs = {}
 
 # if this is a re-run of a previous simulation...
-if commandArguments.parametersToBeReproducedFilename:
+if command_arguments.parametersToBeReproducedFilename:
 
 	# we open the file passed...
-	with open(commandArguments.parametersToBeReproducedFilename.name, "rb") as f:
+	with open(command_arguments.parametersToBeReproducedFilename.name, "rb") as f:
 
 		# ...to extract the parameters and random state from the previous simulation
 		parameters, randomStates = pickle.load(f)
 
 	# if a new number of frames was passed...
-	if commandArguments.new_n_frames:
-
+	if command_arguments.new_n_frames:
 		# ...it is used
-		parameters['number of frames'] = commandArguments.new_n_frames
+		parameters['number of frames'] = command_arguments.new_n_frames
 
 	# every pseudo random numbers generator...
 	for key in PRNGsKeys:
@@ -77,7 +79,7 @@ if commandArguments.parametersToBeReproducedFilename:
 else:
 
 	# if a new number of frames was passed...
-	if commandArguments.new_n_frames:
+	if command_arguments.new_n_frames:
 
 		print('ignoring argument "--new-number-of-frames" (only valid when "--reproduce" is also specified')
 
@@ -90,14 +92,13 @@ else:
 nTimeInstants = parameters["number of time instants"]
 
 # room dimensions
-roomSettings = parameters["room"]
+settings_room = parameters["room"]
 
 # state transition kernel parameters
-stateTransitionSettings = parameters["state transition"]
+settings_state_transition = parameters["state transition"]
 
-# for the particle filters
-# type of simulation and the corresponding parameters
-simulationSettings = parameters['simulations']
+# for the particle filters: type of simulation and the corresponding parameters
+settings_simulation = parameters['simulations']
 
 # we use the "agg" backend if the DISPLAY variable is not present
 # (the program is running without a display server) or the parameters file says so
@@ -132,34 +133,36 @@ np.set_printoptions(precision=3, linewidth=100)
 
 
 def save_parameters():
+
 	# in a separate file with the same name as the data file but different extension...
 	parameters_file = 'res_{}.parameters'.format(outputFile)
 
 	with open(parameters_file, mode='wb') as f:
+
 		#  ...parameters and pseudo random numbers generators are pickled
-		pickle.dump((parameters, frozenPRNGs), f)
+		pickle.dump((parameters, frozen_PRNGs), f)
 
 	print('parameters saved in "{}"'.format(parameters_file))
 
 # ---------------------------------------------
 
 # we'd rather have the coordinates of the corners stored as numpy arrays...
-roomSettings["bottom left corner"] = np.array(roomSettings["bottom left corner"])
-roomSettings["top right corner"] = np.array(roomSettings["top right corner"])
+settings_room["bottom left corner"] = np.array(settings_room["bottom left corner"])
+settings_room["top right corner"] = np.array(settings_room["top right corner"])
 
 # ------------------------------------------------------------------ random numbers ------------------------------------
 
 # if this is NOT a rerun of a previous simulation... (dictionary with PRNGs is empty)
 if not PRNGs:
 
-	for withinParametersFileQuestion, key in zip([
+	for question_within_parameters_file, key in zip([
 		"load sensors and Monte Carlo pseudo random numbers generator?",
 		"load trajectory pseudo random numbers generator?",
 		"load topology pseudo random numbers generator?"],
 			PRNGsKeys):
 
 		# if loading the corresponding previous pseudo random numbers generator is requested...
-		if parameters[withinParametersFileQuestion]:
+		if parameters[question_within_parameters_file]:
 
 			print('loading "{}"...'.format(key))
 
@@ -181,19 +184,22 @@ if not PRNGs:
 				pickle.dump(PRNGs[key], f)
 
 # the PRNGs will change as the program runs, and we want to store them as they were in the beginning
-frozenPRNGs = copy.deepcopy(PRNGs)
+frozen_PRNGs = copy.deepcopy(PRNGs)
 
 # ---------------------------------------------------------------- signals handling ------------------------------------
 
 # within the handler, once Ctrl-C is pressed once, the default behaviour is restored
 original_sigint_handler = signal.getsignal(signal.SIGINT)
 
+
 # the interrupt signal (ctrl-c) is handled by this function
 def sigint_handler(signum, frame):
+
 	# we may need to modify this global variable
 	global ctrlCpressed
 
 	if not ctrlCpressed:
+
 		print('\nCtrl-C pressed...one more to exit the program right now...')
 		ctrlCpressed = True
 
@@ -221,29 +227,29 @@ signal.signal(signal.SIGINT, sigint_handler)
 
 # a object that represents the prior distribution is instantiated...
 prior = state.UniformBoundedPositionGaussianVelocityPrior(
-	roomSettings["bottom left corner"], roomSettings["top right corner"],
+	settings_room["bottom left corner"], settings_room["top right corner"],
 	velocityVariance=parameters["prior distribution"]["velocity variance"],
 	PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ...and a different one for the transition kernel belonging to class...
-transitionKernelSettings = stateTransitionSettings[stateTransitionSettings['type']]
+transitionKernelSettings = settings_state_transition[settings_state_transition['type']]
 
 # ...is instantiated here
 transitionKernel = getattr(state, transitionKernelSettings['implementing class'])(
-	roomSettings["bottom left corner"], roomSettings["top right corner"],
-	velocityVariance=stateTransitionSettings["velocity variance"],
-	noiseVariance=stateTransitionSettings["position variance"], stepDuration=stateTransitionSettings['time step size'],
+	settings_room["bottom left corner"], settings_room["top right corner"],
+	velocityVariance=settings_state_transition["velocity variance"],
+	noiseVariance=settings_state_transition["position variance"], stepDuration=settings_state_transition['time step size'],
 	PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"], **transitionKernelSettings['parameters'])
 
 # ------------------------------------------------------------------- SMC stuff ----------------------------------------
 
 # a resampling algorithm...
-resamplingAlgorithm = resampling.MultinomialResamplingAlgorithm(
+resampling_algorithm = resampling.MultinomialResamplingAlgorithm(
 	PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ...and a resampling criterion are needed for the particle filters
 # resamplingCriterion = resampling.EffectiveSampleSizeBasedResamplingCriterion(parameters["SMC"]["resampling ratio"])
-resamplingCriterion = resampling.AlwaysResamplingCriterion()
+resampling_criterion = resampling.AlwaysResamplingCriterion()
 
 # -------------------------------------------------------------------- other stuff  ------------------------------------
 
@@ -251,29 +257,39 @@ resamplingCriterion = resampling.AlwaysResamplingCriterion()
 targetPosition = np.empty((2, nTimeInstants, parameters["number of frames"]))
 
 # the object representing the target
-mobile = target.Target(prior, transitionKernel, PRNG=PRNGs["Trajectory pseudo random numbers generator"])
+mobile = target.Target(prior, transitionKernel, pseudo_random_numbers_generator=PRNGs["Trajectory pseudo random numbers generator"])
 
 # the class of the "simulation" object to be created...
-simulationClass = getattr(simulation, simulationSettings[simulationSettings['type']]['implementing class'])
+simulationClass = getattr(simulation, settings_simulation[settings_simulation['type']]['implementing class'])
 
 # ...is used to instantiate the latter
-sim = simulationClass(parameters, resamplingAlgorithm, resamplingCriterion, prior, transitionKernel, outputFile, PRNGs)
+sim = simulationClass(parameters, resampling_algorithm, resampling_criterion, prior, transitionKernel, outputFile, PRNGs)
 
 # ------------------------------------------------------------------ PF estimation  ------------------------------------
 
-# NOTE: a "while loop" is here more convenient than a "for" because having the "iFrame" variable defined at all times
-# after the processing has started (and finished) allows to know how many frames have actually been processed (if any)
+# saved_pseudo_random_numbers_generators = simulation.SimpleSimulation.pseudo_random_numbers_generators_from_file(
+# 	'res_totolaca_lun_2015-10-05_16:12:16_17970.hdf5', 1)
+#
+# for k in PRNGs:
+#
+# 	PRNGs[k].set_state(saved_pseudo_random_numbers_generators[k].get_state())
 
-iFrame = 0
+for iFrame in range(parameters["number of frames"]):
 
-while iFrame < parameters["number of frames"] and not ctrlCpressed:
+	if ctrlCpressed:
+
+		break
+
+	# a copy of the PRNGs is done before any of them is used in the loop
+	copy_pseudo_random_numbers_generators = copy.deepcopy(PRNGs)
+
 	# a trajectory is simulated
-	targetPosition[:, :, iFrame], targetVelocity = mobile.simulateTrajectory(nTimeInstants)
+	targetPosition[:, :, iFrame], targetVelocity = mobile.simulate_trajectory(nTimeInstants)
 
 	# ...processed by the corresponding simulation
 	sim.process_frame(targetPosition[:, :, iFrame], targetVelocity)
 
-	iFrame += 1
+	sim.save_pseudo_random_numbers_generators(copy_pseudo_random_numbers_generators)
 
 # plots and data are saved...
 sim.save_data(targetPosition)
@@ -284,19 +300,13 @@ save_parameters()
 # ------------------------------------------------------------------ benchmarking  -------------------------------------
 
 # for benchmarking purposes, it is assumed that the execution ends here
-endTime = time.time()
+end_time = timeit.default_timer()
 
 # the elapsed time in seconds
-elapsedTime = endTime - startTime
+elapsed_time = end_time - start_time
 
-if elapsedTime > 60 * 60 * 24:
-	print('Execution time: {} days'.format(repr(elapsedTime / (60 * 60 * 24))))
-elif elapsedTime > 60 * 60:
-	print('Execution time: {} hours'.format(repr(elapsedTime / (60 * 60))))
-elif elapsedTime > 60:
-	print('Execution time: {} minutes'.format(repr(elapsedTime / 60)))
-else:
-	print('Execution time: {} seconds'.format(repr(elapsedTime)))
+# a "timedelta" object is used to conveniently format the seconds
+print('Execution time: {}'.format(datetime.timedelta(seconds=elapsed_time)))
 
 # ----------------------------------------------------------------------------------------------------------------------
 

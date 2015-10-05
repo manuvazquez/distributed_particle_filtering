@@ -71,17 +71,20 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		# the sensors are kept
 		self._sensors = sensors
 		
-		# this variable just keeps tabs on the sum of all the weights
-		self._aggregated_weight = aggregated_weight
-	
+		# the aggregated weight of this PF EVERYT TIME it is initialized
+		self._initial_aggregated_weight = aggregated_weight
+
 	def initialize(self):
 		
 		# initial samples...
 		self._state = self._prior.sample(self._nParticles)
 		
 		# the weights are assigned equal probabilities
-		self._log_weights.fill(np.log(self._aggregated_weight)-np.log(self._nParticles))
-		
+		self._log_weights.fill(np.log(self._initial_aggregated_weight)-np.log(self._nParticles))
+
+		# this variable just keeps tabs on the sum of all the weights
+		self._aggregated_weight = self._initial_aggregated_weight
+
 	def step(self,observations):
 		
 		assert len(observations) == len(self._sensors)
