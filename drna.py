@@ -43,11 +43,14 @@ start_time = timeit.default_timer()
 # -------------------------------------------- arguments parser --------------------------------------------------------
 
 parser = argparse.ArgumentParser(description='Distributed Resampling with Non-proportional Allocation.')
-parser.add_argument('-r', '--reproduce', type=argparse.FileType('r'), dest='parametersToBeReproducedFilename',
+parser.add_argument('-r', '--reproduce', type=argparse.FileType('r'), dest='reproduce_filename',
                     help='repeat the simulation given by the parameters file')
 
 # a different number of frames when re-running a simulation
 parser.add_argument('-n', '--new-number-of-frames', dest='new_n_frames', type=int)
+
+# the frame in which the re-running will start
+parser.add_argument('-i', '--index-of-first-frame', dest='i_first_frame', default=0, type=int)
 
 command_arguments = parser.parse_args(sys.argv[1:])
 
@@ -57,10 +60,10 @@ command_arguments = parser.parse_args(sys.argv[1:])
 PRNGs = {}
 
 # if this is a re-run of a previous simulation...
-if command_arguments.parametersToBeReproducedFilename:
+if command_arguments.reproduce_filename:
 
 	# we open the file passed...
-	with open(command_arguments.parametersToBeReproducedFilename.name, "rb") as f:
+	with open(command_arguments.reproduce_filename.name, "rb") as f:
 
 		# ...to extract the parameters and random state from the previous simulation
 		parameters, randomStates = pickle.load(f)
@@ -89,7 +92,7 @@ else:
 		parameters = json.load(jsonData)
 
 # number of time instants
-nTimeInstants = parameters["number of time instants"]
+n_time_instants = parameters["number of time instants"]
 
 # room dimensions
 settings_room = parameters["room"]
@@ -140,7 +143,7 @@ def save_parameters():
 	with open(parameters_file, mode='wb') as f:
 
 		#  ...parameters and pseudo random numbers generators are pickled
-		pickle.dump((parameters, frozen_PRNGs), f)
+		pickle.dump((parameters, frozen_pseudo_random_numbers_generators), f)
 
 	print('parameters saved in "{}"'.format(parameters_file))
 
@@ -150,7 +153,7 @@ def save_parameters():
 settings_room["bottom left corner"] = np.array(settings_room["bottom left corner"])
 settings_room["top right corner"] = np.array(settings_room["top right corner"])
 
-# ------------------------------------------------------------------ random numbers ------------------------------------
+# ---------------------------------------------- random numbers --------------------------------------------------------
 
 # if this is NOT a rerun of a previous simulation... (dictionary with PRNGs is empty)
 if not PRNGs:
@@ -184,9 +187,9 @@ if not PRNGs:
 				pickle.dump(PRNGs[key], f)
 
 # the PRNGs will change as the program runs, and we want to store them as they were in the beginning
-frozen_PRNGs = copy.deepcopy(PRNGs)
+frozen_pseudo_random_numbers_generators = copy.deepcopy(PRNGs)
 
-# ---------------------------------------------------------------- signals handling ------------------------------------
+# ---------------------------------------------- signals handling ------------------------------------------------------
 
 # within the handler, once Ctrl-C is pressed once, the default behaviour is restored
 original_sigint_handler = signal.getsignal(signal.SIGINT)
@@ -223,7 +226,7 @@ signal.signal(signal.SIGINT, sigint_handler)
 ## handler for SIGUSR1 is installed
 # signal.signal(signal.SIGUSR1, sigusr1_handler)
 
-# ----------------------------------------------------------------- dynamic model --------------------------------------
+# ----------------------------------------------- dynamic model --------------------------------------------------------
 
 # a object that represents the prior distribution is instantiated...
 prior = state.UniformBoundedPositionGaussianVelocityPrior(
@@ -241,7 +244,7 @@ transitionKernel = getattr(state, transitionKernelSettings['implementing class']
 	noiseVariance=settings_state_transition["position variance"], stepDuration=settings_state_transition['time step size'],
 	PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"], **transitionKernelSettings['parameters'])
 
-# ------------------------------------------------------------------- SMC stuff ----------------------------------------
+# ------------------------------------------------ SMC stuff -----------------------------------------------------------
 
 # a resampling algorithm...
 resampling_algorithm = resampling.MultinomialResamplingAlgorithm(
@@ -251,10 +254,10 @@ resampling_algorithm = resampling.MultinomialResamplingAlgorithm(
 # resamplingCriterion = resampling.EffectiveSampleSizeBasedResamplingCriterion(parameters["SMC"]["resampling ratio"])
 resampling_criterion = resampling.AlwaysResamplingCriterion()
 
-# -------------------------------------------------------------------- other stuff  ------------------------------------
+# -------------------------------------------------- other stuff  ------------------------------------------------------
 
 # there will be as many trajectories as frames
-targetPosition = np.empty((2, nTimeInstants, parameters["number of frames"]))
+targetPosition = np.empty((2, n_time_instants, parameters["number of frames"]))
 
 # the object representing the target
 mobile = target.Target(prior, transitionKernel, pseudo_random_numbers_generator=PRNGs["Trajectory pseudo random numbers generator"])
@@ -265,14 +268,22 @@ simulationClass = getattr(simulation, settings_simulation[settings_simulation['t
 # ...is used to instantiate the latter
 sim = simulationClass(parameters, resampling_algorithm, resampling_criterion, prior, transitionKernel, outputFile, PRNGs)
 
-# ------------------------------------------------------------------ PF estimation  ------------------------------------
+# if this is a re-run of a previous simulation
+if command_arguments.reproduce_filename:
 
-# saved_pseudo_random_numbers_generators = simulation.SimpleSimulation.pseudo_random_numbers_generators_from_file(
-# 	'res_totolaca_lun_2015-10-05_16:12:16_17970.hdf5', 1)
-#
-# for k in PRNGs:
-#
-# 	PRNGs[k].set_state(saved_pseudo_random_numbers_generators[k].get_state())
+	# the pseudo-random numbers generators for the requested frame (default is 0) are extracted from the data file...
+	saved_pseudo_random_numbers_generators = simulation.SimpleSimulation.pseudo_random_numbers_generators_from_file(
+		os.path.splitext(command_arguments.reproduce_filename.name)[0] + '.hdf5', command_arguments.i_first_frame)
+
+	# ...and used to set the state of existing ones
+	for k in PRNGs:
+
+		PRNGs[k].set_state(saved_pseudo_random_numbers_generators[k].get_state())
+
+# the pseudo-random numbers generators are saved as they were at the beginning (unused)
+sim.save_initial_pseudo_random_numbers_generators(frozen_pseudo_random_numbers_generators)
+
+# ----------------------------------------------- PF estimation  -------------------------------------------------------
 
 for iFrame in range(parameters["number of frames"]):
 
@@ -284,20 +295,20 @@ for iFrame in range(parameters["number of frames"]):
 	copy_pseudo_random_numbers_generators = copy.deepcopy(PRNGs)
 
 	# a trajectory is simulated
-	targetPosition[:, :, iFrame], targetVelocity = mobile.simulate_trajectory(nTimeInstants)
+	targetPosition[:, :, iFrame], targetVelocity = mobile.simulate_trajectory(n_time_instants)
 
 	# ...processed by the corresponding simulation
 	sim.process_frame(targetPosition[:, :, iFrame], targetVelocity)
 
-	sim.save_pseudo_random_numbers_generators(copy_pseudo_random_numbers_generators)
+	sim.save_this_frame_pseudo_random_numbers_generators(copy_pseudo_random_numbers_generators)
 
-# plots and data are saved...
+# data is saved...
 sim.save_data(targetPosition)
 
-# ...and the parameters too
+# ...and also the parameters (in a different file)
 save_parameters()
 
-# ------------------------------------------------------------------ benchmarking  -------------------------------------
+# ------------------------------------------------ benchmarking  -------------------------------------------------------
 
 # for benchmarking purposes, it is assumed that the execution ends here
 end_time = timeit.default_timer()

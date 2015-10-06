@@ -40,7 +40,8 @@ class Target:
 		print('initial position:\n',state.position(computedTrajectory[:, 0:1]))
 		print('initial velocity:\n',state.velocity(computedTrajectory[:, 0:1]))
 
-		# the trajectory is simulated, and the corresponding observations are obtained (notice that there is no observation for initial position)
+		# the trajectory is simulated, and the corresponding observations are obtained (notice that there is no
+		# observation for initial position)
 		for iTime in range(1, nTimeInstants):
 			
 			# a new state is obtained as the target moves...

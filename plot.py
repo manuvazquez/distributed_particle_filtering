@@ -22,6 +22,18 @@ def setup_axes(figure_id, clear_figure=True):
 	return axes, fig
 
 
+def markers_list():
+
+	# all the available markers in matplotlib
+	available_markers = list(matplotlib.markers.MarkerStyle.markers)
+
+	# the "dummy" ones are removed
+	available_markers.remove('None')
+	available_markers.remove('')
+	available_markers.remove(' ')
+
+	return available_markers
+
 def distributedPFagainstCentralizedPF(
 		x, centralizedPF, distributedPF, extraLine=None, outputFile=None, centralizedPFparameters={'label':'Centralized PF'},
 		distributedPFparameters={'label':'Distributed PF'}, extraLineParameters={}, figureId='vs Time',axesProperties={}):
@@ -53,10 +65,10 @@ def distributedPFagainstCentralizedPF(
 	return ax, fig
 
 
-def PFs(x, y, outputFile, parameters, figureId='vs Time', axesProperties={}, maximized=False):
+def PFs(x, y, output_file, parameters, figure_id='vs Time', axes_properties={}, maximized=False, colormap=None):
 
 	# a new pair of axes is set up
-	ax,fig = setup_axes(figureId)
+	ax, fig = setup_axes(figure_id)
 	
 	assert y.shape[0] == len(x)
 	assert y.shape[1] == len(parameters)
@@ -69,19 +81,37 @@ def PFs(x, y, outputFile, parameters, figureId='vs Time', axesProperties={}, max
 	except AttributeError:
 		
 		several_x = False
-	
+
+	# if a colormap is passed...
+	if colormap:
+
+		# for every algorithm in the list...
+		for e in parameters:
+
+			# the "color" key is removed from its dictionary
+			del e['color']
+
+		# the requested color map is obtained
+		color_map = plt.get_cmap(colormap)
+
+		# the number of colors needed
+		n_colors = len(parameters)
+
+		# colors are automatically picked up equally spaced from the color map
+		ax.set_color_cycle([color_map(1.*i/n_colors) for i in range(n_colors)])
+
 	# if several sets of x coordinates were passed
 	if several_x:
 	
-		for xcol,ycol,param in zip(x.T,y.T,parameters):
+		for xcol, ycol, param in zip(x.T, y.T, parameters):
 			
-			ax.plot(xcol,ycol,**param)
+			ax.plot(xcol, ycol, **param)
 			
 	else:
 		
-		for data,param in zip(y.T,parameters):
+		for data, param in zip(y.T, parameters):
 			
-			ax.plot(x,data,**param)
+			ax.plot(x, data, **param)
 	
 	# the labes are shown
 	ax.legend()
@@ -89,14 +119,14 @@ def PFs(x, y, outputFile, parameters, figureId='vs Time', axesProperties={}, max
 	# the x axis is adjusted so that no empty space is left before the beginning of the plot
 	if several_x:
 		
-		ax.set_xbound(lower=x[0,:].min(),upper=x[-1,:].max())
+		ax.set_xbound(lower=x[0, :].min(), upper=x[-1, :].max())
 		
 	else:
 
-		ax.set_xbound(lower=x[0],upper=x[-1])
+		ax.set_xbound(lower=x[0], upper=x[-1])
 	
 	# set any additional properties for the axes
-	ax.set(**axesProperties)
+	ax.set(**axes_properties)
 	
 	if maximized:
 		
@@ -106,11 +136,11 @@ def PFs(x, y, outputFile, parameters, figureId='vs Time', axesProperties={}, max
 	# show the plot...now!!
 	fig.show()
 	
-	if outputFile:
+	if output_file:
 	
-		plt.savefig(outputFile)
+		plt.savefig(output_file)
 	
-	return ax,fig
+	return ax, fig
 
 
 def aggregatedWeightsDistributionVsTime(aggregatedWeights,outputFile='aggregatedWeightsVsTime.pdf',xticksStep=10):

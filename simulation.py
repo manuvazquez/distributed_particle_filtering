@@ -167,9 +167,13 @@ class SimpleSimulation(Simulation):
 			# ...in order to make sure the HDF5 file is valid...
 			self._f.close()
 
-	def save_pseudo_random_numbers_generators(self, pseudo_random_numbers_generators):
+	def save_this_frame_pseudo_random_numbers_generators(self, pseudo_random_numbers_generators):
 
 		self.save_pseudo_random_numbers_generators_in_hdf5_group(pseudo_random_numbers_generators, self._h5_current_frame)
+
+	def save_initial_pseudo_random_numbers_generators(self, pseudo_random_numbers_generators):
+
+		self.save_pseudo_random_numbers_generators_in_hdf5_group(pseudo_random_numbers_generators, self._f)
 
 	@staticmethod
 	def save_pseudo_random_numbers_generators_in_hdf5_group(pseudo_random_numbers_generators, group):
@@ -191,28 +195,27 @@ class SimpleSimulation(Simulation):
 			group.create_dataset(
 				'pseudo random numbers generators/{}/5'.format(key), shape=(1,), dtype=float, data=prng_state[4])
 
-
-
 	@staticmethod
 	def pseudo_random_numbers_generators_from_file(filename, i_frame):
 
-		data_file = h5py.File(filename,'r')
-		prngs = data_file['frames/{}/pseudo random numbers generators'.format(i_frame)]
+		with h5py.File(filename,'r') as data_file:
 
-		res = {}
+			prngs = data_file['frames/{}/pseudo random numbers generators'.format(i_frame)]
 
-		for p in prngs:
+			res = {}
 
-			state = [None]*5
+			for p in prngs:
 
-			state[0] = prngs[p]['1'][0]
-			state[1] = prngs[p]['2'][...]
-			state[2] = prngs[p]['3'][0]
-			state[3] = prngs[p]['4'][0]
-			state[4] = prngs[p]['5'][0]
+				state = [None]*5
 
-			res[p] = np.random.RandomState()
-			res[p].set_state(tuple(state))
+				state[0] = prngs[p]['1'][0]
+				state[1] = prngs[p]['2'][...]
+				state[2] = prngs[p]['3'][0]
+				state[3] = prngs[p]['4'][0]
+				state[4] = prngs[p]['5'][0]
+
+				res[p] = np.random.RandomState()
+				res[p].set_state(tuple(state))
 
 		return res
 
@@ -641,6 +644,27 @@ class Mposterior(SimpleSimulation):
 		
 		self._estimatorsColors.append('brown')
 		self._estimatorsLabels.append('LC DPF with {} iterations'.format(self._LCDPFsettings['number of consensus iterations']))
+
+		# ------------
+
+		likelihood_consensus_exchange_recipe_10_iter = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(
+			self._PEsTopology, 10, self._LCDPFsettings['degree of the polynomial approximation'])
+
+		# consensus with 10 iterations
+		self._PFs.append(
+			particle_filter.LikelihoodConsensusDistributedTargetTrackingParticleFilter(
+				likelihood_consensus_exchange_recipe_10_iter, self._nPEs, self._K, self._resamplingAlgorithm,
+				self._resamplingCriterion,self._prior, self._transitionKernel, self._sensors, self._PEsSensorsConnections,
+				self._LCDPFsettings['degree of the polynomial approximation'],
+				PFs_class=smc.particle_filter.CentralizedTargetTrackingParticleFilterWithConsensusCapabilities
+				)
+		)
+
+		# the estimator just delegates the calculus of the estimate to one of the PEs
+		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], 0))
+
+		self._estimatorsColors.append('yellowgreen')
+		self._estimatorsLabels.append('LC DPF with {} iterations'.format(10))
 		
 		# ------------
 
@@ -799,6 +823,16 @@ class Mposterior(SimpleSimulation):
 			self._estimatorsColors.append(color)
 			self._estimatorsLabels.append(
 				'M-posterior - depth {} exchanging {}'.format(radius,exchange))
+
+			for estimator_radius, color in zip([1, 4, 5], ['rosybrown', 'khaki', 'darkred']):
+
+				# an estimator which yields the geometric median of the particles in the "iPE"-th PE
+				self._estimators.append(
+					smc.estimator.SinglePEGeometricMedianWithinRadius(self._PFs[-1], iPE, self._PEsTopology, estimator_radius))
+
+				self._estimatorsColors.append(color)
+				self._estimatorsLabels.append(
+					'M-posterior - depth {} exchanging {} ({} hops)'.format(radius, exchange, estimator_radius))
 
 
 		# ------------
