@@ -138,10 +138,14 @@ class SimpleSimulation(Simulation):
 			pseudo_random_numbers_generator=PRNGs['Sensors and Monte Carlo pseudo random numbers generator'],
 			**sensors_settings[sensors_settings['type']]['parameters']
 		) for pos in self._sensorsPositions.T]
+
+		# these are going to be set/used by other methods
+		self._observations = None
+		self._h5_current_frame = None
 		
-	def process_frame(self,target_position,target_velocity):
+	def process_frame(self, target_position, target_velocity):
 		
-		super().process_frame(target_position,target_velocity)
+		super().process_frame(target_position, target_velocity)
 		
 		# observations for all the sensors at every time instant (each list)
 		# NOTE: conversion to float is done so that the observations (1 or 0) are amenable to be used in later computations
@@ -154,7 +158,8 @@ class SimpleSimulation(Simulation):
 			self._h5py_prefix + 'frames/{num:0{width}}'.format(num=self._iFrame, width=self._nFramesWidth))
 		
 		# ...where a new dataset is created for the "actual position" of the target...
-		self._h5_current_frame.create_dataset('actual position',shape=(2,self._nTimeInstants),dtype=float, data=target_position)
+		self._h5_current_frame.create_dataset(
+			'actual position', shape=(2, self._nTimeInstants), dtype=float, data=target_position)
 
 	def save_data(self, target_position):
 
@@ -187,7 +192,8 @@ class SimpleSimulation(Simulation):
 			group['pseudo random numbers generators/{}/1'.format(key)][0] = 'MT19937'
 
 			group.create_dataset(
-				'pseudo random numbers generators/{}/2'.format(key), shape=prng_state[1].shape, dtype=np.uint, data=prng_state[1])
+				'pseudo random numbers generators/{}/2'.format(key), shape=prng_state[1].shape, dtype=np.uint,
+				data=prng_state[1])
 			group.create_dataset(
 				'pseudo random numbers generators/{}/3'.format(key), shape=(1,), dtype=int, data=prng_state[2])
 			group.create_dataset(
@@ -308,7 +314,7 @@ class Convergence(SimpleSimulation):
 			self._h5py_prefix + 'upper bounds for the aggregated weights', shape=(len(self._settings_topologies),),
 			data=self._aggregatedWeightsUpperBounds)
 
-	def save_data(self,target_position):
+	def save_data(self, target_position):
 
 		# let the super class do its thing...
 		super().save_data(target_position)
@@ -374,35 +380,31 @@ class Convergence(SimpleSimulation):
 		# let the super class do its thing...
 		super().process_frame(target_position, target_velocity)
 
-		for iTopology, (pf, distributedPf) in enumerate(zip(self._PFsForTopologies, self._distributedPFsForTopologies)):
+		for iTopology, (pf, distributed_pf) in enumerate(zip(self._PFsForTopologies, self._distributedPFsForTopologies)):
 
 			n_PEs = self._settings_topologies[iTopology]['number of PEs']
 
 			# the last dimension is for the number of algorithms (centralized and distributed)
-			h5_estimated_pos = self._h5_current_frame.create_dataset(
-				'topology/{}/estimated position'.format(iTopology), shape=(2, self._nTimeInstants, 2), dtype=float,
-				data=np.full((2, self._nTimeInstants, 2), np.nan))
+			estimated_pos = np.full((state.n_elements_position, self._nTimeInstants, 2), np.nan)
 
-			h5_estimated_pos.attrs['M'] = n_PEs
-
-			h5_aggregated_weights = self._h5_current_frame.create_dataset(
-				'topology/{}/DPF aggregated weights'.format(iTopology), shape=(self._nTimeInstants, n_PEs), dtype=float,
-				data=np.full((self._nTimeInstants, n_PEs), np.nan))
+			aggregated_weights = np.full((self._nTimeInstants, n_PEs), np.nan)
 
 			# initialization of the particle filters
 			pf.initialize()
-			distributedPf.initialize()
+			distributed_pf.initialize()
 
 			if self._painterSettings['display evolution?']:
 
 				# if this is not the first iteration...
-				if hasattr(self,'_painter'):
+				if hasattr(self, '_painter'):
 
 					# ...then, the previous figure is closed
 					self._painter.close()
 
 				# this object will handle graphics...
-				self._painter = plot.RectangularRoomPainter(self._roomSettings["bottom left corner"],self._roomSettings["top right corner"],self._sensorsPositions,sleepTime=self._painterSettings["sleep time between updates"])
+				self._painter = plot.RectangularRoomPainter(
+					self._roomSettings["bottom left corner"], self._roomSettings["top right corner"],
+					self._sensorsPositions, sleepTime=self._painterSettings["sleep time between updates"])
 
 				# ...e.g., draw the sensors
 				self._painter.setup()
@@ -416,20 +418,20 @@ class Convergence(SimpleSimulation):
 
 				# particle filters are updated
 				pf.step(self._observations[iTime])
-				distributedPf.step(self._observations[iTime])
+				distributed_pf.step(self._observations[iTime])
 
 				# the mean computed by the centralized and distributed PFs
-				centralizedPF_mean, distributedPF_mean = pf.compute_mean(),distributedPf.compute_mean()
+				centralizedPF_mean, distributedPF_mean = pf.compute_mean(),distributed_pf.compute_mean()
 
-				h5_estimated_pos[:, iTime:iTime+1, 0] = state.position(centralizedPF_mean)
-				h5_estimated_pos[:, iTime:iTime+1, 1] = state.position(distributedPF_mean)
+				estimated_pos[:, iTime:iTime+1, 0] = state.position(centralizedPF_mean)
+				estimated_pos[:, iTime:iTime+1, 1] = state.position(distributedPF_mean)
 
 				self._centralizedPF_pos[:, iTime:iTime+1, self._iFrame, iTopology] = state.position(centralizedPF_mean)
 				self._distributedPF_pos[:, iTime:iTime+1, self._iFrame, iTopology] = state.position(distributedPF_mean)
 
 				# the aggregated weights of the different PEs in the distributed PF are stored
-				self._distributedPFaggregatedWeights[iTopology][iTime,:,self._iFrame] = distributedPf.getAggregatedWeights()
-				h5_aggregated_weights[iTime,:] = distributedPf.getAggregatedWeights()
+				self._distributedPFaggregatedWeights[iTopology][iTime, :, self._iFrame] = distributed_pf.getAggregatedWeights()
+				aggregated_weights[iTime, :] = distributed_pf.getAggregatedWeights()
 
 				print('centralized PF\n',centralizedPF_mean)
 				print('distributed PF\n',distributedPF_mean)
@@ -447,8 +449,19 @@ class Convergence(SimpleSimulation):
 
 						# ...and those of the particles...
 						self._painter.updateParticlesPositions(state.position(pf.get_state()),identifier='centralized',color=self._painterSettings["color for the centralized PF"])
-						self._painter.updateParticlesPositions(state.position(distributedPf.get_state()),identifier='distributed',color=self._painterSettings["color for the distributed PF"])
+						self._painter.updateParticlesPositions(state.position(distributed_pf.get_state()),identifier='distributed',color=self._painterSettings["color for the distributed PF"])
 
+
+			# data is saved
+			h5_estimated_pos = self._h5_current_frame.create_dataset(
+				'topology/{}/estimated position'.format(iTopology), shape=estimated_pos.shape, dtype=float,
+				data=estimated_pos)
+
+			h5_estimated_pos.attrs['M'] = n_PEs
+
+			self._h5_current_frame.create_dataset(
+				'topology/{}/DPF aggregated weights'.format(iTopology), aggregated_weights.shape, dtype=float,
+				data=aggregated_weights)
 
 class MultipleMposterior(Simulation):
 	
@@ -516,10 +529,14 @@ class Mposterior(SimpleSimulation):
 	
 	# TODO: a method of the object is called from within "__init__" (allowed in python...but weird)
 	
-	def __init__(self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs, h5py_file=None, h5py_prefix='', n_PEs=None, n_sensors=None):
+	def __init__(
+			self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			PRNGs, h5py_file=None, h5py_prefix='', n_PEs=None, n_sensors=None):
 		
 		# let the super class do its thing...
-		super().__init__(parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs, h5py_file, h5py_prefix, n_PEs, n_sensors)
+		super().__init__(
+			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs,
+			h5py_file, h5py_prefix, n_PEs, n_sensors)
 		
 		self._simulationParameters = parameters['simulations'][parameters['simulations']['type']]
 		self._MposteriorSettings = parameters['Mposterior']
@@ -746,7 +763,7 @@ class Mposterior(SimpleSimulation):
 
 		# an estimator computing the geometric median with 1 particle taken from each PE
 		self._estimators.append(smc.estimator.GeometricMedian(
-			self._PFs[-1], maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
+			self._PFs[-1], max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
 			tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 
 		self._estimatorsColors.append('seagreen')
@@ -765,7 +782,7 @@ class Mposterior(SimpleSimulation):
 		
 		# an estimator computing the geometric median with 1 particle taken from each PE
 		self._estimators.append(smc.estimator.GeometricMedian(
-			self._PFs[-1], maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
+			self._PFs[-1], max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
 			tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 
 		self._estimatorsColors.append('green')
@@ -817,7 +834,7 @@ class Mposterior(SimpleSimulation):
 
 			# an estimator computing the geometric median with 1 particle taken from each PE
 			self._estimators.append(smc.estimator.GeometricMedian(
-				self._PFs[-1], maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
+				self._PFs[-1], max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
 				tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 
 			self._estimatorsColors.append(color)
@@ -833,7 +850,6 @@ class Mposterior(SimpleSimulation):
 				self._estimatorsColors.append(color)
 				self._estimatorsLabels.append(
 					'M-posterior - depth {} exchanging {} ({} hops)'.format(radius, exchange, estimator_radius))
-
 
 		# ------------
 
@@ -869,23 +885,21 @@ class Mposterior(SimpleSimulation):
 		
 		# let the super class do its thing...
 		super().process_frame(target_position, target_velocity)
-		
-		# ...and another one (also initialized with NaN's) for the "estimated position"
-		h5_estimated_pos = self._h5_current_frame.create_dataset(
-			'estimated position', shape=(2,self._nTimeInstants,len(self._estimators)), dtype=float,
-			data=np.full((2, self._nTimeInstants, len(self._estimators)), np.nan))
+
+		# this array will store the results before they are saved
+		estimated_pos = np.full((state.n_elements_position, self._nTimeInstants, len(self._estimators)), np.nan)
 
 		# for every PF (different from estimator)...
 		for pf in self._PFs:
-			
+
 			# ...initialization
 			pf.initialize()
-		
+
 		if self._painterSettings['display evolution?']:
-			
+
 			# if this is not the first iteration...
 			if hasattr(self, '_painter'):
-				
+
 				# ...then, the previous figure is closed
 				self._painter.close()
 
@@ -903,36 +917,40 @@ class Mposterior(SimpleSimulation):
 
 			print('position:\n',target_position[:, iTime:iTime+1])
 			print('velocity:\n',target_velocity[:, iTime:iTime+1])
-			
+
 			# for every PF (different from estimator)...
 			for pf in self._PFs:
-				
+
 				# ...a step is taken
 				pf.step(self._observations[iTime])
-			
+
 			# for every estimator, along with its corresponding label,...
 			for iEstimator,(estimator,label) in enumerate(zip(self._estimators, self._estimatorsLabels)):
-				
+
 				self._estimatedPos[:, iTime:iTime+1, self._iFrame, iEstimator] = state.position(estimator.estimate())
-				
+
 				# the position given by this estimator at the current time instant is written to the HDF5 file
-				h5_estimated_pos[:, iTime:iTime+1, iEstimator] = state.position(estimator.estimate())
-				
+				estimated_pos[:, iTime:iTime+1, iEstimator] = state.position(estimator.estimate())
+
 				print('position estimated by {}\n'.format(label), self._estimatedPos[:,iTime:iTime+1, self._iFrame, iEstimator])
-			
+
 			if self._painterSettings["display evolution?"]:
 
 				# the plot is updated with the position of the target...
 				self._painter.updateTargetPosition(target_position[:, iTime:iTime+1])
-				
+
 				# ...those estimated by the PFs
 				for iEstimator,(pf,color) in enumerate(zip(self._estimators,self._estimatorsColors)):
-					
+
 					self._painter.updateEstimatedPosition(self._estimatedPos[:,iTime:iTime+1,self._iFrame,iEstimator],identifier='#{}'.format(iEstimator),color=color)
-					
+
 					if self._painterSettings["display particles evolution?"]:
-						
+
 						self._painter.updateParticlesPositions(state.position(pf.get_state()),identifier='#{}'.format(iEstimator),color=color)
+
+		# the results (estimated positions) are saved
+		self._h5_current_frame.create_dataset(
+			'estimated position', shape=estimated_pos.shape, dtype=float, data=estimated_pos)
 
 		# in order to make sure the HDF5 files is valid...
 		self._f.flush()
@@ -981,7 +999,7 @@ class MposteriorExchange(Mposterior):
 
 			self._estimators.append(
 				smc.estimator.GeometricMedian(self._PFs[-1],
-				maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
+				max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
 				tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 
 			self._estimatorsColors.append(color)
@@ -1073,7 +1091,8 @@ class MposteriorGeometricMedian(Mposterior):
 		for nParticles,col in zip(self._simulationParameters['number of particles for estimation'],colors):
 			
 			self._estimators.append(smc.estimator.StochasticGeometricMedian(
-				self._PFs[-1],nParticles,maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
+				self._PFs[-1],nParticles,
+				max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 			
 			self._estimatorsColors.append(col)
 			self._estimatorsLabels.append('M-posterior (Stochastic Geometric Median with {} particles from each PE)'.format(nParticles))
@@ -1099,7 +1118,7 @@ class MposteriorIterative(Mposterior):
 				)
 			)
 
-			self._estimators.append(smc.estimator.GeometricMedian(self._PFs[-1],maxIterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
+			self._estimators.append(smc.estimator.GeometricMedian(self._PFs[-1], max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
 															tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 			self._estimatorsColors.append(color)
 			self._estimatorsLabels.append('{} iterations'.format(n_iterations))

@@ -125,7 +125,7 @@ hostname = socket.gethostname()
 date = time.strftime("%a_%Y-%m-%d_%H:%M:%S")
 
 # output data file
-outputFile = hostname + '_' + date + '_' + str(os.getpid())
+output_file = hostname + '_' + date + '_' + str(os.getpid())
 
 # how numpy arrays are printed on screen is specified here
 np.set_printoptions(precision=3, linewidth=100)
@@ -138,7 +138,7 @@ np.set_printoptions(precision=3, linewidth=100)
 def save_parameters():
 
 	# in a separate file with the same name as the data file but different extension...
-	parameters_file = 'res_{}.parameters'.format(outputFile)
+	parameters_file = 'res_{}.parameters'.format(output_file)
 
 	with open(parameters_file, mode='wb') as f:
 
@@ -212,7 +212,7 @@ def sigint_handler(signum, frame):
 
 def sigusr1_handler(signum, frame):
 	# plots and data are saved...
-	sim.save_data(targetPosition)
+	sim.save_data(target_position)
 
 	# ...and the parameters as well
 	save_parameters()
@@ -235,14 +235,14 @@ prior = state.UniformBoundedPositionGaussianVelocityPrior(
 	PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ...and a different one for the transition kernel belonging to class...
-transitionKernelSettings = settings_state_transition[settings_state_transition['type']]
+settings_transition_kernel = settings_state_transition[settings_state_transition['type']]
 
 # ...is instantiated here
-transitionKernel = getattr(state, transitionKernelSettings['implementing class'])(
+transitionKernel = getattr(state, settings_transition_kernel['implementing class'])(
 	settings_room["bottom left corner"], settings_room["top right corner"],
 	velocityVariance=settings_state_transition["velocity variance"],
 	noiseVariance=settings_state_transition["position variance"], stepDuration=settings_state_transition['time step size'],
-	PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"], **transitionKernelSettings['parameters'])
+	PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"], **settings_transition_kernel['parameters'])
 
 # ------------------------------------------------ SMC stuff -----------------------------------------------------------
 
@@ -251,22 +251,22 @@ resampling_algorithm = resampling.MultinomialResamplingAlgorithm(
 	PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ...and a resampling criterion are needed for the particle filters
-# resamplingCriterion = resampling.EffectiveSampleSizeBasedResamplingCriterion(parameters["SMC"]["resampling ratio"])
+# resampling_criterion = resampling.EffectiveSampleSizeBasedResamplingCriterion(parameters["SMC"]["resampling ratio"])
 resampling_criterion = resampling.AlwaysResamplingCriterion()
 
 # -------------------------------------------------- other stuff  ------------------------------------------------------
 
 # there will be as many trajectories as frames
-targetPosition = np.empty((2, n_time_instants, parameters["number of frames"]))
+target_position = np.empty((2, n_time_instants, parameters["number of frames"]))
 
 # the object representing the target
 mobile = target.Target(prior, transitionKernel, pseudo_random_numbers_generator=PRNGs["Trajectory pseudo random numbers generator"])
 
 # the class of the "simulation" object to be created...
-simulationClass = getattr(simulation, settings_simulation[settings_simulation['type']]['implementing class'])
+simulation_class = getattr(simulation, settings_simulation[settings_simulation['type']]['implementing class'])
 
 # ...is used to instantiate the latter
-sim = simulationClass(parameters, resampling_algorithm, resampling_criterion, prior, transitionKernel, outputFile, PRNGs)
+sim = simulation_class(parameters, resampling_algorithm, resampling_criterion, prior, transitionKernel, output_file, PRNGs)
 
 # if this is a re-run of a previous simulation
 if command_arguments.reproduce_filename:
@@ -295,15 +295,15 @@ for iFrame in range(parameters["number of frames"]):
 	copy_pseudo_random_numbers_generators = copy.deepcopy(PRNGs)
 
 	# a trajectory is simulated
-	targetPosition[:, :, iFrame], targetVelocity = mobile.simulate_trajectory(n_time_instants)
+	target_position[:, :, iFrame], targetVelocity = mobile.simulate_trajectory(n_time_instants)
 
 	# ...processed by the corresponding simulation
-	sim.process_frame(targetPosition[:, :, iFrame], targetVelocity)
+	sim.process_frame(target_position[:, :, iFrame], targetVelocity)
 
 	sim.save_this_frame_pseudo_random_numbers_generators(copy_pseudo_random_numbers_generators)
 
 # data is saved...
-sim.save_data(targetPosition)
+sim.save_data(target_position)
 
 # ...and also the parameters (in a different file)
 save_parameters()

@@ -6,27 +6,27 @@ import numpy.linalg
 import state
 
 
-def geometric_median(points,max_iterations=100,tolerance=0.001):
+def geometric_median(points, max_iterations=100, tolerance=0.001):
 
 	# initial estimate
-	estimate = np.median(points,axis=1)
+	estimate = np.median(points, axis=1)
 
 	for i in range(max_iterations):
 
 		# the norms for the vectors joining the previous estimate with every point
-		norms = numpy.linalg.norm(np.subtract(points,estimate[:,np.newaxis]),axis=0)
+		norms = numpy.linalg.norm(np.subtract(points, estimate[:, np.newaxis]), axis=0)
 
 		# is any of the norms is zero?
-		is_zero = np.isclose(norms,0.0)
+		is_zero = np.isclose(norms, 0.0)
 
-		# if one of the norm is zero (there should be one at most)
+		# if one of the norms is zero (there should be one at most)
 		if np.any(is_zero):
 
 			# we find out its position...
-			iZero, = np.where(is_zero)
+			i_zero_norm, = np.where(is_zero)
 
 			# ...and the estimate of the median is the corresponding point
-			estimate = points[:,iZero[0]]
+			estimate = points[:, i_zero_norm[0]]
 
 			return estimate
 
@@ -34,20 +34,16 @@ def geometric_median(points,max_iterations=100,tolerance=0.001):
 		invnorms = 1.0 / norms
 
 		# a new estimate according to the Weiszfeld algorithm
-		new_estimate = np.multiply(points,invnorms[np.newaxis,:]).sum(axis=1)/invnorms.sum()
+		new_estimate = np.multiply(points, invnorms[np.newaxis, :]).sum(axis=1)/invnorms.sum()
 
 		# if the new estimate is close enough to the old one...
-		if numpy.linalg.norm(new_estimate-estimate)<tolerance:
+		if numpy.linalg.norm(new_estimate-estimate) < tolerance:
 
 			# ...it gets a pass
 			return new_estimate
 
 		# ...otherwise, the new estimate becomes will be used in the next iteration
 		estimate = new_estimate
-
-		#print('iteration {}: {}'.format(i,estimate))
-
-	#print('total distance = {}'.format(numpy.linalg.norm(np.subtract(points,estimate[:,np.newaxis]))))
 
 	return estimate
 
@@ -75,6 +71,7 @@ class Delegating(Estimator):
 
 		return self.DPF.compute_mean()
 
+
 class Mean(Estimator):
 
 	def estimate(self):
@@ -82,27 +79,29 @@ class Mean(Estimator):
 		# the means from all the PEs are stacked (horizontally) in a single array
 		jointMeans = np.hstack([PE.compute_mean() for PE in self.DPF._PEs])
 
-		return jointMeans.mean(axis=1)[:,np.newaxis]
+		return jointMeans.mean(axis=1)[:, np.newaxis]
 
 	def messages(self, PEs_topology):
 
 		# the distances (in hops) between each pair of PEs
 		distances = PEs_topology.distances_between_PEs()
 
-		return distances[self.i_PE,:].sum()*state.n_elements_position
+		return distances[self.i_PE, :].sum()*state.n_elements_position
 
 
 class WeightedMean(Mean):
 
 	def estimate(self):
 
-		aggregatedWeights = self.DPF.getAggregatedWeights()
+		aggregated_weights = self.DPF.getAggregatedWeights()
 
 		# the aggregated weights are not necessarily normalized
-		normalizedAggregatedWeights = aggregatedWeights/aggregatedWeights.sum()
+		normalized_aggregated_weights = aggregated_weights/aggregated_weights.sum()
 
 		# notice that "compute_mean" will return a numpy array the size of the state (rather than a scalar)
-		return np.multiply(np.hstack([PE.compute_mean() for PE in self.DPF._PEs]),normalizedAggregatedWeights).sum(axis=1)[:,np.newaxis]
+		return np.multiply(
+			np.hstack([PE.compute_mean() for PE in self.DPF._PEs]),
+			normalized_aggregated_weights).sum(axis=1)[:, np.newaxis]
 
 
 class Mposterior(Estimator):
@@ -132,17 +131,19 @@ class Mposterior(Estimator):
 
 class PartialMposterior(Mposterior):
 
-	def __init__(self, DPF, nParticles, i_PE=0):
+	def __init__(self, DPF, n_particles, i_PE=0):
 
 		super().__init__(DPF, i_PE)
 
-		self.n_particles = nParticles
+		self.n_particles = n_particles
 
 	def estimate(self):
 
-		# a number of samples is drawn from the distribution of each PE (all equally weighted) to build a list of tuples (samples and weights)
-		posteriors = [(PE.get_samples_at(self.DPF._resamplingAlgorithm.getIndexes(np.exp(PE.log_weights),self.n_particles)).T,
-				 np.full(self.n_particles,1.0/self.n_particles)) for PE in self.DPF._PEs]
+		# a number of samples is drawn from the distribution of each PE (all equally weighted) to build a list of tuples
+		# (samples and weights)
+		posteriors = [(PE.get_samples_at(
+			self.DPF._resamplingAlgorithm.getIndexes(np.exp(PE.log_weights), self.n_particles)
+		).T, np.full(self.n_particles, 1.0/self.n_particles)) for PE in self.DPF._PEs]
 
 		return self.combine_posterior_distributions(posteriors)
 
@@ -156,11 +157,11 @@ class PartialMposterior(Mposterior):
 
 class GeometricMedian(Estimator):
 
-	def __init__(self, DPF, i_PE=0, maxIterations=100, tolerance=0.001):
+	def __init__(self, DPF, i_PE=0, max_iterations=100, tolerance=0.001):
 
 		super().__init__(DPF, i_PE)
 
-		self._maxIterations = maxIterations
+		self._maxIterations = max_iterations
 		self._tolerance = tolerance
 
 	def estimate(self):
@@ -180,11 +181,11 @@ class GeometricMedian(Estimator):
 
 class StochasticGeometricMedian(GeometricMedian):
 
-	def __init__(self, DPF, nParticles, i_PE=0, maxIterations=100, tolerance=0.001):
+	def __init__(self, DPF, n_particles, i_PE=0, max_iterations=100, tolerance=0.001):
 
-		super().__init__(DPF, i_PE, maxIterations, tolerance)
+		super().__init__(DPF, i_PE, max_iterations, tolerance)
 
-		self.n_particles = nParticles
+		self.n_particles = n_particles
 
 	def estimate(self):
 
@@ -210,23 +211,25 @@ class SinglePEMean(Estimator):
 
 class SinglePEGeometricMedian(Estimator):
 
-	def __init__(self, DPF, iPE, maxIterations=100, tolerance=0.001):
+	def __init__(self, DPF, iPE, max_iterations=100, tolerance=0.001):
 
 		super().__init__(DPF, iPE)
 
-		self._maxIterations = maxIterations
+		self._maxIterations = max_iterations
 		self._tolerance = tolerance
 
 	def estimate(self):
 
-		return geometric_median(self.DPF._PEs[self.i_PE].samples, max_iterations=self._maxIterations, tolerance=self._tolerance)[:,np.newaxis]
+		return geometric_median(
+			self.DPF._PEs[self.i_PE].samples, max_iterations=self._maxIterations, tolerance=self._tolerance
+		)[:, np.newaxis]
 
 
 class SinglePEGeometricMedianWithinRadius(SinglePEGeometricMedian):
 
-	def __init__(self, DPF, iPE, PEs_topology, radius, maxIterations=100, tolerance=0.001):
+	def __init__(self, DPF, iPE, PEs_topology, radius, max_iterations=100, tolerance=0.001):
 
-		super().__init__(DPF, iPE, maxIterations, tolerance)
+		super().__init__(DPF, iPE, max_iterations, tolerance)
 
 		self._distances = PEs_topology.distances_between_PEs()
 
@@ -234,7 +237,7 @@ class SinglePEGeometricMedianWithinRadius(SinglePEGeometricMedian):
 		self._i_relevant_PEs, = np.where((self._distances[self.i_PE] > 0) & (self._distances[self.i_PE]<=radius))
 
 		# the selected PE is also included
-		self._i_relevant_PEs = np.append(self._i_relevant_PEs,self.i_PE)
+		self._i_relevant_PEs = np.append(self._i_relevant_PEs, self.i_PE)
 
 	def estimate(self):
 
@@ -249,4 +252,4 @@ class SinglePEGeometricMedianWithinRadius(SinglePEGeometricMedian):
 		"""
 
 		# the number of hops for each neighbour times the number of floats sent per message
-		return self._distances[self.i_PE,self._i_relevant_PEs].sum()*state.n_elements_position
+		return self._distances[self.i_PE, self._i_relevant_PEs].sum()*state.n_elements_position
