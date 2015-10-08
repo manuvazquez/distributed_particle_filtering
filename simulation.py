@@ -578,31 +578,47 @@ class Mposterior(SimpleSimulation):
 
 		sensors_network_plot.setup()
 		sensors_network_plot.save(outputFile='network_topology_{}_PEs.pdf'.format(self._nPEs))
+
+		# ------------------ parameters to be used by add_algorithms
+
+		# this is initialized here so that its value can be manipulated by subclasses
+		self._exchanged_particles = self._simulationParameters["exchanged particles"]
+
+		# the maximum number of hops that a PE can be to exchange particles with a given PE
+		self._mposterior_exchange_step_depth = 2
+
+		# the same at estimation time
+		self._mposterior_estimator_radius = 4
+
+		# DPF with M-posterior-based exchange gets its estimates from this PE
+		self._i_PE_estimation = 0
+
+		# -----------------------------------------------------------
 		
 		# the lists of PFs, estimators, colors and labels are initialized...
 		self._PFs = []
 		self._estimators = []
-		self._estimatorsColors = []
-		self._estimatorsLabels = []
-		
+		self._estimators_colors = []
+		self._estimators_labels = []
+
 		# ...and algorithms are added
 		self.add_algorithms()
 		
 		# the position estimates
 		self._estimatedPos = np.empty((2,self._nTimeInstants,parameters["number of frames"], len(self._estimators)))
 		
-		assert len(self._estimatorsColors) == len(self._estimatorsLabels) == len(self._estimators)
+		assert len(self._estimators_colors) == len(self._estimators_labels) == len(self._estimators)
 		
 		# information about the simulated algorithms is added to the parameters...
 		parameters['algorithms'] = [{'name': name, 'color': color} for name, color in zip(
-			self._estimatorsLabels, self._estimatorsColors)]
+			self._estimators_labels, self._estimators_colors)]
 		
 		# HDF5
 
 		# the names of the algorithms are also stored
 		h5algorithms = self._f.create_dataset(
 			self._h5py_prefix + 'algorithms/names', shape=(len(self._estimators),), dtype=h5py.special_dtype(vlen=str))
-		for il, l in enumerate(self._estimatorsLabels):
+		for il, l in enumerate(self._estimators_labels):
 			h5algorithms[il] = l
 		
 		# the position and connected sensors of each PE
@@ -618,7 +634,7 @@ class Mposterior(SimpleSimulation):
 		# a list with the messages required by each estimator at a single time instant
 		algorithms_messages = []
 
-		for estimator, label in zip(self._estimators, self._estimatorsLabels):
+		for estimator, label in zip(self._estimators, self._estimators_labels):
 
 			messages_during_estimation = estimator.messages(self._PEsTopology)
 
@@ -639,11 +655,11 @@ class Mposterior(SimpleSimulation):
 		"""
 
 		DRNA_exchange_recipe = smc.exchange_recipe.DRNAExchangeRecipe(
-			self._PEsTopology, self._K, self._simulationParameters["exchanged particles"],
+			self._PEsTopology, self._K, self._exchanged_particles,
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 		Mposterior_exchange_recipe = smc.exchange_recipe.IteratedMposteriorExchangeRecipe(
-			self._PEsTopology, self._K, self._simulationParameters["exchanged particles"],
+			self._PEsTopology, self._K, self._exchanged_particles,
 			self._MposteriorSettings["number of iterations"], PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 		# ------------
@@ -668,8 +684,8 @@ class Mposterior(SimpleSimulation):
 			# the estimator just delegates the calculus of the estimate to one of the PEs
 			self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], 0))
 
-			self._estimatorsColors.append(color)
-			self._estimatorsLabels.append('LC DPF with {} iterations'.format(n_consensus_iter))
+			self._estimators_colors.append(color)
+			self._estimators_labels.append('LC DPF with {} iterations'.format(n_consensus_iter))
 		
 		# ------------
 
@@ -683,8 +699,8 @@ class Mposterior(SimpleSimulation):
 		# the estimator just delegates the calculus of the estimate to the PF
 		self._estimators.append(smc.estimator.Delegating(self._PFs[-1]))
 
-		self._estimatorsColors.append('indigo')
-		self._estimatorsLabels.append('Single know-it-all PE')
+		self._estimators_colors.append('indigo')
+		self._estimators_labels.append('Single know-it-all PE')
 		
 		# ------------
 
@@ -699,8 +715,8 @@ class Mposterior(SimpleSimulation):
 		# the estimator just delegates the calculus of the estimate to the PF
 		self._estimators.append(smc.estimator.Delegating(self._PFs[-1]))
 		
-		self._estimatorsColors.append('lawngreen')
-		self._estimatorsLabels.append('Centralized')
+		self._estimators_colors.append('lawngreen')
+		self._estimators_labels.append('Centralized')
 		
 		# ------------
 		
@@ -718,8 +734,8 @@ class Mposterior(SimpleSimulation):
 		# the estimator is the mean
 		self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
 		
-		self._estimatorsColors.append('black')
-		self._estimatorsLabels.append('DRNA')
+		self._estimators_colors.append('black')
+		self._estimators_labels.append('DRNA exch. {}'.format(self._exchanged_particles))
 
 		# ------------
 		
@@ -736,8 +752,8 @@ class Mposterior(SimpleSimulation):
 		# the estimator is still the mean
 		self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
 
-		self._estimatorsColors.append('magenta')
-		self._estimatorsLabels.append('DRNA (partial observations)')
+		self._estimators_colors.append('magenta')
+		self._estimators_labels.append('DRNA exch. {} (partial observations)'.format(self._exchanged_particles))
 
 		# ------------
 		
@@ -754,8 +770,8 @@ class Mposterior(SimpleSimulation):
 			self._PFs[-1], max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
 			tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 
-		self._estimatorsColors.append('seagreen')
-		self._estimatorsLabels.append('Plain DPF (geometric median with 1 particle from each PE)')
+		self._estimators_colors.append('seagreen')
+		self._estimators_labels.append('Plain DPF (geometric median with 1 particle from each PE)')
 		
 		# ------------
 
@@ -773,71 +789,67 @@ class Mposterior(SimpleSimulation):
 			self._PFs[-1], max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
 			tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 
-		self._estimatorsColors.append('green')
-		self._estimatorsLabels.append('M-posterior (geometric median with 1 particle from each PE)')
+		self._estimators_colors.append('green')
+		self._estimators_labels.append('M-posterior exch. {} (geometric median, 1 particle from each PE)'.format(
+			self._exchanged_particles))
 		
 		# ------------
 
-		# DPF with M-posterior-based exchange that gets its estimates from the geometric median
-		#  of the particles in the first PE
-		iPE = 0
+		# an estimator which yields the geometric median of the particles in the "self._i_PE_estimation"-th PE
+		self._estimators.append(smc.estimator.SinglePEGeometricMedianWithinRadius(
+			self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_estimator_radius)
+		)
 
-		for radius, color in zip([1, 4, 5], ['deeppink', 'coral', 'orchid']):
-
-			# an estimator which yields the geometric median of the particles in the "iPE"-th PE
-			self._estimators.append(
-				smc.estimator.SinglePEGeometricMedianWithinRadius(self._PFs[-1], iPE, self._PEsTopology, radius))
-
-			self._estimatorsColors.append(color)
-			self._estimatorsLabels.append(
-				'M-posterior ({} hops geometric median with particles from PE \#{})'.format(radius, iPE))
+		self._estimators_colors.append('coral')
+		self._estimators_labels.append(
+			'M-posterior exch. {} ({} hops geometric median)'.format(self._exchanged_particles, self._mposterior_estimator_radius))
 		
 		# ------------
 
 		for i_PE in range(self._nPEs):
 
-			# an estimator which yields the mean of the particles in the "iPE"-th PE
+			# an estimator which yields the mean of the particles in the "self._i_PE_estimation"-th PE
 			self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], i_PE))
 
-			self._estimatorsColors.append('olive')
-			self._estimatorsLabels.append('M-posterior (mean with particles from PE \#{})'.format(i_PE))
+			self._estimators_colors.append('olive')
+			self._estimators_labels.append('M-posterior exch. {} (mean with particles from PE \#{})'.format(
+				self._exchanged_particles, i_PE))
 
 		# ------------
 
-		for radius, color, exchange in zip(
-				[2, 2], ['blue', 'red'], [self._simulationParameters["exchanged particles"], 10]):
+		Mposterior_within_radius_exchange_recipe = smc.exchange_recipe.MposteriorWithinRadiusExchangeRecipe(
+		self._PEsTopology, self._K, self._exchanged_particles, self._mposterior_exchange_step_depth,
+			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
-			Mposterior_within_radius_exchange_recipe = smc.exchange_recipe.MposteriorWithinRadiusExchangeRecipe(
-			self._PEsTopology, self._K, exchange, radius,
-				PRNG=self._PRNGs["topology pseudo random numbers generator"])
+		# DPF with M-posterior-based exchange within a certain depth
+		self._PFs.append(
+			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
+				Mposterior_within_radius_exchange_recipe, self._K, self._resamplingAlgorithm, self._resamplingCriterion,
+				self._prior, self._transitionKernel, self._sensors, self._PEsSensorsConnections,
+				self._MposteriorSettings['findWeiszfeldMedian parameters'], self._MposteriorSettings['sharing period'],
+				PFs_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter)
+		)
 
-			# DPF with M-posterior-based exchange, using a certain radius
-			self._PFs.append(
-				smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-					Mposterior_within_radius_exchange_recipe, self._K, self._resamplingAlgorithm, self._resamplingCriterion,
-					self._prior, self._transitionKernel, self._sensors, self._PEsSensorsConnections,
-					self._MposteriorSettings['findWeiszfeldMedian parameters'], self._MposteriorSettings['sharing period'],
-					PFs_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter)
-			)
+		# an estimator computing the geometric median with 1 particle taken from each PE
+		self._estimators.append(smc.estimator.GeometricMedian(
+			self._PFs[-1], max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
+			tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 
-			# an estimator computing the geometric median with 1 particle taken from each PE
-			self._estimators.append(smc.estimator.GeometricMedian(
-				self._PFs[-1], max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
-				tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
+		self._estimators_colors.append('blue')
+		self._estimators_labels.append('M-posterior exch. {} - self._mposterior_exchange_step_depth {}'.format(
+			self._exchanged_particles, self._mposterior_exchange_step_depth))
 
-			self._estimatorsColors.append(color)
-			self._estimatorsLabels.append(
-				'M-posterior - depth {} exchanging {}'.format(radius,exchange))
+		# ------------
 
-			for estimator_radius, color in zip([1, 4, 5], ['rosybrown', 'khaki', 'darkred']):
+		# an estimator which yields the geometric median of the particles in the "self._i_PE_estimation"-th PE
+		self._estimators.append(smc.estimator.SinglePEGeometricMedianWithinRadius(
+			self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_estimator_radius)
+		)
 
-				# an estimator which yields the geometric median of the particles in the "iPE"-th PE
-				self._estimators.append(
-					smc.estimator.SinglePEGeometricMedianWithinRadius(self._PFs[-1], iPE, self._PEsTopology, estimator_radius))
-
-				self._estimatorsColors.append(color)
-				self._estimatorsLabels.append(
-					'M-posterior - depth {} exchanging {} ({} hops)'.format(radius, exchange, estimator_radius))
+		self._estimators_colors.append('khaki')
+		self._estimators_labels.append(
+			'M-posterior exch. {} - self._mposterior_exchange_step_depth {} ({} hops)'.format(
+				self._exchanged_particles, self._mposterior_exchange_step_depth, self._mposterior_estimator_radius))
 
 		# ------------
 
@@ -865,7 +877,7 @@ class Mposterior(SimpleSimulation):
 			range(self._nTimeInstants),PF_error,
 			self._simulationParameters["file name prefix for the estimation error vs time plot"] +
 			'_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
-			[{'label':l,'color':c} for l,c in zip(self._estimatorsLabels,self._estimatorsColors)])
+			[{'label':l,'color':c} for l,c in zip(self._estimators_labels,self._estimators_colors)])
 		
 		print(self._estimatedPos)
 		
@@ -913,7 +925,7 @@ class Mposterior(SimpleSimulation):
 				pf.step(self._observations[iTime])
 
 			# for every estimator, along with its corresponding label,...
-			for iEstimator, (estimator, label) in enumerate(zip(self._estimators, self._estimatorsLabels)):
+			for iEstimator, (estimator, label) in enumerate(zip(self._estimators, self._estimators_labels)):
 
 				self._estimatedPos[:, iTime:iTime+1, self._iFrame, iEstimator] = state.position(estimator.estimate())
 
@@ -928,7 +940,7 @@ class Mposterior(SimpleSimulation):
 				self._painter.updateTargetPosition(target_position[:, iTime:iTime+1])
 
 				# ...those estimated by the PFs
-				for iEstimator,(pf,color) in enumerate(zip(self._estimators, self._estimatorsColors)):
+				for iEstimator,(pf,color) in enumerate(zip(self._estimators, self._estimators_colors)):
 
 					self._painter.updateEstimatedPosition(
 						self._estimatedPos[:, iTime:iTime+1, self._iFrame, iEstimator],
@@ -946,97 +958,46 @@ class Mposterior(SimpleSimulation):
 		# in order to make sure the HDF5 files is valid...
 		self._f.flush()
 
+	def drop_duplicated_estimators(self):
+
+		# the list with the names of the algorithms is turned into a numpy array, so that the indexes of the unique
+		# elements can be easily obtained
+		_, i_unique = np.unique(np.array(self._estimators_labels), return_index=True)
+
+		# they are sorted (just for keeping the original order whenever possible)
+		i_to_keep =  sorted(i_unique)
+
+		# these will contain the relevant information for the surviving estimators
+		new_estimator_labels = []
+		new_estimator_colors = []
+		new_estimators = []
+
+		# for every index that gives a list with unique elements....
+		for i in i_to_keep:
+
+			# relevant stuff is added to the lists...
+			new_estimator_labels.append(self._estimators_labels[i])
+			new_estimator_colors.append(self._estimators_colors[i])
+			new_estimators.append(self._estimators[i])
+
+		# ...that are later to replace the original lists
+		self._estimators_labels = new_estimator_labels
+		self._estimators_colors = new_estimator_colors
+		self._estimators = new_estimators
+
 
 class MposteriorExchange(Mposterior):
-		
+
 	def add_algorithms(self):
 
-		# available colors
-		colors = ['red','blue','green','goldenrod','cyan','crimson','lime','cadetblue','magenta']
+		for exchange in self._exchanged_particles:
 
-		# topology of the network
-		topology = getattr(PEs_topology,self._settings_topologies['implementing class'])(self._nPEs,self._settings_topologies['parameters'])
+			# the value set is used by "add_algorithms"
+			self._exchanged_particles = exchange
 
-		for iPercentage,(percentage,color) in enumerate(zip(self._simulationParameters["exchanged particles"],colors)):
+			super().add_algorithms()
 
-			DRNA_exchange_recipe = smc.exchange_recipe.DRNAExchangeRecipe(topology,self._K,percentage,PRNG=self._PRNGs["topology pseudo random numbers generator"])
-
-			# a distributed PF with DRNA
-			self._PFs.append(
-				smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-					self._DRNAsettings["exchange period"],DRNA_exchange_recipe,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
-					self._prior,self._transitionKernel,self._sensors,self._everySensorWithEveryPEConnector.getConnections(self._nPEs),
-					PFs_class=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
-				)
-			)
-
-			self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
-
-			self._estimatorsColors.append('black')
-			self._estimatorsLabels.append('DRNA exchanging {}'.format(percentage))
-
-			# ------------
-
-			Mposterior_exchange_recipe = smc.exchange_recipe.MposteriorExchangeRecipe(
-				self._PEsTopology, self._K, percentage, PRNG=self._PRNGs["topology pseudo random numbers generator"])
-
-			self._PFs.append(
-				smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-					Mposterior_exchange_recipe,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
-					self._sensors,self._PEsSensorsConnections,self._MposteriorSettings['findWeiszfeldMedian parameters'],
-					self._MposteriorSettings['sharing period'], PFs_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter
-				)
-			)
-
-			self._estimators.append(
-				smc.estimator.GeometricMedian(self._PFs[-1],
-				max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
-				tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
-
-			self._estimatorsColors.append(color)
-			self._estimatorsLabels.append('M-posterior {}'.format(percentage))
-
-	def save_data(self,target_position):
-		
-		# the method from the grandparent
-		SimpleSimulation.save_data(self,target_position)
-
-		# FIXME: this shoudn't happen every time save is called
-		del self._f['algorithms/names']
-		h5algorithms = self._f.create_dataset('algorithms/names',shape=(2,),dtype=h5py.special_dtype(vlen=str))
-		h5algorithms[0] = 'DRNA'
-		h5algorithms[1] = 'Mposterior'
-
-		h5_algorithms_colors = self._f.create_dataset('algorithms/colors',shape=(2,),dtype=h5py.special_dtype(vlen=str))
-		h5_algorithms_colors[0] = 'black'
-		h5_algorithms_colors[1] = 'blue'
-
-		# for every frame previously stored
-		for frame_number in self._f['frames']:
-
-			# for the sake of convenience
-			frame = self._f['frames'][frame_number]
-
-			# the estimated position for every algorithm and every "exchange value" is stored in an auxiliar variable...
-			frame['aux'] = frame['estimated position']
-
-			# ...so that we can delete the corresponding dataset and reuse the name
-			del frame['estimated position']
-
-			# for every "exchange value"...
-			for i, exchanged_particles in enumerate(self._simulationParameters["exchanged particles"]):
-
-				# ...the results for all the algorithms are stored in the appropriate place
-				frame['estimated position/exchanged particles/{}'.format(exchanged_particles)] = frame['aux'][...,i*2:(i+1)*2]
-
-			# we don't need this anymore
-			del frame['aux']
-
-		# if a reference to an HDF5 was not received, that means the file was created by this object, and hence it is responsibility to close it...
-		if self._h5py_file is None:
-
-			# ...in order to make sure the HDF5 file is valid...
-			self._f.close()
+		self.drop_duplicated_estimators()
 
 
 class MposteriorGeometricMedian(Mposterior):
@@ -1062,8 +1023,8 @@ class MposteriorGeometricMedian(Mposterior):
 		
 		self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
 		
-		self._estimatorsColors.append('black')
-		self._estimatorsLabels.append('DRNA')
+		self._estimators_colors.append('black')
+		self._estimators_labels.append('DRNA')
 		
 		# ------------
 		
@@ -1085,8 +1046,8 @@ class MposteriorGeometricMedian(Mposterior):
 				self._PFs[-1],nParticles,
 				max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 			
-			self._estimatorsColors.append(col)
-			self._estimatorsLabels.append('M-posterior (Stochastic Geometric Median with {} particles from each PE)'.format(nParticles))
+			self._estimators_colors.append(col)
+			self._estimators_labels.append('M-posterior (Stochastic Geometric Median with {} particles from each PE)'.format(nParticles))
 
 
 class MposteriorIterative(Mposterior):
@@ -1111,5 +1072,5 @@ class MposteriorIterative(Mposterior):
 
 			self._estimators.append(smc.estimator.GeometricMedian(self._PFs[-1], max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
 															tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
-			self._estimatorsColors.append(color)
-			self._estimatorsLabels.append('{} iterations'.format(n_iterations))
+			self._estimators_colors.append(color)
+			self._estimators_labels.append('{} iterations'.format(n_iterations))
