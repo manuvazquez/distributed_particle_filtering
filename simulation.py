@@ -665,7 +665,7 @@ class Mposterior(SimpleSimulation):
 		# ------------
 
 		for n_consensus_iter, color in zip(
-				[self._LCDPFsettings['number of consensus iterations'], 10], ['brown', 'yellowgreen']):
+				[self._LCDPFsettings['number of consensus iterations'], 10, 5], ['brown', 'yellowgreen', 'fuchsia']):
 
 			likelihood_consensus_exchange_recipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(
 				self._PEsTopology, n_consensus_iter,
@@ -812,8 +812,7 @@ class Mposterior(SimpleSimulation):
 			self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], i_PE))
 
 			self._estimators_colors.append('olive')
-			self._estimators_labels.append('M-posterior exch. {} (mean with particles from PE \#{})'.format(
-				self._exchanged_particles, i_PE))
+			self._estimators_labels.append('M-posterior (mean with particles from PE \#{})'.format(i_PE))
 
 		# ------------
 
@@ -836,7 +835,7 @@ class Mposterior(SimpleSimulation):
 			tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 
 		self._estimators_colors.append('blue')
-		self._estimators_labels.append('M-posterior exch. {} - self._mposterior_exchange_step_depth {}'.format(
+		self._estimators_labels.append('M-posterior exch. {} - depth {}'.format(
 			self._exchanged_particles, self._mposterior_exchange_step_depth))
 
 		# ------------
@@ -848,7 +847,7 @@ class Mposterior(SimpleSimulation):
 
 		self._estimators_colors.append('khaki')
 		self._estimators_labels.append(
-			'M-posterior exch. {} - self._mposterior_exchange_step_depth {} ({} hops)'.format(
+			'M-posterior exch. {} - depth {} ({} hops)'.format(
 				self._exchanged_particles, self._mposterior_exchange_step_depth, self._mposterior_estimator_radius))
 
 		# ------------
