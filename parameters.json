@@ -164,7 +164,6 @@
 			"implementing class": "MposteriorExchange",
 		  	"network": "randomly strewn sensors and PEs",
 			"exchanged particles": [0.02,0.05,0.1,0.15,0.25,0.50],
-			"starting time instant as percentage of the frame length": 0.2,
 			"file name prefix for the estimation error vs time plot": "errorVsTime"
 		},
 		"Mposterior: geometric median": {

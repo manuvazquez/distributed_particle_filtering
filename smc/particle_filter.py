@@ -43,7 +43,7 @@ class ParticleFilter(metaclass=abc.ABCMeta):
 		
 		pass
 
-	def messages(self, PEs_topology, PEs_sensors_access):
+	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
 
 		# to indicate it has not been computed
 		return -1
@@ -407,27 +407,29 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 class DistributedTargetTrackingParticleFilter(ParticleFilter):
 	
 	def __init__(
-			self, nPEs, n_particles_perPE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
-			sensors, PEs_i_used_sensors, PFs_class=CentralizedTargetTrackingParticleFilter, PFs_initial_aggregated_weight=1.0):
+			self, n_processing_elements, n_particles_per_processing_element, resampling_algorithm, resampling_criterion,
+			prior, state_transition_kernel, sensors, each_processing_element_required_sensors,
+			particle_filters_class=CentralizedTargetTrackingParticleFilter, particle_filters_initial_aggregated_weight=1.0):
 		
-		super().__init__(nPEs*n_particles_perPE,resampling_algorithm,resampling_criterion)
+		super().__init__(n_processing_elements*n_particles_per_processing_element, resampling_algorithm, resampling_criterion)
 		
 		# it is handy to keep the number of PEs in a variable...
-		self._nPEs = nPEs
+		self._nPEs = n_processing_elements
 
 		# ...and the same for the overall number of sensors
 		self._n_sensors = len(sensors)
 		
 		# a list of lists, the first one containing the indices of the sensors "seen" by the first PE...and so on
-		self._PEsSensorsConnections = PEs_i_used_sensors
+		self._PEsSensorsConnections = each_processing_element_required_sensors
 
 		# number of particles per Pe
-		self._nParticlesPerPE = n_particles_perPE
+		self._nParticlesPerPE = n_particles_per_processing_element
 		
 		# the particle filters are built (each one associated with a different set of sensors)
-		self._PEs = [PFs_class(n_particles_perPE,resampling_algorithm,resampling_criterion,prior,state_transition_kernel,
-													[sensors[iSensor] for iSensor in connections],
-													aggregated_weight=PFs_initial_aggregated_weight) for connections in  PEs_i_used_sensors]
+		self._PEs = [particle_filters_class(
+			n_particles_per_processing_element, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
+			[sensors[iSensor] for iSensor in connections], aggregated_weight=particle_filters_initial_aggregated_weight
+		) for connections in each_processing_element_required_sensors]
 
 	@property
 	def n_PEs(self):
@@ -501,13 +503,14 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTargetTrackingParticleFilter):
 	
 	def __init__(
-			self, exchange_recipe, nPEs, n_particles_perPE, resampling_algorithm, resampling_criterion, prior,
-			state_transition_kernel, sensors, PEs_i_used_sensors, polynomial_degree,
-			PFs_class=CentralizedTargetTrackingParticleFilterWithConsensusCapabilities):
+			self, exchange_recipe, n_processing_elements, n_particles_per_processing_element, resampling_algorithm,
+			resampling_criterion, prior, state_transition_kernel, sensors, each_processing_element_required_sensors,
+			polynomial_degree, particle_filters_class=CentralizedTargetTrackingParticleFilterWithConsensusCapabilities):
 		
 		super().__init__(
-			nPEs, n_particles_perPE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
-			sensors, PEs_i_used_sensors, PFs_class=PFs_class)
+			n_processing_elements, n_particles_per_processing_element, resampling_algorithm, resampling_criterion, prior,
+			state_transition_kernel, sensors, each_processing_element_required_sensors,
+			particle_filters_class=particle_filters_class)
 		
 		# the exchange recipe is kept
 		self.exchange_recipe = exchange_recipe
@@ -575,9 +578,9 @@ class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTarg
 			# the observations are passed is the same as that of the sensors when building the PF
 			PE.step(observations[sensors_connections])
 
-	def messages(self, PEs_topology, PEs_sensors_access):
+	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
 
-		messages_observations_propagation = super().messages_observations_propagation(PEs_topology, PEs_sensors_access)
+		messages_observations_propagation = super().messages_observations_propagation(processing_elements_topology, each_processing_element_connected_sensors)
 
 		return messages_observations_propagation + self.exchange_recipe.messages()
 
@@ -587,13 +590,16 @@ class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTarg
 
 class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilter):
 	
-	def __init__(self, exchange_period, exchange_recipe, n_particles_perPE, normalizationPeriod, resampling_algorithm,
-			resampling_criterion, prior, state_transition_kernel, sensors, PEs_i_used_sensors,
-			PFs_class=EmbeddedTargetTrackingParticleFilter):
+	def __init__(
+			self, exchange_period, exchange_recipe, n_particles_per_processing_element, normalization_period,
+			resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
+			each_processing_element_required_sensors, particle_filters_class=EmbeddedTargetTrackingParticleFilter):
 		
-		super().__init__(exchange_recipe.n_processing_elements, n_particles_perPE, resampling_algorithm, resampling_criterion, prior,
-			state_transition_kernel, sensors, PEs_i_used_sensors, PFs_class=PFs_class,
-			PFs_initial_aggregated_weight=1.0/exchange_recipe.n_processing_elements)
+		super().__init__(
+			exchange_recipe.n_processing_elements, n_particles_per_processing_element, resampling_algorithm,
+			resampling_criterion, prior, state_transition_kernel, sensors, each_processing_element_required_sensors,
+			particle_filters_class=particle_filters_class,
+			particle_filters_initial_aggregated_weight=1.0/exchange_recipe.n_processing_elements)
 		
 		# a exchange of particles among PEs will happen every...
 		self._exchangePeriod = exchange_period
@@ -602,16 +608,16 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		self.exchange_recipe = exchange_recipe
 
 		# period for the normalization of the aggregated weights
-		self._normalizationPeriod = normalizationPeriod
+		self._normalizationPeriod = normalization_period
 		
 		self._estimator = smc.estimator.WeightedMean(self)
 		
-	def step(self,observations):
+	def step(self, observations):
 		
 		super().step(observations)
 		
 		# if it is exchanging particles time
-		if (self._n % self._exchangePeriod == 0):
+		if self._n % self._exchangePeriod == 0:
 			
 			self.exchange_recipe.perform_exchange(self)
 			
@@ -621,10 +627,10 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 				PE.update_aggregated_weight()
 		
 		# needed to perform the normalization below
-		aggregatedWeightsSum = self.getAggregatedWeights().sum()
+		aggregated_weights_sum = self.getAggregatedWeights().sum()
 		
 		# if every aggregated weight is zero...
-		if np.isclose(aggregatedWeightsSum,0):
+		if np.isclose(aggregated_weights_sum, 0):
 			
 			# ...we reinitialize the weights for all the particles of all the PEs
 			self.resetWeights()
@@ -638,7 +644,7 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 			# ...to scale all the weights within ALL the PEs
 			for PE in self._PEs:
 				
-				PE.divideWeights(aggregatedWeightsSum)
+				PE.divideWeights(aggregated_weights_sum)
 	
 	def getAggregatedWeights(self):
 		
@@ -665,9 +671,10 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		
 		return self._estimator.estimate()
 
-	def messages(self, PEs_topology, PEs_sensors_access):
+	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
 
-		messages_observations_propagation = super().messages_observations_propagation(PEs_topology, PEs_sensors_access)
+		messages_observations_propagation = super().messages_observations_propagation(
+			processing_elements_topology, each_processing_element_connected_sensors)
 
 		return messages_observations_propagation + self.exchange_recipe.messages()/self._exchangePeriod
 
@@ -676,30 +683,35 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 
 class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTrackingParticleFilter):
 
-	def __init__(self, exchange_recipe, n_particles_perPE, resampling_algorithm, resampling_criterion, prior,
-			state_transition_kernel, sensors, PEs_i_used_sensors, findWeiszfeldMedianParameters, sharingPeriod,
-			PFs_class=CentralizedTargetTrackingParticleFilter):
+	def __init__(
+			self, exchange_recipe, n_particles_per_processing_element, resampling_algorithm, resampling_criterion,
+			prior, state_transition_kernel, sensors, each_processing_element_required_sensors,
+			find_weiszfeld_median_parameters, sharing_period,
+			particle_filters_class=CentralizedTargetTrackingParticleFilter):
 		
-		super().__init__(exchange_recipe.n_processing_elements, n_particles_perPE, resampling_algorithm, resampling_criterion, prior,
-			state_transition_kernel, sensors, PEs_i_used_sensors, PFs_class=PFs_class)
+		super().__init__(
+			exchange_recipe.n_processing_elements, n_particles_per_processing_element, resampling_algorithm,
+			resampling_criterion, prior, state_transition_kernel, sensors, each_processing_element_required_sensors,
+			particle_filters_class=particle_filters_class)
 		
-		self._sharingPeriod = sharingPeriod
+		self._sharingPeriod = sharing_period
 		self.exchange_recipe = exchange_recipe
 		
 		# the (R) Mposterior package is imported...
 		self._Mposterior = importr('Mposterior')
 		
 		# ...and the parameters to be passed to the required function are kept
-		self._findWeiszfeldMedianParameters = findWeiszfeldMedianParameters
+		self._findWeiszfeldMedianParameters = find_weiszfeld_median_parameters
 		
-	def Mposterior(self, posteriorDistributions):
+	def Mposterior(self, posterior_distributions):
 		
 		"""Applies the Mposterior algorithm to weight the samples of a list of "subset posterior distribution"s.
 		
 		Parameters
 		----------
-		posteriorDistributions: list of tuples
-			A list in which each element is a tuple representing a "subset posterior distribution": the first element are the samples, and the second the associated weights
+		posterior_distributions: list of tuples
+			A list in which each element is a tuple representing a "subset posterior distribution": the first element is
+			the samples, and the second the associated weights
 		
 		Returns
 		-------
@@ -708,33 +720,34 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 		"""
 		
 		# the samples of all the "subset posterior distribution"s are extracted
-		samples = [posterior[0] for posterior in posteriorDistributions]
+		samples = [posterior[0] for posterior in posterior_distributions]
 		
-		# R function implementing the "M posterior" algorithm is called
-		weiszfeldMedian = self._Mposterior.findWeiszfeldMedian(samples,**self._findWeiszfeldMedianParameters)
+		# an R function implementing the "M posterior" algorithm is called
+		weiszfeld_median = self._Mposterior.findWeiszfeldMedian(samples,**self._findWeiszfeldMedianParameters)
 
 		# the weights assigned by the algorithm to each "subset posterior distribution"
-		weiszfeldWeights = np.array(weiszfeldMedian[1])
+		weiszfeld_weights = np.array(weiszfeld_median[1])
 		
 		# a numpy array containing all the particles (coming from all the PEs)
-		jointParticles = np.array(weiszfeldMedian[3]).T
+		joint_particles = np.array(weiszfeld_median[3]).T
 		
-		# the weight of each PE is scaled according to the "weiszfeldWeights" and, all of them are stacked together
-		jointWeights =	np.hstack([posterior[1]*weight for posterior,weight in zip(posteriorDistributions,weiszfeldWeights)])
+		# the weight of each PE is scaled according to the "weiszfeld_weights" and, all of them are stacked together
+		joint_weights =	np.hstack([posterior[1]*weight for posterior, weight in zip(posterior_distributions,weiszfeld_weights)])
 		
-		return (jointParticles,jointWeights)
+		return joint_particles, joint_weights
 
-	def step(self,observations):
+	def step(self, observations):
 		
 		super().step(observations)
 		
 		# if it is sharing particles time
-		if (self._n % self._sharingPeriod == 0):
+		if self._n % self._sharingPeriod == 0:
 			
 			self.exchange_recipe.perform_exchange(self)
 
-	def messages(self, PEs_topology, PEs_sensors_access):
+	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
 
-		messages_observations_propagation = super().messages_observations_propagation(PEs_topology, PEs_sensors_access)
+		messages_observations_propagation = super().messages_observations_propagation(
+			processing_elements_topology, each_processing_element_connected_sensors)
 
 		return messages_observations_propagation + self.exchange_recipe.messages()/self._sharingPeriod
