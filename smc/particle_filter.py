@@ -34,7 +34,7 @@ class ParticleFilter(metaclass=abc.ABCMeta):
 		pass
 	
 	@abc.abstractmethod
-	def step(self,observations):
+	def step(self, observations):
 		
 		pass
 	
@@ -71,8 +71,12 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 		# the sensors are kept
 		self._sensors = sensors
 		
-		# the aggregated weight of this PF EVERY TIME it is initialized
+		# EVERY time, this PF is initialized, the aggregated weight is set to this value
 		self._initial_aggregated_weight = aggregated_weight
+
+		# these will get set as soon as the "initialize" method gets called
+		self._state = None
+		self._aggregated_weight = None
 
 	def initialize(self):
 		
@@ -252,12 +256,13 @@ class CentralizedTargetTrackingParticleFilter(ParticleFilter):
 
 
 class EmbeddedTargetTrackingParticleFilter(CentralizedTargetTrackingParticleFilter):
-	
-	def getAggregatedWeight(self):
+
+	@property
+	def aggregated_weight(self):
 		
 		return self._aggregated_weight
 	
-	def divideWeights(self, factor):
+	def divide_weights(self, factor):
 		
 		self._log_weights -= np.log(factor)
 		self._aggregated_weight /= factor
@@ -294,9 +299,7 @@ class CentralizedTargetTrackingParticleFilterWithConsensusCapabilities(Centraliz
 		# the position of every sensor
 		self._sensorsPositions = np.hstack([s.position for s in sensors])
 
-	def initialize(self, M, R_p, r_a_tuples, r_a, r_d_tuples, r_d, rs_gamma):
-
-		super().initialize()
+	def set_polynomial_approximation_constants(self, M, R_p, r_a_tuples, r_a, r_d_tuples, r_d, rs_gamma):
 
 		self._M = M
 		self._R_p = R_p
@@ -534,7 +537,7 @@ class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTarg
 		
 		# a list of tuples, each one representing a combination of possible exponents for a monomial
 		self._r_a_tuples = list(itertools.filterfalse(
-			lambda x: sum(x)>self._R_p, itertools.product(range(self._R_p+1), repeat=self._M)))
+			lambda x: sum(x) > self._R_p, itertools.product(range(self._R_p+1), repeat=self._M)))
 		
 		# each row contains the exponents for a monomial
 		self._r_a = np.array(self._r_a_tuples)
@@ -562,11 +565,14 @@ class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTarg
 		assert(N_c == len(self._r_d_tuples))
 
 	def initialize(self):
+
+		super().initialize()
 		
-		# all the PFs are initialized
+		# the constant values required by every PE to carry out the polynomial approximation ared passed to each PE
 		for PE in self._PEs:
 			
-			PE.initialize(self._M, self._R_p, self._r_a_tuples, self._r_a, self._r_d_tuples, self._r_d, self._rs_gamma)
+			PE.set_polynomial_approximation_constants(
+				self._M, self._R_p, self._r_a_tuples, self._r_a, self._r_d_tuples, self._r_d, self._rs_gamma)
 
 	def step(self, observations):
 		
@@ -635,13 +641,13 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 				PE.update_aggregated_weight()
 		
 		# needed to perform the normalization below
-		aggregated_weights_sum = self.getAggregatedWeights().sum()
+		aggregated_weights_sum = self.aggregated_weights.sum()
 		
 		# if every aggregated weight is zero...
 		if np.isclose(aggregated_weights_sum, 0):
 			
 			# ...we reinitialize the weights for all the particles of all the PEs
-			self.resetWeights()
+			self.reset_weights()
 			
 			# ...and skip the normalization code below
 			return
@@ -652,13 +658,14 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 			# ...to scale all the weights within ALL the PEs
 			for PE in self._PEs:
 				
-				PE.divideWeights(aggregated_weights_sum)
-	
-	def getAggregatedWeights(self):
-		
-		return np.array([PE.getAggregatedWeight() for PE in self._PEs])
+				PE.divide_weights(aggregated_weights_sum)
 
-	def resetWeights(self):
+	@property
+	def aggregated_weights(self):
+		
+		return np.array([PE.aggregated_weight for PE in self._PEs])
+
+	def reset_weights(self):
 		
 		"""It sets every weight of every PE to the same value.
 		"""
@@ -673,7 +680,7 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 			PE._aggregated_weight = aggregated_weight
 			
 			# ...along with the individual weights within the PE
-			PE.log_weights = np.full(PE._nParticles,-np.log(self._nPEs)-np.log(PE._nParticles))
+			PE.log_weights = np.full(PE._nParticles, -np.log(self._nPEs)-np.log(PE._nParticles))
 
 	def compute_mean(self):
 		

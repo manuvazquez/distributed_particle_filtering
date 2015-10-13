@@ -93,7 +93,7 @@ class WeightedMean(Mean):
 
 	def estimate(self):
 
-		aggregated_weights = self.DPF.getAggregatedWeights()
+		aggregated_weights = self.DPF.aggregated_weights
 
 		# the aggregated weights are not necessarily normalized
 		normalized_aggregated_weights = aggregated_weights/aggregated_weights.sum()

@@ -439,8 +439,8 @@ class Convergence(SimpleSimulation):
 				self._distributedPF_pos[:, iTime:iTime+1, self._iFrame, iTopology] = state.position(distributedPF_mean)
 
 				# the aggregated weights of the different PEs in the distributed PF are stored
-				self._distributedPFaggregatedWeights[iTopology][iTime, :, self._iFrame] = distributed_pf.getAggregatedWeights()
-				aggregated_weights[iTime, :] = distributed_pf.getAggregatedWeights()
+				self._distributedPFaggregatedWeights[iTopology][iTime, :, self._iFrame] = distributed_pf.aggregated_weights
+				aggregated_weights[iTime, :] = distributed_pf.aggregated_weights
 
 				print('centralized PF\n',centralizedPF_mean)
 				print('distributed PF\n',distributedPF_mean)

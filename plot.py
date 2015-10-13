@@ -262,49 +262,48 @@ def aggregatedWeightsSupremumVsNumberOfPEs(Ms,maxWeights,upperBounds=None,output
 	return ax,fig
 
 
-def trajectory(filename,iTrajectory=0,nTimeInstants=-1,ticksFontSize=12):
+def trajectory(filename, i_trajectory=0, n_time_instants=-1, ticks_font_size=12):
 	
 	import network_nodes
 	import pickle
 	import os
 	import scipy.io
 	
-	position = scipy.io.loadmat(filename)['targetPosition'][...,iTrajectory]
-	
-	## data file is loaded
-	#with np.load(filename) as data:
-		
-		#position = data['targetPosition']
+	position = scipy.io.loadmat(filename)['targetPosition'][..., i_trajectory]
 	
 	# parameters are loaded
-	with open(os.path.splitext(filename)[0] + '.parameters',"rb") as f:
+	with open(os.path.splitext(filename)[0] + '.parameters', "rb") as f:
 		
 		# ...is loaded
 		parameters = pickle.load(f)[0]
 
-	n_PEs = parameters['topologies'][parameters['topologies']['type'][0]]['number of PEs']
+	n_processing_elements = parameters['topologies'][parameters['topologies']['type'][0]]['number of PEs']
 	n_sensors = parameters['sensors']['number']
 
 	# the positions of the sensors are computed
-	sensorsPositions = network_nodes.PositionlessPEsEquispacedSensors(
-		parameters["room"]["bottom left corner"],parameters["room"]["top right corner"],n_PEs,n_sensors).sensorsPositions
+	sensors_positions = network_nodes.PositionlessPEsEquispacedSensors(
+		parameters["room"]["bottom left corner"], parameters["room"]["top right corner"], n_processing_elements, n_sensors
+	).sensorsPositions
 
 	# a Painter object is created to do the dirty work
-	painter = TightRectangularRoomPainter(parameters["room"]["bottom left corner"],parameters["room"]["top right corner"],sensorsPositions,ticksFontSize=ticksFontSize)
+	painter = TightRectangularRoomPainter(
+		parameters["room"]["bottom left corner"], parameters["room"]["top right corner"],
+		sensors_positions, ticksFontSize=ticks_font_size)
 	
 	painter.setup()
 	
 	# if the number of time instants to be plotted received is not within the proper limits...
-	if not (0<nTimeInstants<=position.shape[1]):
+	if not (0 < n_time_instants <= position.shape[1]):
 		
 		# ...the entire trajectory is plotted
-		nTimeInstants = position.shape[1]
-		
-		print('trajectory: the number of time instants to be plotted is not within the limits...plotting the entire sequence...')
+		n_time_instants = position.shape[1]
+
+		print(
+			'trajectory: the number of time instants to be plotted is not within the limits...plotting the entire sequence...')
 	
-	for i in range(nTimeInstants):
+	for i in range(n_time_instants):
 		
-		painter.updateTargetPosition(position[:,i])
+		painter.updateTargetPosition(position[:, i])
 	
 	painter.save()
 
