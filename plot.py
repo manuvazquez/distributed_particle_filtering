@@ -65,7 +65,9 @@ def distributedPFagainstCentralizedPF(
 	return ax, fig
 
 
-def PFs(x, y, output_file, algorithms_parameters, figure_id='vs Time', axes_properties={}, maximized=False, colormap=None):
+def PFs(
+		x, y, output_file, algorithms_parameters, figure_id='vs Time', axes_properties={}, maximized=False,
+		colormap=None):
 
 	# a new pair of axes is set up
 	ax, fig = setup_axes(figure_id)

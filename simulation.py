@@ -20,14 +20,15 @@ class Simulation(metaclass=abc.ABCMeta):
 	
 	@abc.abstractmethod
 	def __init__(
-			self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs):
+			self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			pseudo_random_numbers_generators):
 		
 		# these parameters are kept for later use
 		self._resamplingAlgorithm = resampling_algorithm
 		self._resamplingCriterion = resampling_criterion
 		self._prior = prior
 		self._transitionKernel = transition_kernel
-		self._PRNGs = PRNGs
+		self._PRNGs = pseudo_random_numbers_generators
 		
 		# number of particles per processing element (PE)
 		self._K = parameters["number of particles per PE"]
@@ -48,7 +49,7 @@ class Simulation(metaclass=abc.ABCMeta):
 		self._roomSettings = parameters["room"]
 		
 		# the settings for the topology or topologies given...if it is a list...
-		if isinstance(parameters['topologies']['type'],list):
+		if isinstance(parameters['topologies']['type'], list):
 			# ...we have a list of settings
 			self._settings_topologies = [parameters['topologies'][i] for i in parameters['topologies']['type']]
 		# otherwise...
@@ -79,11 +80,12 @@ class Simulation(metaclass=abc.ABCMeta):
 class SimpleSimulation(Simulation):
 	
 	def __init__(
-			self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs,
-			h5py_file, h5py_prefix, n_PEs=None, n_sensors=None):
+			self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements=None, n_sensors=None):
 		
 		super().__init__(
-			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs)
+			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			pseudo_random_numbers_generators)
 
 		# for saving the data in HDF5
 		self._h5py_file = h5py_file
@@ -109,12 +111,12 @@ class SimpleSimulation(Simulation):
 			
 			n_sensors = parameters["sensors"]['number']
 		
-		if n_PEs is None:
+		if n_processing_elements is None:
 
 			# we try to extract the "number of PEs" from the topology settings...
 			try:
 				
-				n_PEs = self._settings_topologies['number of PEs']
+				n_processing_elements = self._settings_topologies['number of PEs']
 			
 			# ...it it's not possible, it is because there are multiple topology settings => Convergence simulation
 			except TypeError:
@@ -128,18 +130,19 @@ class SimpleSimulation(Simulation):
 		
 		# the appropriate class is instantiated with the given parameters
 		self._network = network_nodes_class(
-			self._roomSettings["bottom left corner"], self._roomSettings["top right corner"], n_PEs, n_sensors,
+			self._roomSettings["bottom left corner"], self._roomSettings["top right corner"], n_processing_elements, n_sensors,
 			**network_nodes_settings['parameters'])
 		
 		# the positions of the PEs and the sensors are collected from the network just built
 		self._sensorsPositions, self._PEsPositions = self._network.sensorsPositions, self._network.PEsPositions
 		
 		# the class to be instantiated is figured out from the settings for that particular sensor type
-		sensor_class = getattr(sensor,sensors_settings[sensors_settings['type']]['implementing class'])
+		sensor_class = getattr(sensor, sensors_settings[sensors_settings['type']]['implementing class'])
 		
 		self._sensors = [sensor_class(
 			pos[:, np.newaxis],
-			pseudo_random_numbers_generator=PRNGs['Sensors and Monte Carlo pseudo random numbers generator'],
+			pseudo_random_numbers_generator=
+			pseudo_random_numbers_generators['Sensors and Monte Carlo pseudo random numbers generator'],
 			**sensors_settings[sensors_settings['type']]['parameters']
 		) for pos in self._sensorsPositions.T]
 
@@ -208,7 +211,7 @@ class SimpleSimulation(Simulation):
 	@staticmethod
 	def pseudo_random_numbers_generators_from_file(filename, i_frame):
 
-		with h5py.File(filename,'r') as data_file:
+		with h5py.File(filename, 'r') as data_file:
 
 			prngs = data_file['frames/{}/pseudo random numbers generators'.format(i_frame)]
 
@@ -255,21 +258,21 @@ class Convergence(SimpleSimulation):
 
 	def __init__(
 			self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
-			PRNGs, h5py_file=None, h5py_prefix=''):
+			pseudo_random_numbers_generators, h5py_file=None, h5py_prefix=''):
 
 		# let the super class do its thing...
 		super().__init__(
 			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
-			PRNGs, h5py_file, h5py_prefix)
+			pseudo_random_numbers_generators, h5py_file, h5py_prefix)
 
-		topologies = [getattr(PEs_topology,t['implementing class'])(
+		topologies = [getattr(PEs_topology, t['implementing class'])(
 			t['number of PEs'], t['parameters']) for t in self._settings_topologies]
 
 		exchange_recipes = [smc.exchange_recipe.DRNAExchangeRecipe(
 			t, self._K, self._simulationParameters["exchanged particles"],
 			PRNG=self._PRNGs["topology pseudo random numbers generator"]) for t in topologies]
 
-		# we compute the upper bound for the supremum of the aggregated weights that should guarante convergence
+		# we compute the upper bound for the supremum of the aggregated weights that should guarantee convergence
 		self._aggregatedWeightsUpperBounds = [drnautil.supremum_upper_bound(
 			t['number of PEs'], self._DRNAsettings['c'], self._DRNAsettings['q'], self._DRNAsettings['epsilon']
 		) for t in self._settings_topologies]
@@ -284,13 +287,15 @@ class Convergence(SimpleSimulation):
 		# distributed particle filter
 		self._distributedPFsForTopologies = [particle_filter.TargetTrackingParticleFilterWithDRNA(
 			self._DRNAsettings["exchange period"], e, self._K, self._DRNAsettings["normalization period"],
-			resampling_algorithm,resampling_criterion,prior,transition_kernel, self._sensors,
-			PEs_sensors_requirements.getConnections(e.n_processing_elements) ) for e in exchange_recipes]
+			resampling_algorithm, resampling_criterion, prior, transition_kernel, self._sensors,
+			PEs_sensors_requirements.getConnections(e.n_processing_elements)) for e in exchange_recipes]
 
-		#------------------------------------------------------------- metrics initialization --------------------------------------------------------------------
+		# ------------------------------------------ metrics initialization --------------------------------------------
 
 		# we store the aggregated weights...
-		self._distributedPFaggregatedWeights = [np.empty((self._nTimeInstants,t.n_processing_elements,parameters["number of frames"])) for t in topologies]
+		self._distributedPFaggregatedWeights = [np.empty(
+			(self._nTimeInstants, t.n_processing_elements, parameters["number of frames"])
+		) for t in topologies]
 
 		# ...and the position estimates
 		self._centralizedPF_pos = np.empty((2, self._nTimeInstants, parameters["number of frames"], len(topologies)))
@@ -469,10 +474,10 @@ class Convergence(SimpleSimulation):
 
 class MultipleMposterior(Simulation):
 	
-	def __init__(self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs):
+	def __init__(self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, pseudo_random_numbers_generators):
 		
 		# let the super class do its thing...
-		super().__init__(parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs)
+		super().__init__(parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, pseudo_random_numbers_generators)
 		
 		# HDF5 output file
 		self._f = h5py.File('res_' + self._outputFile + '.hdf5','w')
@@ -487,7 +492,7 @@ class MultipleMposterior(Simulation):
 		for (nPEs, nSensors) in self._simulationParameters["nPEs-nSensors pairs"]:
 			
 			self._simulations.append(Mposterior(
-				parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs,
+				parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, pseudo_random_numbers_generators,
 				self._f, '{} PEs,{} sensors/'.format(nPEs, nSensors), nPEs, nSensors))
 
 	def process_frame(self, target_position, target_velocity):
@@ -534,24 +539,24 @@ class Mposterior(SimpleSimulation):
 	
 	def __init__(
 			self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
-			PRNGs, h5py_file=None, h5py_prefix='', n_PEs=None, n_sensors=None):
+			pseudo_random_numbers_generators, h5py_file=None, h5py_prefix='', n_processing_elements=None, n_sensors=None):
 		
 		# let the super class do its thing...
 		super().__init__(
-			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, PRNGs,
-			h5py_file, h5py_prefix, n_PEs, n_sensors)
+			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, pseudo_random_numbers_generators,
+			h5py_file, h5py_prefix, n_processing_elements, n_sensors)
 		
 		self._simulationParameters = parameters['simulations'][parameters['simulations']['type']]
 		self._MposteriorSettings = parameters['Mposterior']
 		self._LCDPFsettings = parameters['Likelihood Consensus']
 		
 		# if the number of PEs is not received...
-		if n_PEs is None:
+		if n_processing_elements is None:
 			# ...it is looked up in "parameters"
 			self._nPEs = self._settings_topologies['number of PEs']
 		# otherwise...
 		else:
-			self._nPEs = n_PEs
+			self._nPEs = n_processing_elements
 		
 		# a connector that connects every sensor to every PE
 		self._everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensorsPositions)
