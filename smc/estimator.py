@@ -84,7 +84,7 @@ class Mean(Estimator):
 	def messages(self, PEs_topology):
 
 		# the distances (in hops) between each pair of PEs
-		distances = PEs_topology.distances_between_PEs()
+		distances = PEs_topology.distances_between_processing_elements
 
 		return distances[self.i_PE, :].sum()*state.n_elements_position
 
@@ -123,7 +123,7 @@ class Mposterior(Estimator):
 	def messages(self, PEs_topology):
 
 		# the distances (in hops) between each pair of PEs
-		distances = PEs_topology.distances_between_PEs()
+		distances = PEs_topology.distances_between_processing_elements
 
 		# TODO: this assumes all PEs have the same number of particles: that of the self.i_PE-th one
 		return distances[self.i_PE,:].sum()*self.DPF._PEs[self.i_PE].n_particles*state.n_elements_position
@@ -150,7 +150,7 @@ class PartialMposterior(Mposterior):
 	def messages(self, PEs_topology):
 
 		# the distances (in hops) between each pair of PEs
-		distances = PEs_topology.distances_between_PEs()
+		distances = PEs_topology.distances_between_processing_elements
 
 		return distances[self.i_PE,:].sum()*self.n_particles*state.n_elements_position
 
@@ -174,7 +174,7 @@ class GeometricMedian(Estimator):
 	def messages(self, PEs_topology):
 
 		# the distances (in hops) between each pair of PEs
-		distances = PEs_topology.distances_between_PEs()
+		distances = PEs_topology.distances_between_processing_elements
 
 		return distances[self.i_PE,:].sum()*state.n_elements_position
 
@@ -231,7 +231,7 @@ class SinglePEGeometricMedianWithinRadius(SinglePEGeometricMedian):
 
 		super().__init__(DPF, iPE, max_iterations, tolerance)
 
-		self._distances = PEs_topology.distances_between_PEs()
+		self._distances = PEs_topology.distances_between_processing_elements
 
 		# the indexes of the PEs that are at most "radius" hops from the selected PE
 		self._i_relevant_PEs, = np.where((self._distances[self.i_PE] > 0) & (self._distances[self.i_PE]<=radius))

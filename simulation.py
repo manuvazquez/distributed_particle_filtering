@@ -333,52 +333,80 @@ class Convergence(SimpleSimulation):
 		self._iFrame += 1
 
 		# the mean of the MSE incurred by both PFs
-		centralizedPF_MSE = (np.subtract(self._centralizedPF_pos[:, :, :self._iFrame, :], target_position[:, :, :self._iFrame, np.newaxis])**2).mean(axis=0).mean(axis=1)
-		distributedPF_MSE = (np.subtract(self._distributedPF_pos[:, :, :self._iFrame, :], target_position[:, :, :self._iFrame, np.newaxis])**2).mean(axis=0).mean(axis=1)
+		centralized_particle_filter_MSE = (
+			(self._centralizedPF_pos[:, :, :self._iFrame, :] - target_position[:, :, :self._iFrame, np.newaxis])**2
+		).mean(axis=0).mean(axis=1)
+		distributed_particle_filter_MSE = (
+			(self._distributedPF_pos[:, :, :self._iFrame, :] - target_position[:, :, :self._iFrame, np.newaxis])**2
+		).mean(axis=0).mean(axis=1)
 
 		# ...the same for the error (euclidean distance)
-		centralizedPF_error = np.sqrt((np.subtract(self._centralizedPF_pos[:, :, :self._iFrame, :], target_position[:, :, :self._iFrame, np.newaxis])**2).sum(axis=0)).mean(axis=1)
-		distributedPF_error = np.sqrt((np.subtract(self._distributedPF_pos[:, :, :self._iFrame, :], target_position[:, :, :self._iFrame, np.newaxis])**2).sum(axis=0)).mean(axis=1)
+		centralizedPF_error = np.sqrt(
+			((self._centralizedPF_pos[:, :, :self._iFrame, :] - target_position[:, :, :self._iFrame, np.newaxis])**2
+			 ).sum(axis=0)).mean(axis=1)
+		distributedPF_error = np.sqrt(
+			((self._distributedPF_pos[:, :, :self._iFrame, :] - target_position[:, :, :self._iFrame, np.newaxis])**2
+			 ).sum(axis=0)).mean(axis=1)
 
 		# MSE vs time (only the results for the first topology are plotted)
-		plot.distributed_against_centralized_particle_filter(np.arange(self._nTimeInstants),centralizedPF_MSE[:,0],distributedPF_MSE[:,0],
-							output_file=self._painterSettings["file name prefix for the MSE vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
-							centralized_particle_filter_parameters={'label':'Centralized PF','color':self._painterSettings["color for the centralized PF"],'marker':self._painterSettings["marker for the centralized PF"]},
-							distributed_particle_filter_parameters={'label':'Distributed PF','color':self._painterSettings["color for the distributed PF"],'marker':self._painterSettings["marker for the distributed PF"]},
-							figure_id='MSE vs Time')
+		plot.distributed_against_centralized_particle_filter(
+			np.arange(self._nTimeInstants), centralized_particle_filter_MSE[:, 0], distributed_particle_filter_MSE[:, 0],
+			output_file='{}_{}_nFrames={}.eps'.format(
+				self._painterSettings["file name prefix for the MSE vs time plot"], self._outputFile, repr(self._iFrame)
+			), centralized_particle_filter_parameters={
+				'label': 'Centralized PF', 'color': self._painterSettings["color for the centralized PF"],
+				'marker': self._painterSettings["marker for the centralized PF"]
+			}, distributed_particle_filter_parameters={
+				'label': 'Distributed PF', 'color': self._painterSettings["color for the distributed PF"],
+				'marker': self._painterSettings["marker for the distributed PF"]
+			}, figure_id='MSE vs Time')
 
 		# distance vs time (only the results for the first topology are plotted)
-		plot.distributed_against_centralized_particle_filter(np.arange(self._nTimeInstants),centralizedPF_error[:,0],distributedPF_error[:,0],
-							output_file=self._painterSettings["file name prefix for the euclidean distance vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
-							centralized_particle_filter_parameters={'label':'Centralized PF','color':self._painterSettings["color for the centralized PF"],'marker':self._painterSettings["marker for the centralized PF"]},
-							distributed_particle_filter_parameters={'label':'Distributed PF','color':self._painterSettings["color for the distributed PF"],'marker':self._painterSettings["marker for the distributed PF"]},
-							figure_id='Euclidean distance vs Time')
+		plot.distributed_against_centralized_particle_filter(
+			np.arange(self._nTimeInstants), centralizedPF_error[:, 0], distributedPF_error[:, 0],
+			output_file='{}_{}_nFrames={}.eps'.format(
+				self._painterSettings["file name prefix for the euclidean distance vs time plot"], self._outputFile,
+				repr(self._iFrame)
+			), centralized_particle_filter_parameters={
+				'label': 'Centralized PF', 'color': self._painterSettings["color for the centralized PF"],
+				'marker': self._painterSettings["marker for the centralized PF"]
+			}, distributed_particle_filter_parameters={
+				'label': 'Distributed PF', 'color': self._painterSettings["color for the distributed PF"],
+				'marker': self._painterSettings["marker for the distributed PF"]
+			}, figure_id='Euclidean distance vs Time')
 
 		# the aggregated weights are normalized at ALL TIMES, for EVERY frame and EVERY topology
-		normalizedAggregatedWeights = [np.divide(w[:,:,:self._iFrame],w[:,:,:self._iFrame].sum(axis=1)[:,np.newaxis,:]) for w in self._distributedPFaggregatedWeights]
+		normalized_aggregated_weights = [
+			w[:, :, :self._iFrame] / w[:, :, :self._iFrame].sum(axis=1)[:, np.newaxis, :]
+			for w in self._distributedPFaggregatedWeights]
 
 		# ...the same data structured in a dictionary
-		normalizedAggregatedWeightsDic = {'normalizedAggregatedWeights_{}'.format(i):array for i,array in enumerate(normalizedAggregatedWeights)}
+		dic_normalized_aggregated_weights = {
+			'normalizedAggregatedWeights_{}'.format(i): array for i, array in enumerate(normalized_aggregated_weights)}
 
 		# ...and the maximum weight, also at ALL TIMES and for EVERY frame, is obtained
-		maxWeights = np.array([(w.max(axis=1)**self._DRNAsettings['q']).mean(axis=1) for w in normalizedAggregatedWeights])
+		max_weights = np.array(
+			[(w.max(axis=1)**self._DRNAsettings['q']).mean(axis=1) for w in normalized_aggregated_weights])
 
 		# evolution of the largest aggregated weight over time (only the results for the first topology are plotted)
-		plot.aggregated_weights_supremum_vs_time(maxWeights[0,:],self._aggregatedWeightsUpperBounds[0],
-												self._painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),self._DRNAsettings["exchange period"])
+		plot.aggregated_weights_supremum_vs_time(
+			max_weights[0, :], self._aggregatedWeightsUpperBounds[0], '{}_{}_nFrames={}.eps'.format(
+				self._painterSettings["file name prefix for the aggregated weights supremum vs time plot"],
+				self._outputFile, repr(self._iFrame)
+			), self._DRNAsettings["exchange period"])
 
 		# a dictionary encompassing all the data to be saved
 		dataToBeSaved = dict(
-				aggregatedWeightsUpperBounds = self._aggregatedWeightsUpperBounds,
-				targetPosition = target_position[:,:,:self._iFrame],
-				centralizedPF_pos = self._centralizedPF_pos[:,:,:self._iFrame,:],
-				distributedPF_pos = self._distributedPF_pos[:,:,:self._iFrame,:],
-				**normalizedAggregatedWeightsDic
+				aggregatedWeightsUpperBounds=self._aggregatedWeightsUpperBounds,
+				targetPosition=target_position[:, :, :self._iFrame],
+				centralizedPF_pos=self._centralizedPF_pos[:, :, :self._iFrame, :],
+				distributedPF_pos=self._distributedPF_pos[:, :, :self._iFrame, :],
+				**dic_normalized_aggregated_weights
 			)
 
 		# data is saved
 		#np.savez('res_' + self._outputFile + '.npz',**dataToBeSaved)
-		scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
+		scipy.io.savemat('res_' + self._outputFile, dataToBeSaved)
 		print('results saved in "{}"'.format('res_' + self._outputFile))
 
 		# the above fix is undone
@@ -543,8 +571,8 @@ class Mposterior(SimpleSimulation):
 		
 		# let the super class do its thing...
 		super().__init__(
-			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, pseudo_random_numbers_generators,
-			h5py_file, h5py_prefix, n_processing_elements, n_sensors)
+			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements, n_sensors)
 		
 		self._simulationParameters = parameters['simulations'][parameters['simulations']['type']]
 		self._MposteriorSettings = parameters['Mposterior']
@@ -578,6 +606,11 @@ class Mposterior(SimpleSimulation):
 		# network topology, which describes the connection among PEs, as well as the exact particles exchanged/shared
 		self._PEsTopology = getattr(PEs_topology, self._settings_topologies['implementing class'])(
 			self._nPEs, self._settings_topologies['parameters'])
+
+		# the maximum number of hops between any pair of PEs
+		max_hops_number = self._PEsTopology.distances_between_processing_elements.max()
+
+		print('maximum number of hops between PEs = {}'.format(max_hops_number))
 
 		# ...are plot the connections between them
 		sensors_network_plot = plot.TightRectangularRoomPainterWithPEs(
@@ -635,7 +668,9 @@ class Mposterior(SimpleSimulation):
 			self._f.create_dataset(self._h5py_prefix + 'PEs/{}/position'.format(iPE), shape=(2,), data=pos)
 			self._f.create_dataset(
 				self._h5py_prefix + 'PEs/{}/connected sensors'.format(iPE), shape=(len(sens),), data=sens)
-		
+
+		self._f[self._h5py_prefix + 'PEs'].attrs['max number of hops'] = max_hops_number
+
 		# the positions of the sensors
 		self._f.create_dataset(
 			self._h5py_prefix + 'sensors/positions', shape=self._sensorsPositions.shape, data=self._sensorsPositions)

@@ -486,7 +486,7 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 				i_observation_to_i_processing_element[i] = i_PE
 
 		# the distance in hops between each pair of PEs
-		distances = processing_elements_topology.distances_between_PEs()
+		distances = processing_elements_topology.distances_between_processing_elements
 
 		# import code
 		# code.interact(local=dict(globals(), **locals()))

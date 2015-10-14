@@ -161,7 +161,7 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 	def messages(self):
 
 		# the number of hops between each pair of PEs
-		distances = self._PEs_topology.distances_between_PEs()
+		distances = self._PEs_topology.distances_between_processing_elements
 
 		# overall number of messages sent/received in an exchange step
 		n_messages = 0
