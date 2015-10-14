@@ -341,18 +341,18 @@ class Convergence(SimpleSimulation):
 		distributedPF_error = np.sqrt((np.subtract(self._distributedPF_pos[:, :, :self._iFrame, :], target_position[:, :, :self._iFrame, np.newaxis])**2).sum(axis=0)).mean(axis=1)
 
 		# MSE vs time (only the results for the first topology are plotted)
-		plot.distributedPFagainstCentralizedPF(np.arange(self._nTimeInstants),centralizedPF_MSE[:,0],distributedPF_MSE[:,0],
-							outputFile=self._painterSettings["file name prefix for the MSE vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
-							centralizedPFparameters={'label':'Centralized PF','color':self._painterSettings["color for the centralized PF"],'marker':self._painterSettings["marker for the centralized PF"]},
-							distributedPFparameters={'label':'Distributed PF','color':self._painterSettings["color for the distributed PF"],'marker':self._painterSettings["marker for the distributed PF"]},
-							figureId='MSE vs Time')
+		plot.distributed_against_centralized_particle_filter(np.arange(self._nTimeInstants),centralizedPF_MSE[:,0],distributedPF_MSE[:,0],
+							output_file=self._painterSettings["file name prefix for the MSE vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
+							centralized_particle_filter_parameters={'label':'Centralized PF','color':self._painterSettings["color for the centralized PF"],'marker':self._painterSettings["marker for the centralized PF"]},
+							distributed_particle_filter_parameters={'label':'Distributed PF','color':self._painterSettings["color for the distributed PF"],'marker':self._painterSettings["marker for the distributed PF"]},
+							figure_id='MSE vs Time')
 
 		# distance vs time (only the results for the first topology are plotted)
-		plot.distributedPFagainstCentralizedPF(np.arange(self._nTimeInstants),centralizedPF_error[:,0],distributedPF_error[:,0],
-							outputFile=self._painterSettings["file name prefix for the euclidean distance vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
-							centralizedPFparameters={'label':'Centralized PF','color':self._painterSettings["color for the centralized PF"],'marker':self._painterSettings["marker for the centralized PF"]},
-							distributedPFparameters={'label':'Distributed PF','color':self._painterSettings["color for the distributed PF"],'marker':self._painterSettings["marker for the distributed PF"]},
-							figureId='Euclidean distance vs Time')
+		plot.distributed_against_centralized_particle_filter(np.arange(self._nTimeInstants),centralizedPF_error[:,0],distributedPF_error[:,0],
+							output_file=self._painterSettings["file name prefix for the euclidean distance vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
+							centralized_particle_filter_parameters={'label':'Centralized PF','color':self._painterSettings["color for the centralized PF"],'marker':self._painterSettings["marker for the centralized PF"]},
+							distributed_particle_filter_parameters={'label':'Distributed PF','color':self._painterSettings["color for the distributed PF"],'marker':self._painterSettings["marker for the distributed PF"]},
+							figure_id='Euclidean distance vs Time')
 
 		# the aggregated weights are normalized at ALL TIMES, for EVERY frame and EVERY topology
 		normalizedAggregatedWeights = [np.divide(w[:,:,:self._iFrame],w[:,:,:self._iFrame].sum(axis=1)[:,np.newaxis,:]) for w in self._distributedPFaggregatedWeights]
@@ -364,7 +364,7 @@ class Convergence(SimpleSimulation):
 		maxWeights = np.array([(w.max(axis=1)**self._DRNAsettings['q']).mean(axis=1) for w in normalizedAggregatedWeights])
 
 		# evolution of the largest aggregated weight over time (only the results for the first topology are plotted)
-		plot.aggregatedWeightsSupremumVsTime(maxWeights[0,:],self._aggregatedWeightsUpperBounds[0],
+		plot.aggregated_weights_supremum_vs_time(maxWeights[0,:],self._aggregatedWeightsUpperBounds[0],
 												self._painterSettings["file name prefix for the aggregated weights supremum vs time plot"] + '_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),self._DRNAsettings["exchange period"])
 
 		# a dictionary encompassing all the data to be saved
@@ -881,7 +881,7 @@ class Mposterior(SimpleSimulation):
 			(np.subtract(self._estimatedPos[:, :, :self._iFrame, :], target_position[:, :, :self._iFrame, np.newaxis])**2)
 				.sum(axis=0)).mean(axis=1)
 		
-		plot.PFs(
+		plot.particle_filters(
 			range(self._nTimeInstants), pf_error,
 			self._simulationParameters["file name prefix for the estimation error vs time plot"] +
 			'_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
