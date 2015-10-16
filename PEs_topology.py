@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import networkx as nx
+import operator
 
 
 class Topology:
@@ -137,7 +138,7 @@ class Mesh(Topology):
 						i_neighbour, j_neighbour = i+neighbour_relative_position[0], j+neighbour_relative_position[1]
 					
 						# if the position does not corresponds to that of a PE (i.e., it is NOT within the PEs array)
-						if not ( (0 <= i_neighbour < n_rows) and (0 <= j_neighbour < n_cols) ):
+						if not ((0 <= i_neighbour < n_rows) and (0 <= j_neighbour < n_cols)):
 							
 							continue
 						
@@ -154,12 +155,11 @@ class ConstantDegreeSimpleGraph(Topology):
 		
 		super().__init__(n_processing_elements, topology_specific_parameters)
 		
-		nNeighbours = math.ceil(topology_specific_parameters['number of neighbours as a percentage of the number of PEs']*n_processing_elements)
-		
-		import networkx as nx
+		n_neighbours = math.ceil(
+			topology_specific_parameters['number of neighbours as a percentage of the number of PEs']*n_processing_elements)
 		
 		# the Havel-Hakimi algorithm is used to obtain a simple graph with the requested degrees
-		graph = nx.havel_hakimi_graph([nNeighbours]*n_processing_elements)
+		graph = nx.havel_hakimi_graph([n_neighbours]*n_processing_elements)
 		
 		self._neighbours = [graph.neighbors(i) for i in range(n_processing_elements)]
 
@@ -179,24 +179,22 @@ class LOSbased(Topology):
 		
 		super().__init__(n_processing_elements, topology_specific_parameters)
 		
-		import operator
-		
 		# for the sake of clarity...
-		PEsPositions = topology_specific_parameters['PEs positions']
+		processing_elements_positions = topology_specific_parameters['PEs positions']
 		
 		# a list of sets, each one meant to store the neighbours of the corresponding PE
-		res = [set() for i in range(PEsPositions.shape[1])]
+		res = [set() for _ in range(processing_elements_positions.shape[1])]
 		
-		for iPE in range(PEsPositions.shape[1]):
+		for iPE in range(processing_elements_positions.shape[1]):
 			
 			# the difference vectors between the position of the current PE and the positions of ALL the PEs,...
-			diff = PEsPositions - PEsPositions[:,iPE:iPE+1]
+			diff = processing_elements_positions - processing_elements_positions[:, iPE:iPE+1]
 			
 			# ... which allow to compute the angles
-			angles = np.degrees(np.arctan2(diff[1,:],diff[0,:]))
+			angles = np.degrees(np.arctan2(diff[1, :], diff[0, :]))
 			
 			# ...and the distances
-			distances = np.linalg.norm(diff,axis=0)
+			distances = np.linalg.norm(diff, axis=0)
 			
 			# we need to use the "and" operator for all the comparisons except the one for the left, which requires the "or"
 			for (low, up), op in zip(
@@ -204,18 +202,18 @@ class LOSbased(Topology):
 					[operator.and_, operator.and_, operator.or_, operator.and_]):
 			
 				# the index of the PEs that are within the range of angles specified
-				iPEsWithinRange, = np.where(op(angles >= low,angles<=up) & (distances>0))
+				i_processing_elements_within_range, = np.where(op(angles >= low, angles <= up) & (distances > 0))
 				
 				# if any PE found within that "range of vision"
-				if iPEsWithinRange.size:
+				if i_processing_elements_within_range.size:
 				
 					# the neighbour is chosen to be that which is closer to the current PE
-					iNeighbour = iPEsWithinRange[np.argmin(distances[iPEsWithinRange])]
+					i_neighbour = i_processing_elements_within_range[np.argmin(distances[i_processing_elements_within_range])]
 					
 					# it is added to the list of neighbours of the current PE...
-					res[iPE].add(iNeighbour)
+					res[iPE].add(i_neighbour)
 					
 					# ...and the current PE to the list of neighbours of the selected neighbour (if it wasn't yet)
-					res[iNeighbour].add(iPE)
+					res[i_neighbour].add(iPE)
 					
 		self._neighbours = [list(s) for s in res]

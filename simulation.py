@@ -24,29 +24,29 @@ class Simulation(metaclass=abc.ABCMeta):
 			pseudo_random_numbers_generators):
 		
 		# these parameters are kept for later use
-		self._resamplingAlgorithm = resampling_algorithm
-		self._resamplingCriterion = resampling_criterion
+		self._resampling_algorithm = resampling_algorithm
+		self._resampling_criterion = resampling_criterion
 		self._prior = prior
-		self._transitionKernel = transition_kernel
+		self._transition_kernel = transition_kernel
 		self._PRNGs = pseudo_random_numbers_generators
 		
 		# number of particles per processing element (PE)
-		self._K = parameters["number of particles per PE"]
+		self._n_particles_per_PE = parameters["number of particles per PE"]
 		
 		# length of the trajectory
-		self._nTimeInstants = parameters["number of time instants"]
+		self._n_time_instants = parameters["number of time instants"]
 		
 		# name of the file to store the results
-		self._outputFile = output_file
+		self._output_file = output_file
 		
 		# DRNA related
-		self._DRNAsettings = parameters["DRNA"]
+		self._settings_DRNA = parameters["DRNA"]
 		
 		# parameters related to plotting
-		self._painterSettings = parameters["painter"]
+		self._settings_painter = parameters["painter"]
 		
 		# room  dimensions
-		self._roomSettings = parameters["room"]
+		self._settings_room = parameters["room"]
 		
 		# the settings for the topology or topologies given...if it is a list...
 		if isinstance(parameters['topologies']['type'], list):
@@ -58,22 +58,22 @@ class Simulation(metaclass=abc.ABCMeta):
 			self._settings_topologies = parameters['topologies'][parameters['topologies']['type']]
 		
 		# so that it equals 0 the first time it is incremented...
-		self._iFrame = -1
+		self._i_current_frame = -1
 		
 		# the parameters for this particular simulation are obtained
-		self._simulationParameters = parameters['simulations'][parameters['simulations']['type']]
+		self._simulation_parameters = parameters['simulations'][parameters['simulations']['type']]
 		
 	@abc.abstractmethod
 	def process_frame(self, target_position, target_velocity):
 		
-		self._iFrame += 1
+		self._i_current_frame += 1
 	
 	# TODO: remove targetPosition as argument?
 	
 	@abc.abstractmethod
 	def save_data(self, target_position):
 
-		if self._iFrame == 0:
+		if self._i_current_frame == 0:
 			print('save_data: still in the first frame...maybe nothing will be saved')
 
 
@@ -94,7 +94,7 @@ class SimpleSimulation(Simulation):
 		# if a reference to an HDF5 file was not received...
 		if h5py_file is None:
 			# ...a new HDF5 file is created
-			self._f = h5py.File('res_' + self._outputFile + '.hdf5', 'w', driver='core', libver='latest')
+			self._f = h5py.File('res_' + self._output_file + '.hdf5', 'w', driver='core', libver='latest')
 			# self._f = h5py.File('res_' + self._outputFile + '.hdf5', 'w')
 		# otherwise...
 		else:
@@ -125,13 +125,13 @@ class SimpleSimulation(Simulation):
 				pass
 		
 		# for the sake of convenience below...
-		network_nodes_settings = parameters['network nodes'][self._simulationParameters['network']]
+		network_nodes_settings = parameters['network nodes'][self._simulation_parameters['network']]
 		network_nodes_class = getattr(network_nodes, network_nodes_settings['implementing class'])
 		
 		# the appropriate class is instantiated with the given parameters
 		self._network = network_nodes_class(
-			self._roomSettings["bottom left corner"], self._roomSettings["top right corner"], n_processing_elements, n_sensors,
-			**network_nodes_settings['parameters'])
+			self._settings_room["bottom left corner"], self._settings_room["top right corner"], n_processing_elements,
+			n_sensors, **network_nodes_settings['parameters'])
 		
 		# the positions of the PEs and the sensors are collected from the network just built
 		self._sensorsPositions, self._PEsPositions = self._network.sensorsPositions, self._network.PEsPositions
@@ -141,8 +141,8 @@ class SimpleSimulation(Simulation):
 		
 		self._sensors = [sensor_class(
 			pos[:, np.newaxis],
-			pseudo_random_numbers_generator=
-			pseudo_random_numbers_generators['Sensors and Monte Carlo pseudo random numbers generator'],
+			pseudo_random_numbers_generator=pseudo_random_numbers_generators[
+				'Sensors and Monte Carlo pseudo random numbers generator'],
 			**sensors_settings[sensors_settings['type']]['parameters']
 		) for pos in self._sensorsPositions.T]
 
@@ -162,11 +162,11 @@ class SimpleSimulation(Simulation):
 		
 		# a reference to the "group" for the current frame (notice the prefix in the name given "self._h5py_prefix")...
 		self._h5_current_frame = self._f.create_group(
-			self._h5py_prefix + 'frames/{num:0{width}}'.format(num=self._iFrame, width=self._nFramesWidth))
+			self._h5py_prefix + 'frames/{num:0{width}}'.format(num=self._i_current_frame, width=self._nFramesWidth))
 		
 		# ...where a new dataset is created for the "actual position" of the target...
 		self._h5_current_frame.create_dataset(
-			'actual position', shape=(2, self._nTimeInstants), dtype=float, data=target_position)
+			'actual position', shape=(2, self._n_time_instants), dtype=float, data=target_position)
 
 	def save_data(self, target_position):
 
@@ -269,24 +269,24 @@ class Convergence(SimpleSimulation):
 			t['number of PEs'], t['parameters']) for t in self._settings_topologies]
 
 		exchange_recipes = [smc.exchange_recipe.DRNAExchangeRecipe(
-			t, self._K, self._simulationParameters["exchanged particles"],
+			t, self._n_particles_per_PE, self._simulation_parameters["exchanged particles"],
 			PRNG=self._PRNGs["topology pseudo random numbers generator"]) for t in topologies]
 
 		# we compute the upper bound for the supremum of the aggregated weights that should guarantee convergence
 		self._aggregatedWeightsUpperBounds = [drnautil.supremum_upper_bound(
-			t['number of PEs'], self._DRNAsettings['c'], self._DRNAsettings['q'], self._DRNAsettings['epsilon']
+			t['number of PEs'], self._settings_DRNA['c'], self._settings_DRNA['q'], self._settings_DRNA['epsilon']
 		) for t in self._settings_topologies]
 
 		# plain non-parallelized particle filter
 		self._PFsForTopologies = [particle_filter.CentralizedTargetTrackingParticleFilter(
-			self._K*t.n_processing_elements, resampling_algorithm, resampling_criterion, prior,
+			self._n_particles_per_PE*t.n_processing_elements, resampling_algorithm, resampling_criterion, prior,
 			transition_kernel, self._sensors) for t in topologies]
 
 		PEs_sensors_requirements = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensorsPositions)
 
 		# distributed particle filter
 		self._distributedPFsForTopologies = [particle_filter.TargetTrackingParticleFilterWithDRNA(
-			self._DRNAsettings["exchange period"], e, self._K, self._DRNAsettings["normalization period"],
+			self._settings_DRNA["exchange period"], e, self._n_particles_per_PE, self._settings_DRNA["normalization period"],
 			resampling_algorithm, resampling_criterion, prior, transition_kernel, self._sensors,
 			PEs_sensors_requirements.getConnections(e.n_processing_elements)) for e in exchange_recipes]
 
@@ -294,29 +294,32 @@ class Convergence(SimpleSimulation):
 
 		# we store the aggregated weights...
 		self._distributedPFaggregatedWeights = [np.empty(
-			(self._nTimeInstants, t.n_processing_elements, parameters["number of frames"])
+			(self._n_time_instants, t.n_processing_elements, parameters["number of frames"])
 		) for t in topologies]
 
 		# ...and the position estimates
-		self._centralizedPF_pos = np.empty((2, self._nTimeInstants, parameters["number of frames"], len(topologies)))
-		self._distributedPF_pos = np.empty((2, self._nTimeInstants, parameters["number of frames"], len(topologies)))
+		self._centralizedPF_pos = np.empty((2, self._n_time_instants, parameters["number of frames"], len(topologies)))
+		self._distributedPF_pos = np.empty((2, self._n_time_instants, parameters["number of frames"], len(topologies)))
 
 		# HDF5
 
 		# the names of the algorithms are also stored
-		h5_algorithms_names = self._f.create_dataset(self._h5py_prefix + 'algorithms/names', shape=(2,), dtype=h5py.special_dtype(vlen=str))
+		h5_algorithms_names = self._f.create_dataset(
+			self._h5py_prefix + 'algorithms/names', shape=(2,), dtype=h5py.special_dtype(vlen=str))
 		h5_algorithms_names[0] = 'Centralized PF'
 		h5_algorithms_names[1] = 'Distributed PF'
 
 		# the colors
-		h5_algorithms_colors = self._f.create_dataset(self._h5py_prefix + 'algorithms/plot/colors', shape=(2,), dtype=h5py.special_dtype(vlen=str))
-		h5_algorithms_colors[0] = self._painterSettings["color for the centralized PF"]
-		h5_algorithms_colors[1] = self._painterSettings["color for the distributed PF"]
+		h5_algorithms_colors = self._f.create_dataset(
+			self._h5py_prefix + 'algorithms/plot/colors', shape=(2,), dtype=h5py.special_dtype(vlen=str))
+		h5_algorithms_colors[0] = self._settings_painter["color for the centralized PF"]
+		h5_algorithms_colors[1] = self._settings_painter["color for the distributed PF"]
 
 		# markers
-		h5_algorithms_markers = self._f.create_dataset(self._h5py_prefix + 'algorithms/plot/markers', shape=(2,), dtype=h5py.special_dtype(vlen=str))
-		h5_algorithms_markers[0] = self._painterSettings["marker for the centralized PF"]
-		h5_algorithms_markers[1] = self._painterSettings["marker for the distributed PF"]
+		h5_algorithms_markers = self._f.create_dataset(
+			self._h5py_prefix + 'algorithms/plot/markers', shape=(2,), dtype=h5py.special_dtype(vlen=str))
+		h5_algorithms_markers[0] = self._settings_painter["marker for the centralized PF"]
+		h5_algorithms_markers[1] = self._settings_painter["marker for the distributed PF"]
 
 		# saving of the aggregated weights upper bounds for each topology
 		self._f.create_dataset(
@@ -330,54 +333,54 @@ class Convergence(SimpleSimulation):
 
 		# so that the last frame is also saved
 		# FIXME: this method should only be called after completing a frame (never in the middle)
-		self._iFrame += 1
+		self._i_current_frame += 1
 
 		# the mean of the MSE incurred by both PFs
 		centralized_particle_filter_MSE = (
-			(self._centralizedPF_pos[:, :, :self._iFrame, :] - target_position[:, :, :self._iFrame, np.newaxis])**2
+			(self._centralizedPF_pos[:, :, :self._i_current_frame, :] - target_position[:, :, :self._i_current_frame, np.newaxis])**2
 		).mean(axis=0).mean(axis=1)
 		distributed_particle_filter_MSE = (
-			(self._distributedPF_pos[:, :, :self._iFrame, :] - target_position[:, :, :self._iFrame, np.newaxis])**2
+			(self._distributedPF_pos[:, :, :self._i_current_frame, :] - target_position[:, :, :self._i_current_frame, np.newaxis])**2
 		).mean(axis=0).mean(axis=1)
 
 		# ...the same for the error (euclidean distance)
 		centralizedPF_error = np.sqrt(
-			((self._centralizedPF_pos[:, :, :self._iFrame, :] - target_position[:, :, :self._iFrame, np.newaxis])**2
-			 ).sum(axis=0)).mean(axis=1)
+			((self._centralizedPF_pos[:, :, :self._i_current_frame, :] - target_position[:, :, :self._i_current_frame, np.newaxis])**2).sum(
+				axis=0)).mean(axis=1)
 		distributedPF_error = np.sqrt(
-			((self._distributedPF_pos[:, :, :self._iFrame, :] - target_position[:, :, :self._iFrame, np.newaxis])**2
-			 ).sum(axis=0)).mean(axis=1)
+			((self._distributedPF_pos[:, :, :self._i_current_frame, :] - target_position[:, :, :self._i_current_frame, np.newaxis])**2).sum(
+				axis=0)).mean(axis=1)
 
 		# MSE vs time (only the results for the first topology are plotted)
 		plot.distributed_against_centralized_particle_filter(
-			np.arange(self._nTimeInstants), centralized_particle_filter_MSE[:, 0], distributed_particle_filter_MSE[:, 0],
+			np.arange(self._n_time_instants), centralized_particle_filter_MSE[:, 0], distributed_particle_filter_MSE[:, 0],
 			output_file='{}_{}_nFrames={}.eps'.format(
-				self._painterSettings["file name prefix for the MSE vs time plot"], self._outputFile, repr(self._iFrame)
+				self._settings_painter["file name prefix for the MSE vs time plot"], self._output_file, repr(self._i_current_frame)
 			), centralized_particle_filter_parameters={
-				'label': 'Centralized PF', 'color': self._painterSettings["color for the centralized PF"],
-				'marker': self._painterSettings["marker for the centralized PF"]
+				'label': 'Centralized PF', 'color': self._settings_painter["color for the centralized PF"],
+				'marker': self._settings_painter["marker for the centralized PF"]
 			}, distributed_particle_filter_parameters={
-				'label': 'Distributed PF', 'color': self._painterSettings["color for the distributed PF"],
-				'marker': self._painterSettings["marker for the distributed PF"]
+				'label': 'Distributed PF', 'color': self._settings_painter["color for the distributed PF"],
+				'marker': self._settings_painter["marker for the distributed PF"]
 			}, figure_id='MSE vs Time')
 
 		# distance vs time (only the results for the first topology are plotted)
 		plot.distributed_against_centralized_particle_filter(
-			np.arange(self._nTimeInstants), centralizedPF_error[:, 0], distributedPF_error[:, 0],
+			np.arange(self._n_time_instants), centralizedPF_error[:, 0], distributedPF_error[:, 0],
 			output_file='{}_{}_nFrames={}.eps'.format(
-				self._painterSettings["file name prefix for the euclidean distance vs time plot"], self._outputFile,
-				repr(self._iFrame)
+				self._settings_painter["file name prefix for the euclidean distance vs time plot"], self._output_file,
+				repr(self._i_current_frame)
 			), centralized_particle_filter_parameters={
-				'label': 'Centralized PF', 'color': self._painterSettings["color for the centralized PF"],
-				'marker': self._painterSettings["marker for the centralized PF"]
+				'label': 'Centralized PF', 'color': self._settings_painter["color for the centralized PF"],
+				'marker': self._settings_painter["marker for the centralized PF"]
 			}, distributed_particle_filter_parameters={
-				'label': 'Distributed PF', 'color': self._painterSettings["color for the distributed PF"],
-				'marker': self._painterSettings["marker for the distributed PF"]
+				'label': 'Distributed PF', 'color': self._settings_painter["color for the distributed PF"],
+				'marker': self._settings_painter["marker for the distributed PF"]
 			}, figure_id='Euclidean distance vs Time')
 
 		# the aggregated weights are normalized at ALL TIMES, for EVERY frame and EVERY topology
 		normalized_aggregated_weights = [
-			w[:, :, :self._iFrame] / w[:, :, :self._iFrame].sum(axis=1)[:, np.newaxis, :]
+			w[:, :, :self._i_current_frame] / w[:, :, :self._i_current_frame].sum(axis=1)[:, np.newaxis, :]
 			for w in self._distributedPFaggregatedWeights]
 
 		# ...the same data structured in a dictionary
@@ -386,31 +389,31 @@ class Convergence(SimpleSimulation):
 
 		# ...and the maximum weight, also at ALL TIMES and for EVERY frame, is obtained
 		max_weights = np.array(
-			[(w.max(axis=1)**self._DRNAsettings['q']).mean(axis=1) for w in normalized_aggregated_weights])
+			[(w.max(axis=1)**self._settings_DRNA['q']).mean(axis=1) for w in normalized_aggregated_weights])
 
 		# evolution of the largest aggregated weight over time (only the results for the first topology are plotted)
 		plot.aggregated_weights_supremum_vs_time(
 			max_weights[0, :], self._aggregatedWeightsUpperBounds[0], '{}_{}_nFrames={}.eps'.format(
-				self._painterSettings["file name prefix for the aggregated weights supremum vs time plot"],
-				self._outputFile, repr(self._iFrame)
-			), self._DRNAsettings["exchange period"])
+				self._settings_painter["file name prefix for the aggregated weights supremum vs time plot"],
+				self._output_file, repr(self._i_current_frame)
+			), self._settings_DRNA["exchange period"])
 
 		# a dictionary encompassing all the data to be saved
-		dataToBeSaved = dict(
+		data_to_be_saved = dict(
 				aggregatedWeightsUpperBounds=self._aggregatedWeightsUpperBounds,
-				targetPosition=target_position[:, :, :self._iFrame],
-				centralizedPF_pos=self._centralizedPF_pos[:, :, :self._iFrame, :],
-				distributedPF_pos=self._distributedPF_pos[:, :, :self._iFrame, :],
+				targetPosition=target_position[:, :, :self._i_current_frame],
+				centralizedPF_pos=self._centralizedPF_pos[:, :, :self._i_current_frame, :],
+				distributedPF_pos=self._distributedPF_pos[:, :, :self._i_current_frame, :],
 				**dic_normalized_aggregated_weights
 			)
 
 		# data is saved
-		#np.savez('res_' + self._outputFile + '.npz',**dataToBeSaved)
-		scipy.io.savemat('res_' + self._outputFile, dataToBeSaved)
-		print('results saved in "{}"'.format('res_' + self._outputFile))
+		#np.savez('res_' + self._outputFile + '.npz',**data_to_be_saved)
+		scipy.io.savemat('res_' + self._output_file, data_to_be_saved)
+		print('results saved in "{}"'.format('res_' + self._output_file))
 
 		# the above fix is undone
-		self._iFrame -= 1
+		self._i_current_frame -= 1
 
 	def process_frame(self, target_position, target_velocity):
 
@@ -422,15 +425,15 @@ class Convergence(SimpleSimulation):
 			n_PEs = self._settings_topologies[iTopology]['number of PEs']
 
 			# the last dimension is for the number of algorithms (centralized and distributed)
-			estimated_pos = np.full((state.n_elements_position, self._nTimeInstants, 2), np.nan)
+			estimated_pos = np.full((state.n_elements_position, self._n_time_instants, 2), np.nan)
 
-			aggregated_weights = np.full((self._nTimeInstants, n_PEs), np.nan)
+			aggregated_weights = np.full((self._n_time_instants, n_PEs), np.nan)
 
 			# initialization of the particle filters
 			pf.initialize()
 			distributed_pf.initialize()
 
-			if self._painterSettings['display evolution?']:
+			if self._settings_painter['display evolution?']:
 
 				# if this is not the first iteration...
 				if hasattr(self, '_painter'):
@@ -440,54 +443,53 @@ class Convergence(SimpleSimulation):
 
 				# this object will handle graphics...
 				self._painter = plot.RectangularRoomPainter(
-					self._roomSettings["bottom left corner"], self._roomSettings["top right corner"],
-					self._sensorsPositions, sleepTime=self._painterSettings["sleep time between updates"])
+					self._settings_room["bottom left corner"], self._settings_room["top right corner"],
+					self._sensorsPositions, sleepTime=self._settings_painter["sleep time between updates"])
 
 				# ...e.g., draw the sensors
 				self._painter.setup()
 
-			for iTime in range(self._nTimeInstants):
+			for iTime in range(self._n_time_instants):
 
-				print('---------- iFrame = {}, iTopology = {}, iTime = {}'.format(repr(self._iFrame),repr(iTopology),repr(iTime)))
+				print('---------- iFrame = {}, iTopology = {}, iTime = {}'.format(self._i_current_frame, iTopology, iTime))
 
-				print('position:\n',target_position[:, iTime:iTime+1])
-				print('velocity:\n',target_velocity[:, iTime:iTime+1])
+				print('position:\n', target_position[:, iTime:iTime+1])
+				print('velocity:\n', target_velocity[:, iTime:iTime+1])
 
 				# particle filters are updated
 				pf.step(self._observations[iTime])
 				distributed_pf.step(self._observations[iTime])
 
 				# the mean computed by the centralized and distributed PFs
-				centralizedPF_mean, distributedPF_mean = pf.compute_mean(),distributed_pf.compute_mean()
+				centralizedPF_mean, distributedPF_mean = pf.compute_mean(), distributed_pf.compute_mean()
 
 				estimated_pos[:, iTime:iTime+1, 0] = state.position(centralizedPF_mean)
 				estimated_pos[:, iTime:iTime+1, 1] = state.position(distributedPF_mean)
 
-				self._centralizedPF_pos[:, iTime:iTime+1, self._iFrame, iTopology] = state.position(centralizedPF_mean)
-				self._distributedPF_pos[:, iTime:iTime+1, self._iFrame, iTopology] = state.position(distributedPF_mean)
+				self._centralizedPF_pos[:, iTime:iTime+1, self._i_current_frame, iTopology] = state.position(centralizedPF_mean)
+				self._distributedPF_pos[:, iTime:iTime+1, self._i_current_frame, iTopology] = state.position(distributedPF_mean)
 
 				# the aggregated weights of the different PEs in the distributed PF are stored
-				self._distributedPFaggregatedWeights[iTopology][iTime, :, self._iFrame] = distributed_pf.aggregated_weights
+				self._distributedPFaggregatedWeights[iTopology][iTime, :, self._i_current_frame] = distributed_pf.aggregated_weights
 				aggregated_weights[iTime, :] = distributed_pf.aggregated_weights
 
-				print('centralized PF\n',centralizedPF_mean)
-				print('distributed PF\n',distributedPF_mean)
+				print('centralized PF\n', centralizedPF_mean)
+				print('distributed PF\n', distributedPF_mean)
 
-				if self._painterSettings["display evolution?"]:
+				if self._settings_painter["display evolution?"]:
 
 					# the plot is updated with the position of the target...
-					self._painter.updateTargetPosition(target_position[:,iTime:iTime+1])
+					self._painter.updateTargetPosition(target_position[:, iTime:iTime+1])
 
 					# ...those estimated by the PFs
-					self._painter.updateEstimatedPosition(state.position(centralizedPF_mean),identifier='centralized',color=self._painterSettings["color for the centralized PF"])
-					self._painter.updateEstimatedPosition(state.position(distributedPF_mean),identifier='distributed',color=self._painterSettings["color for the distributed PF"])
+					self._painter.updateEstimatedPosition(state.position(centralizedPF_mean), identifier='centralized',color=self._settings_painter["color for the centralized PF"])
+					self._painter.updateEstimatedPosition(state.position(distributedPF_mean), identifier='distributed', color=self._settings_painter["color for the distributed PF"])
 
-					if self._painterSettings["display particles evolution?"]:
+					if self._settings_painter["display particles evolution?"]:
 
 						# ...and those of the particles...
-						self._painter.updateParticlesPositions(state.position(pf.get_state()),identifier='centralized',color=self._painterSettings["color for the centralized PF"])
-						self._painter.updateParticlesPositions(state.position(distributed_pf.get_state()),identifier='distributed',color=self._painterSettings["color for the distributed PF"])
-
+						self._painter.updateParticlesPositions(state.position(pf.get_state()), identifier='centralized', color=self._settings_painter["color for the centralized PF"])
+						self._painter.updateParticlesPositions(state.position(distributed_pf.get_state()), identifier='distributed', color=self._settings_painter["color for the distributed PF"])
 
 			# data is saved
 			h5_estimated_pos = self._h5_current_frame.create_dataset(
@@ -508,7 +510,7 @@ class MultipleMposterior(Simulation):
 		super().__init__(parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, pseudo_random_numbers_generators)
 		
 		# HDF5 output file
-		self._f = h5py.File('res_' + self._outputFile + '.hdf5','w')
+		self._f = h5py.File('res_' + self._output_file + '.hdf5', 'w')
 		
 		# we will build several "Mposterior" objects...
 		self._simulations = []
@@ -517,7 +519,7 @@ class MultipleMposterior(Simulation):
 		self._sensors = []
 		
 		# for every pair nPEs-nSensors we aim to simulate...
-		for (nPEs, nSensors) in self._simulationParameters["nPEs-nSensors pairs"]:
+		for (nPEs, nSensors) in self._simulation_parameters["nPEs-nSensors pairs"]:
 			
 			self._simulations.append(Mposterior(
 				parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, pseudo_random_numbers_generators,
@@ -526,13 +528,13 @@ class MultipleMposterior(Simulation):
 	def process_frame(self, target_position, target_velocity):
 		
 		# let the super class do its thing...
-		super().process_frame(target_position,target_velocity)
+		super().process_frame(target_position, target_velocity)
 		
 		for sim in self._simulations:
 		
-			sim.process_frame(target_position,target_velocity)
+			sim.process_frame(target_position, target_velocity)
 		
-	def save_data(self,target_position):
+	def save_data(self, target_position):
 		
 		# let the super class do its thing...
 		super().save_data(target_position)
@@ -559,7 +561,7 @@ class Mposterior(SimpleSimulation):
 		for i_frame, frame in enumerate(h5_frames):
 
 			estimated_position[..., i_frame] = h5_frames['{}/estimated position'.format(frame)]
-			actual_position[...,i_frame] = h5_frames['{}/actual position'.format(frame)]
+			actual_position[..., i_frame] = h5_frames['{}/actual position'.format(frame)]
 
 		return actual_position, estimated_position, n_frames
 	
@@ -574,7 +576,7 @@ class Mposterior(SimpleSimulation):
 			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements, n_sensors)
 		
-		self._simulationParameters = parameters['simulations'][parameters['simulations']['type']]
+		self._simulation_parameters = parameters['simulations'][parameters['simulations']['type']]
 		self._MposteriorSettings = parameters['Mposterior']
 		self._LCDPFsettings = parameters['Likelihood Consensus']
 		
@@ -590,7 +592,8 @@ class Mposterior(SimpleSimulation):
 		self._everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensorsPositions)
 		
 		# the settings for the selected "sensors-PES connector"
-		settings_sensors_PEs_connector = parameters['sensors-PEs connectors'][self._simulationParameters['sensors-PEs connector']]
+		settings_sensors_PEs_connector = parameters['sensors-PEs connectors'][
+			self._simulation_parameters['sensors-PEs connector']]
 		
 		# the positions of the PEs are added as a parameters...
 		# technically they are "derived" parameters since they are completely determined by:
@@ -600,7 +603,7 @@ class Mposterior(SimpleSimulation):
 		self._settings_topologies['parameters']['PEs positions'] = self._PEsPositions
 		
 		# ...are used to build a connector, from which the links between PEs and sensors are obtained
-		self._PEsSensorsConnections = getattr(sensors_PEs_connector,settings_sensors_PEs_connector['implementing class'])(
+		self._PEsSensorsConnections = getattr(sensors_PEs_connector, settings_sensors_PEs_connector['implementing class'])(
 			self._sensorsPositions, self._PEsPositions, settings_sensors_PEs_connector['parameters']).getConnections(self._nPEs)
 
 		# network topology, which describes the connection among PEs, as well as the exact particles exchanged/shared
@@ -614,9 +617,9 @@ class Mposterior(SimpleSimulation):
 
 		# ...are plot the connections between them
 		sensors_network_plot = plot.TightRectangularRoomPainterWithPEs(
-			self._roomSettings["bottom left corner"], self._roomSettings["top right corner"], self._sensorsPositions,
+			self._settings_room["bottom left corner"], self._settings_room["top right corner"], self._sensorsPositions,
 			self._PEsPositions, self._PEsSensorsConnections, self._PEsTopology.get_neighbours(),
-			sleepTime=self._painterSettings["sleep time between updates"])
+			sleepTime=self._settings_painter["sleep time between updates"])
 
 		sensors_network_plot.setup()
 		sensors_network_plot.save(outputFile='network_topology_{}_PEs.pdf'.format(self._nPEs))
@@ -624,7 +627,7 @@ class Mposterior(SimpleSimulation):
 		# ------------------ parameters to be used by add_algorithms
 
 		# this is initialized here so that its value can be manipulated by subclasses
-		self._exchanged_particles = self._simulationParameters["exchanged particles"]
+		self._exchanged_particles = self._simulation_parameters["exchanged particles"]
 
 		# the maximum number of hops that a PE can be to exchange particles with a given PE
 		self._mposterior_exchange_step_depth = 2
@@ -647,7 +650,7 @@ class Mposterior(SimpleSimulation):
 		self.add_algorithms()
 		
 		# the position estimates
-		self._estimatedPos = np.empty((2,self._nTimeInstants,parameters["number of frames"], len(self._estimators)))
+		self._estimatedPos = np.empty((2, self._n_time_instants, parameters["number of frames"], len(self._estimators)))
 		
 		assert len(self._estimators_colors) == len(self._estimators_labels) == len(self._estimators)
 		
@@ -699,15 +702,15 @@ class Mposterior(SimpleSimulation):
 		"""
 
 		drna_exchange_recipe = smc.exchange_recipe.DRNAExchangeRecipe(
-			self._PEsTopology, self._K, self._exchanged_particles,
+			self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 		mposterior_exchange_recipe = smc.exchange_recipe.IteratedMposteriorExchangeRecipe(
-			self._PEsTopology, self._K, self._exchanged_particles,
+			self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
 			self._MposteriorSettings["number of iterations"], PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.MposteriorWithinRadiusExchangeRecipe(
-			self._PEsTopology, self._K, self._exchanged_particles, self._mposterior_exchange_step_depth,
+			self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles, self._mposterior_exchange_step_depth,
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 		# ------------
@@ -722,8 +725,8 @@ class Mposterior(SimpleSimulation):
 			# consensus
 			self._PFs.append(
 				particle_filter.LikelihoodConsensusDistributedTargetTrackingParticleFilter(
-					likelihood_consensus_exchange_recipe, self._nPEs, self._K, self._resamplingAlgorithm,
-					self._resamplingCriterion, self._prior, self._transitionKernel, self._sensors, self._PEsSensorsConnections,
+					likelihood_consensus_exchange_recipe, self._nPEs, self._n_particles_per_PE, self._resampling_algorithm,
+					self._resampling_criterion, self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
 					self._LCDPFsettings['degree of the polynomial approximation'],
 					particle_filters_class=smc.particle_filter.CentralizedTargetTrackingParticleFilterWithConsensusCapabilities
 					)
@@ -740,7 +743,7 @@ class Mposterior(SimpleSimulation):
 		# a single PE (with the number of particles of any other PE) that has access to all the observations
 		self._PFs.append(
 			particle_filter.CentralizedTargetTrackingParticleFilter(
-				self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,self._sensors
+				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior, self._transition_kernel, self._sensors
 				)
 		)
 
@@ -755,8 +758,8 @@ class Mposterior(SimpleSimulation):
 		# centralized PF
 		self._PFs.append(
 			particle_filter.CentralizedTargetTrackingParticleFilter(
-				self._K*self._nPEs, self._resamplingAlgorithm, self._resamplingCriterion, self._prior,
-				self._transitionKernel, self._sensors
+				self._n_particles_per_PE*self._nPEs, self._resampling_algorithm, self._resampling_criterion, self._prior,
+				self._transition_kernel, self._sensors
 				)
 		)
 			
@@ -771,9 +774,9 @@ class Mposterior(SimpleSimulation):
 		# a distributed PF with DRNA
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"], drna_exchange_recipe, self._K,
-				self._DRNAsettings["normalization period"], self._resamplingAlgorithm, self._resamplingCriterion,
-				self._prior, self._transitionKernel, self._sensors,
+				self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
+				self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
+				self._prior, self._transition_kernel, self._sensors,
 				self._everySensorWithEveryPEConnector.getConnections(self._nPEs),
 				particle_filters_class=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
@@ -790,9 +793,9 @@ class Mposterior(SimpleSimulation):
 		# a distributed PF using a variation of DRNA in which each PE only sees a subset of the observations
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"], drna_exchange_recipe, self._K,
-				self._DRNAsettings["normalization period"], self._resamplingAlgorithm, self._resamplingCriterion,
-				self._prior, self._transitionKernel, self._sensors, self._PEsSensorsConnections,
+				self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
+				self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
+				self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
 				particle_filters_class=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
 		)
@@ -808,7 +811,7 @@ class Mposterior(SimpleSimulation):
 		# a "distributed" PF in which each PE does its computation independently of the rest
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilter(
-				self._nPEs, self._K, self._resamplingAlgorithm, self._resamplingCriterion, self._prior, self._transitionKernel,
+				self._nPEs, self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior, self._transition_kernel,
 				self._sensors, self._PEsSensorsConnections, particle_filters_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter
 			)
 		)
@@ -826,8 +829,8 @@ class Mposterior(SimpleSimulation):
 		# DPF with M-posterior-based exchange
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-				mposterior_exchange_recipe, self._K, self._resamplingAlgorithm, self._resamplingCriterion, self._prior,
-				self._transitionKernel, self._sensors, self._PEsSensorsConnections,
+				mposterior_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
+				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
 				self._MposteriorSettings['findWeiszfeldMedian parameters'], self._MposteriorSettings['sharing period'],
 				particle_filters_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter)
 		)
@@ -867,8 +870,8 @@ class Mposterior(SimpleSimulation):
 		# DPF with M-posterior-based exchange within a certain depth
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-				mposterior_within_radius_exchange_recipe, self._K, self._resamplingAlgorithm, self._resamplingCriterion,
-				self._prior, self._transitionKernel, self._sensors, self._PEsSensorsConnections,
+				mposterior_within_radius_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion,
+				self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
 				self._MposteriorSettings['findWeiszfeldMedian parameters'], self._MposteriorSettings['sharing period'],
 				particle_filters_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter)
 		)
@@ -902,24 +905,24 @@ class Mposterior(SimpleSimulation):
 		super().save_data(target_position)
 		
 		# a dictionary encompassing all the data to be saved
-		dataToBeSaved = dict(
-				targetPosition=target_position[:, :, :self._iFrame],
-				PF_pos=self._estimatedPos[:, :, :self._iFrame, :]
+		data_to_be_saved = dict(
+				targetPosition=target_position[:, :, :self._i_current_frame],
+				PF_pos=self._estimatedPos[:, :, :self._i_current_frame, :]
 			)
 		
 		# data is saved
-		scipy.io.savemat('res_' + self._outputFile,dataToBeSaved)
-		print('results saved in "{}"'.format('res_' + self._outputFile))
+		scipy.io.savemat('res_' + self._output_file, data_to_be_saved)
+		print('results saved in "{}"'.format('res_' + self._output_file))
 		
 		# the mean of the error (euclidean distance) incurred by the PFs
 		pf_error = np.sqrt(
-			(np.subtract(self._estimatedPos[:, :, :self._iFrame, :], target_position[:, :, :self._iFrame, np.newaxis])**2)
-				.sum(axis=0)).mean(axis=1)
+			((self._estimatedPos[:, :, :self._i_current_frame, :] - target_position[:, :, :self._i_current_frame, np.newaxis])**2).sum(
+				axis=0)).mean(axis=1)
 		
 		plot.particle_filters(
-			range(self._nTimeInstants), pf_error,
-			self._simulationParameters["file name prefix for the estimation error vs time plot"] +
-			'_' + self._outputFile + '_nFrames={}.eps'.format(repr(self._iFrame)),
+			range(self._n_time_instants), pf_error,
+			self._simulation_parameters["file name prefix for the estimation error vs time plot"] +
+			'_' + self._output_file + '_nFrames={}.eps'.format(repr(self._i_current_frame)),
 			[{'label': l, 'color': c} for l, c in zip(self._estimators_labels, self._estimators_colors)])
 		
 		print(self._estimatedPos)
@@ -930,7 +933,7 @@ class Mposterior(SimpleSimulation):
 		super().process_frame(target_position, target_velocity)
 
 		# this array will store the results before they are saved
-		estimated_pos = np.full((state.n_elements_position, self._nTimeInstants, len(self._estimators)), np.nan)
+		estimated_pos = np.full((state.n_elements_position, self._n_time_instants, len(self._estimators)), np.nan)
 
 		# for every PF (different from estimator)...
 		for pf in self._PFs:
@@ -938,7 +941,7 @@ class Mposterior(SimpleSimulation):
 			# ...initialization
 			pf.initialize()
 
-		if self._painterSettings['display evolution?']:
+		if self._settings_painter['display evolution?']:
 
 			# if this is not the first iteration...
 			if hasattr(self, '_painter'):
@@ -948,18 +951,18 @@ class Mposterior(SimpleSimulation):
 
 			# this object will handle graphics...
 			self._painter = plot.RectangularRoomPainter(
-				self._roomSettings["bottom left corner"], self._roomSettings["top right corner"], self._sensorsPositions,
-				sleepTime=self._painterSettings["sleep time between updates"])
+				self._settings_room["bottom left corner"], self._settings_room["top right corner"], self._sensorsPositions,
+				sleepTime=self._settings_painter["sleep time between updates"])
 
 			# ...e.g., draw the self._sensors
 			self._painter.setup()
 
-		for iTime in range(self._nTimeInstants):
+		for iTime in range(self._n_time_instants):
 
-			print('---------- iFrame = {}, iTime = {}'.format(repr(self._iFrame),repr(iTime)))
+			print('---------- iFrame = {}, iTime = {}'.format(self._i_current_frame, iTime))
 
-			print('position:\n',target_position[:, iTime:iTime+1])
-			print('velocity:\n',target_velocity[:, iTime:iTime+1])
+			print('position:\n', target_position[:, iTime:iTime+1])
+			print('velocity:\n', target_velocity[:, iTime:iTime+1])
 
 			# for every PF (different from estimator)...
 			for pf in self._PFs:
@@ -970,26 +973,26 @@ class Mposterior(SimpleSimulation):
 			# for every estimator, along with its corresponding label,...
 			for iEstimator, (estimator, label) in enumerate(zip(self._estimators, self._estimators_labels)):
 
-				self._estimatedPos[:, iTime:iTime+1, self._iFrame, iEstimator] = state.position(estimator.estimate())
+				self._estimatedPos[:, iTime:iTime+1, self._i_current_frame, iEstimator] = state.position(estimator.estimate())
 
 				# the position given by this estimator at the current time instant is written to the HDF5 file
 				estimated_pos[:, iTime:iTime+1, iEstimator] = state.position(estimator.estimate())
 
-				print('position estimated by {}\n'.format(label), self._estimatedPos[:, iTime:iTime+1, self._iFrame, iEstimator])
+				print('position estimated by {}\n'.format(label), self._estimatedPos[:, iTime:iTime+1, self._i_current_frame, iEstimator])
 
-			if self._painterSettings["display evolution?"]:
+			if self._settings_painter["display evolution?"]:
 
 				# the plot is updated with the position of the target...
 				self._painter.updateTargetPosition(target_position[:, iTime:iTime+1])
 
 				# ...those estimated by the PFs
-				for iEstimator,(pf,color) in enumerate(zip(self._estimators, self._estimators_colors)):
+				for iEstimator, (pf, color) in enumerate(zip(self._estimators, self._estimators_colors)):
 
 					self._painter.updateEstimatedPosition(
-						self._estimatedPos[:, iTime:iTime+1, self._iFrame, iEstimator],
+						self._estimatedPos[:, iTime:iTime+1, self._i_current_frame, iEstimator],
 						identifier='#{}'.format(iEstimator), color=color)
 
-					if self._painterSettings["display particles evolution?"]:
+					if self._settings_painter["display particles evolution?"]:
 
 						self._painter.updateParticlesPositions(
 							state.position(pf.get_state()), identifier='#{}'.format(iEstimator), color=color)
@@ -1008,7 +1011,7 @@ class Mposterior(SimpleSimulation):
 		_, i_unique = np.unique(np.array(self._estimators_labels), return_index=True)
 
 		# they are sorted (just for keeping the original order whenever possible)
-		i_to_keep =  sorted(i_unique)
+		i_to_keep = sorted(i_unique)
 
 		# these will contain the relevant information for the surviving estimators
 		new_estimator_labels = []
@@ -1048,18 +1051,23 @@ class MposteriorGeometricMedian(Mposterior):
 	def add_algorithms(self):
 		
 		# a copy of the required PRNG is built...so that the exchange particles map is the same for both DRNA and Mposterior
-		# TODO: is this really necesary? a better approach?
+		# TODO: is this really necessary? a better approach?
 		import copy
 		PRNGcopy = copy.deepcopy(self._PRNGs["topology pseudo random numbers generator"])
 
-		DRNA_exchange_recipe = smc.exchange_recipe.DRNAExchangeRecipe(self._PEsTopology, self._K, self._simulationParameters["exchanged particles"], PRNG=self._PRNGs["topology pseudo random numbers generator"])
-		Mposterior_exchange_recipe = smc.exchange_recipe.MposteriorExchangeRecipe(self._PEsTopology,self._K,self._simulationParameters["exchanged particles"], PRNG=PRNGcopy)
+		DRNA_exchange_recipe = smc.exchange_recipe.DRNAExchangeRecipe(
+			self._PEsTopology, self._n_particles_per_PE, self._simulation_parameters["exchanged particles"],
+			PRNG=self._PRNGs["topology pseudo random numbers generator"])
+		Mposterior_exchange_recipe = smc.exchange_recipe.MposteriorExchangeRecipe(
+			self._PEsTopology, self._n_particles_per_PE, self._simulation_parameters["exchanged particles"], PRNG=PRNGcopy)
 		
 		# a distributed PF with DRNA
 		self._PFs.append(
 			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
-				self._DRNAsettings["exchange period"],DRNA_exchange_recipe,self._K,self._DRNAsettings["normalization period"],self._resamplingAlgorithm,self._resamplingCriterion,
-				self._prior,self._transitionKernel,self._sensors,self._everySensorWithEveryPEConnector.getConnections(self._nPEs),
+				self._settings_DRNA["exchange period"], DRNA_exchange_recipe, self._n_particles_per_PE,
+				self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
+				self._prior, self._transition_kernel, self._sensors,
+				self._everySensorWithEveryPEConnector.getConnections(self._nPEs),
 				particle_filters_class=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
 			)
 		)
@@ -1072,18 +1080,19 @@ class MposteriorGeometricMedian(Mposterior):
 		# ------------
 		
 		# available colors
-		colors = ['red','blue','green','goldenrod','cyan','crimson','lime','cadetblue','magenta']
+		colors = ['red', 'blue', 'green', 'goldenrod', 'cyan', 'crimson', 'lime', 'cadetblue', 'magenta']
 		
 		# DPF with M-posterior-based exchange
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-				Mposterior_exchange_recipe,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
-				self._sensors,self._PEsSensorsConnections,self._MposteriorSettings['findWeiszfeldMedian parameters'],
-				self._MposteriorSettings['sharing period'], particle_filters_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter,
+				Mposterior_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
+				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+				self._MposteriorSettings['findWeiszfeldMedian parameters'], self._MposteriorSettings['sharing period'],
+				particle_filters_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter,
 			)
 		)
 		
-		for n_particles, col in zip(self._simulationParameters['number of particles for estimation'], colors):
+		for n_particles, col in zip(self._simulation_parameters['number of particles for estimation'], colors):
 			
 			self._estimators.append(smc.estimator.StochasticGeometricMedian(
 				self._PFs[-1], n_particles,
@@ -1101,15 +1110,15 @@ class MposteriorIterative(Mposterior):
 
 		colors = ['red','blue','green','goldenrod','cyan','crimson','lime','cadetblue','magenta']
 
-		for n_iterations,color in zip(self._simulationParameters["number of iterations"],colors):
+		for n_iterations,color in zip(self._simulation_parameters["number of iterations"],colors):
 
 			exchange_recipe = smc.exchange_recipe.IteratedMposteriorExchangeRecipe(
-				self._PEsTopology, self._K, self._simulationParameters["exchanged particles"],
+				self._PEsTopology, self._n_particles_per_PE, self._simulation_parameters["exchanged particles"],
 				n_iterations, PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 			self._PFs.append(
 				smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-					exchange_recipe,self._K,self._resamplingAlgorithm,self._resamplingCriterion,self._prior,self._transitionKernel,
+					exchange_recipe,self._n_particles_per_PE,self._resampling_algorithm,self._resampling_criterion,self._prior,self._transition_kernel,
 					self._sensors,self._PEsSensorsConnections,self._MposteriorSettings['findWeiszfeldMedian parameters'],
 					self._MposteriorSettings['sharing period'], particle_filters_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter,
 				)
