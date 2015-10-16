@@ -263,7 +263,7 @@ target_position = np.empty((2, n_time_instants, parameters["number of frames"]))
 mobile = target.Target(prior, transitionKernel, pseudo_random_numbers_generator=PRNGs["Trajectory pseudo random numbers generator"])
 
 # the class of the "simulation" object to be created...
-simulation_class = getattr(simulation, settings_simulation[settings_simulation['type']]['implementing class'])
+simulation_class = getattr(simulation, settings_simulation[parameters['simulation type']]['implementing class'])
 
 # ...is used to instantiate the latter
 sim = simulation_class(parameters, resampling_algorithm, resampling_criterion, prior, transitionKernel, output_file, PRNGs)

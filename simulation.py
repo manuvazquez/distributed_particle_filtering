@@ -61,14 +61,14 @@ class Simulation(metaclass=abc.ABCMeta):
 		self._i_current_frame = -1
 		
 		# the parameters for this particular simulation are obtained
-		self._simulation_parameters = parameters['simulations'][parameters['simulations']['type']]
+		self._simulation_parameters = parameters['simulations'][parameters['simulation type']]
 		
 	@abc.abstractmethod
 	def process_frame(self, target_position, target_velocity):
 		
 		self._i_current_frame += 1
 	
-	# TODO: remove targetPosition as argument?
+	# TODO: remove target_position as argument?
 	
 	@abc.abstractmethod
 	def save_data(self, target_position):
@@ -576,7 +576,7 @@ class Mposterior(SimpleSimulation):
 			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements, n_sensors)
 		
-		self._simulation_parameters = parameters['simulations'][parameters['simulations']['type']]
+		self._simulation_parameters = parameters['simulations'][parameters['simulation type']]
 		self._MposteriorSettings = parameters['Mposterior']
 		self._LCDPFsettings = parameters['Likelihood Consensus']
 		

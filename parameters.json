@@ -1,219 +1,219 @@
 {
-	"number of frames": 10,
-	"number of time instants": 300,
-	"number of particles per PE": 200,
-	"network nodes": {
-		"fixed number of sensors per PE": {
-			"implementing class": "FixedNumberOfSensorsPerPE",
-			"parameters": {
-				"radius": 2,
-				"phase": 0,
-				"nSamples": 10000
-			}
-		},
-		"PEs without position and equispaced sensors": {
-			"implementing class": "PositionlessPEsEquispacedSensors",
-			"parameters": {}
-		},
-		"randomly strewn sensors and PEs": {
-			"implementing class": "RandomlyStrewnSensorsAndPEs",
-			"parameters": {
-				"nSamples": 10000
-			}
-		}
-	},
-	"topologies": {
-		"type": ["Mesh"],
-		"Constant degree simple graph": {
-			"implementing class": "ConstantDegreeSimpleGraph",
-			"number of PEs": 128,
-			"parameters": {
-				"number of neighbours as a percentage of the number of PEs": 0.5
-			}
-		},
-		"Mesh": {
-			"implementing class": "Mesh",
-			"number of PEs": 16,
-			"parameters": {
-				"geometry": [4,4],
-				"neighbours": [[-1,0],[1,0],[0,1],[0,-1]],
-				"wraparound": false
-			}
-		},
-		"Fully connected graph with some random links removed": {
-			"implementing class": "FullyConnectedWithRandomLinksRemoved",
-			"number of PEs": 16,
-			"parameters": {
-				"number of links to be removed": 30
-			}
-		},
-		"Custom": {
-			"implementing class": "Customized",
-			"number of PEs": 16,
-			"parameters": {
-				"neighbourhoods": [[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]]
-			}
-		},
-		"Fully connected graph": {
-			"implementing class": "FullyConnected",
-			"number of PEs": 16,
-			"parameters": {
-			}
-		},
-		"LOS-based": {
-			"implementing class": "LOSbased",
-			"number of PEs": 9,
-			"parameters": {
-				"ranges of vision for right, up, left and down": [[-45,45],[45,135],[135,-135],[-135,-45]]
-			}
-		}
-	},
-	"sensors": {
-		"number": 16,
-		"type": "RSS",
-		"RSS": {
-			"implementing class": "RSSsensor",
-			"parameters": {
-				"transmitter_power": 1,
-				"path_loss_exponent": 3,
-				"noise_variance": 1,
-				"minimum_amount_of_power": 1e-5
-			}
-		},
-		"Binary": {
-			"implementing class": "BinarySensor",
-			"parameters": {
-				"radius": 7,
-				"probability_of_detection_within_the_radius": 0.9,
-				"probability_of_false_alarm": 0.01
-			}
-		}
-	},
-	"room": {
-		"bottom left corner": [-20,-10],
-		"top right corner": [20,10]
-	},
-	"SMC": {
-		"resampling ratio": 0.9
-	},
-	"prior distribution": {
-		"velocity variance": 0.05
-	},
-	"state transition": {
-		"velocity variance": 0.01,
-		"position variance": 0.01,
-		"time step size": 1,
-		"type": "resetting target",
-		"bouncing target": {
-			"implementing class": "BouncingWithinRectangleTransitionKernel",
-			"parameters": {}
-		},
-		"resetting target": {
-			"implementing class": "OnEdgeResetTransitionKernel",
-			"parameters": {
-				"reset_velocity_variance": 0.01
-			}
-		}
-	},
-	"painter": {
-		"sleep time between updates": 0.01,
-		"color for the centralized PF": "blue",
-		"marker for the centralized PF": "+",
-		"color for the distributed PF": "green",
-		"marker for the distributed PF": "o",
-		"file name prefix for the MSE vs time plot": "MSEvsTime",
-		"file name prefix for the euclidean distance vs time plot": "errorVsTime",
-		"file name prefix for the aggregated weights supremum vs time plot": "supremumVsTime",
-		"file name prefix for the MSE vs number of PEs plot": "MSEvsM",
-		"file name prefix for the euclidean distance vs number of PEs plot": "errorVsM",
-		"file name prefix for the aggregated weights supremum vs number of PEs plot": "supremumVsM",
-		"display evolution?": false,
-		"display particles evolution?": false,
-		"use display server if available?": false
-	},
-	"DRNA": {
-		"exchange period": 10,
-		"c": 4.0,
-		"q": 4,
-		"epsilon": 0.1,
-		"normalization period": 5
-	},
-	"Mposterior": {
-		"sharing period": 10,
-	  	"number of iterations": 1,
-		"findWeiszfeldMedian parameters": {
-			"sigma": 0.1,
-			"maxit": 100,
-			"tol": 1e-10
-		}
-	},
-	"Likelihood Consensus": {
-		"degree of the polynomial approximation": 2,
-		"number of consensus iterations": 7
-	},
-	"simulations": {
-		"type": "DRNA convergence",
-		"Mposterior": {
-			"implementing class": "Mposterior",
-			"network": "fixed number of sensors per PE",
-			"exchanged particles": 0.15,
-			"sensors-PEs connector": "sensors connected to the closest PEs",
-			"file name prefix for the estimation error vs time plot": "errorVsTime"
-		},
-		"Mposterior: exchange": {
-			"implementing class": "MposteriorExchange",
-		  	"network": "randomly strewn sensors and PEs",
-			"exchanged particles": [0.02,0.05,0.1,0.15,0.25,0.50],
-			"file name prefix for the estimation error vs time plot": "errorVsTime"
-		},
-		"Mposterior: geometric median": {
-			"implementing class": "MposteriorGeometricMedian",
-			"number of particles for estimation": [1,2,5,10,20,50],
-			"file name prefix for the estimation error vs time plot": "errorVsTime"
-		},
-		"DRNA convergence": {
-			"implementing class": "Convergence",
-			"network": "PEs without position and equispaced sensors",
-		  	"exchanged particles": 0.65
-		},
-		"Multiple Mposterior": {
-			"implementing class": "MultipleMposterior",
-			"network": "fixed number of sensors per PE",
-			"exchanged particles": 0.5,
-			"sensors-PEs connector": "sensors connected to the closest PEs",
-			"nPEs-nSensors pairs": [[2,8],[4,16],[8,32]]
-		},
-		"Mposterior: number of iterations": {
-			"implementing class": "MposteriorIterative",
-			"network": "randomly strewn sensors and PEs",
-			"exchanged particles": 3,
-			"sensors-PEs connector": "sensors connected to the closest PEs",
-			"number of iterations": [1,3],
-			"file name prefix for the estimation error vs time plot": "errorVsTime"
-		}
-	},
-	"sensors-PEs connectors": {
-		"every sensor connected to every PE": {
-			"implementing class": "EverySensorWithEveryPEConnector",
-			"parameters": {}
-		},
-		"fixed number of PEs per sensor": {
-			"implementing class": "SensorOrientedConnector",
-			"parameters": {
-				"number of PEs per sensor": 4
-			}
-		},
-		"sensors connected to the closest PEs": {
-			"implementing class": "ProximityBasedConnector",
-			"parameters": {
-				"number of uniform samples": 10000
-			}
-		}
-	},
-	"load sensors and Monte Carlo pseudo random numbers generator?": false,
-	"Sensors and Monte Carlo pseudo random numbers generator": "SensorsAndMonteCarloRandom.RandomState",
-	"load trajectory pseudo random numbers generator?": false,
-	"Trajectory pseudo random numbers generator": "Trajectory.RandomState",
-	"load topology pseudo random numbers generator?": false,
-	"topology pseudo random numbers generator": "Topology.RandomState"
+  "simulation type": "DRNA convergence",
+  "number of frames": 10,
+  "number of time instants": 300,
+  "number of particles per PE": 200,
+  "network nodes": {
+	  "fixed number of sensors per PE": {
+		  "implementing class": "FixedNumberOfSensorsPerPE",
+		  "parameters": {
+			  "radius": 2,
+			  "phase": 0,
+			  "nSamples": 10000
+		  }
+	  },
+	  "PEs without position and equispaced sensors": {
+		  "implementing class": "PositionlessPEsEquispacedSensors",
+		  "parameters": {}
+	  },
+	  "randomly strewn sensors and PEs": {
+		  "implementing class": "RandomlyStrewnSensorsAndPEs",
+		  "parameters": {
+			  "nSamples": 10000
+		  }
+	  }
+  },
+  "topologies": {
+	  "type": ["Mesh"],
+	  "Constant degree simple graph": {
+		  "implementing class": "ConstantDegreeSimpleGraph",
+		  "number of PEs": 128,
+		  "parameters": {
+			  "number of neighbours as a percentage of the number of PEs": 0.5
+		  }
+	  },
+	  "Mesh": {
+		  "implementing class": "Mesh",
+		  "number of PEs": 16,
+		  "parameters": {
+			  "geometry": [4,4],
+			  "neighbours": [[-1,0],[1,0],[0,1],[0,-1]],
+			  "wraparound": false
+		  }
+	  },
+	  "Fully connected graph with some random links removed": {
+		  "implementing class": "FullyConnectedWithRandomLinksRemoved",
+		  "number of PEs": 16,
+		  "parameters": {
+			  "number of links to be removed": 30
+		  }
+	  },
+	  "Custom": {
+		  "implementing class": "Customized",
+		  "number of PEs": 16,
+		  "parameters": {
+			  "neighbourhoods": [[1,3],[0,2],[1,9],[0,4],[3,5],[4,6],[5,7],[6,8],[7,9],[2,8]]
+		  }
+	  },
+	  "Fully connected graph": {
+		  "implementing class": "FullyConnected",
+		  "number of PEs": 16,
+		  "parameters": {
+		  }
+	  },
+	  "LOS-based": {
+		  "implementing class": "LOSbased",
+		  "number of PEs": 9,
+		  "parameters": {
+			  "ranges of vision for right, up, left and down": [[-45,45],[45,135],[135,-135],[-135,-45]]
+		  }
+	  }
+  },
+  "sensors": {
+	  "number": 16,
+	  "type": "RSS",
+	  "RSS": {
+		  "implementing class": "RSSsensor",
+		  "parameters": {
+			  "transmitter_power": 1,
+			  "path_loss_exponent": 3,
+			  "noise_variance": 1,
+			  "minimum_amount_of_power": 1e-5
+		  }
+	  },
+	  "Binary": {
+		  "implementing class": "BinarySensor",
+		  "parameters": {
+			  "radius": 7,
+			  "probability_of_detection_within_the_radius": 0.9,
+			  "probability_of_false_alarm": 0.01
+		  }
+	  }
+  },
+  "room": {
+	  "bottom left corner": [-20,-10],
+	  "top right corner": [20,10]
+  },
+  "SMC": {
+	  "resampling ratio": 0.9
+  },
+  "prior distribution": {
+	  "velocity variance": 0.05
+  },
+  "state transition": {
+	  "velocity variance": 0.01,
+	  "position variance": 0.01,
+	  "time step size": 1,
+	  "type": "resetting target",
+	  "bouncing target": {
+		  "implementing class": "BouncingWithinRectangleTransitionKernel",
+		  "parameters": {}
+	  },
+	  "resetting target": {
+		  "implementing class": "OnEdgeResetTransitionKernel",
+		  "parameters": {
+			  "reset_velocity_variance": 0.01
+		  }
+	  }
+  },
+  "painter": {
+	  "sleep time between updates": 0.01,
+	  "color for the centralized PF": "blue",
+	  "marker for the centralized PF": "+",
+	  "color for the distributed PF": "green",
+	  "marker for the distributed PF": "o",
+	  "file name prefix for the MSE vs time plot": "MSEvsTime",
+	  "file name prefix for the euclidean distance vs time plot": "errorVsTime",
+	  "file name prefix for the aggregated weights supremum vs time plot": "supremumVsTime",
+	  "file name prefix for the MSE vs number of PEs plot": "MSEvsM",
+	  "file name prefix for the euclidean distance vs number of PEs plot": "errorVsM",
+	  "file name prefix for the aggregated weights supremum vs number of PEs plot": "supremumVsM",
+	  "display evolution?": false,
+	  "display particles evolution?": false,
+	  "use display server if available?": false
+  },
+  "DRNA": {
+	  "exchange period": 10,
+	  "c": 4.0,
+	  "q": 4,
+	  "epsilon": 0.1,
+	  "normalization period": 5
+  },
+  "Mposterior": {
+	  "sharing period": 10,
+	  "number of iterations": 1,
+	  "findWeiszfeldMedian parameters": {
+		  "sigma": 0.1,
+		  "maxit": 100,
+		  "tol": 1e-10
+	  }
+  },
+  "Likelihood Consensus": {
+	  "degree of the polynomial approximation": 2,
+	  "number of consensus iterations": 7
+  },
+  "simulations": {
+	  "Mposterior": {
+		  "implementing class": "Mposterior",
+		  "network": "fixed number of sensors per PE",
+		  "exchanged particles": 0.15,
+		  "sensors-PEs connector": "sensors connected to the closest PEs",
+		  "file name prefix for the estimation error vs time plot": "errorVsTime"
+	  },
+	  "Mposterior: exchange": {
+		  "implementing class": "MposteriorExchange",
+		  "network": "randomly strewn sensors and PEs",
+		  "exchanged particles": [0.02,0.05,0.1,0.15,0.25,0.50],
+		  "file name prefix for the estimation error vs time plot": "errorVsTime"
+	  },
+	  "Mposterior: geometric median": {
+		  "implementing class": "MposteriorGeometricMedian",
+		  "number of particles for estimation": [1,2,5,10,20,50],
+		  "file name prefix for the estimation error vs time plot": "errorVsTime"
+	  },
+	  "DRNA convergence": {
+		  "implementing class": "Convergence",
+		  "network": "PEs without position and equispaced sensors",
+		  "exchanged particles": 0.65
+	  },
+	  "Multiple Mposterior": {
+		  "implementing class": "MultipleMposterior",
+		  "network": "fixed number of sensors per PE",
+		  "exchanged particles": 0.5,
+		  "sensors-PEs connector": "sensors connected to the closest PEs",
+		  "nPEs-nSensors pairs": [[2,8],[4,16],[8,32]]
+	  },
+	  "Mposterior: number of iterations": {
+		  "implementing class": "MposteriorIterative",
+		  "network": "randomly strewn sensors and PEs",
+		  "exchanged particles": 3,
+		  "sensors-PEs connector": "sensors connected to the closest PEs",
+		  "number of iterations": [1,3],
+		  "file name prefix for the estimation error vs time plot": "errorVsTime"
+	  }
+  },
+  "sensors-PEs connectors": {
+	  "every sensor connected to every PE": {
+		  "implementing class": "EverySensorWithEveryPEConnector",
+		  "parameters": {}
+	  },
+	  "fixed number of PEs per sensor": {
+		  "implementing class": "SensorOrientedConnector",
+		  "parameters": {
+			  "number of PEs per sensor": 4
+		  }
+	  },
+	  "sensors connected to the closest PEs": {
+		  "implementing class": "ProximityBasedConnector",
+		  "parameters": {
+			  "number of uniform samples": 10000
+		  }
+	  }
+  },
+  "load sensors and Monte Carlo pseudo random numbers generator?": false,
+  "Sensors and Monte Carlo pseudo random numbers generator": "SensorsAndMonteCarloRandom.RandomState",
+  "load trajectory pseudo random numbers generator?": false,
+  "Trajectory pseudo random numbers generator": "Trajectory.RandomState",
+  "load topology pseudo random numbers generator?": false,
+  "topology pseudo random numbers generator": "Topology.RandomState"
 }
