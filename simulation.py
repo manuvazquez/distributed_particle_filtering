@@ -701,9 +701,6 @@ class Mposterior(SimpleSimulation):
 		
 		"""
 
-		# this method can be called several times, and in order to find out which algorithms are added in this call
-		n_algorithms = len(self._estimators)
-
 		drna_exchange_recipe = smc.exchange_recipe.DRNAExchangeRecipe(
 			self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
@@ -729,8 +726,8 @@ class Mposterior(SimpleSimulation):
 			self._PFs.append(
 				particle_filter.LikelihoodConsensusDistributedTargetTrackingParticleFilter(
 					likelihood_consensus_exchange_recipe, self._nPEs, self._n_particles_per_PE, self._resampling_algorithm,
-					self._resampling_criterion, self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-					self._LCDPFsettings['degree of the polynomial approximation'],
+					self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
+					self._PEsSensorsConnections, self._LCDPFsettings['degree of the polynomial approximation'],
 					particle_filters_class=smc.particle_filter.CentralizedTargetTrackingParticleFilterWithConsensusCapabilities
 					)
 			)
@@ -746,7 +743,8 @@ class Mposterior(SimpleSimulation):
 		# a single PE (with the number of particles of any other PE) that has access to all the observations
 		self._PFs.append(
 			particle_filter.CentralizedTargetTrackingParticleFilter(
-				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior, self._transition_kernel, self._sensors
+				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
+				self._transition_kernel, self._sensors
 				)
 		)
 
@@ -814,8 +812,9 @@ class Mposterior(SimpleSimulation):
 		# a "distributed" PF in which each PE does its computation independently of the rest
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilter(
-				self._nPEs, self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior, self._transition_kernel,
-				self._sensors, self._PEsSensorsConnections, particle_filters_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter
+				self._nPEs, self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion,
+				self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+				particle_filters_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter
 			)
 		)
 
@@ -832,8 +831,8 @@ class Mposterior(SimpleSimulation):
 		# DPF with M-posterior-based exchange
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-				mposterior_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
-				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+				mposterior_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion,
+				self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
 				self._MposteriorSettings['findWeiszfeldMedian parameters'], self._MposteriorSettings['sharing period'],
 				particle_filters_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter)
 		)
@@ -855,8 +854,8 @@ class Mposterior(SimpleSimulation):
 		)
 
 		self._estimators_colors.append('coral')
-		self._estimators_labels.append(
-			'M-posterior exch. {} ({} hops geometric median)'.format(self._exchanged_particles, self._mposterior_estimator_radius))
+		self._estimators_labels.append('M-posterior exch. {} ({} hops geometric median)'.format(
+			self._exchanged_particles, self._mposterior_estimator_radius))
 		
 		# ------------
 
@@ -873,8 +872,8 @@ class Mposterior(SimpleSimulation):
 		# DPF with M-posterior-based exchange within a certain depth
 		self._PFs.append(
 			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
-				mposterior_within_radius_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion,
-				self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+				mposterior_within_radius_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
+				self._resampling_criterion, self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
 				self._MposteriorSettings['findWeiszfeldMedian parameters'], self._MposteriorSettings['sharing period'],
 				particle_filters_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter)
 		)
@@ -899,12 +898,6 @@ class Mposterior(SimpleSimulation):
 		self._estimators_labels.append(
 			'M-posterior exch. {} - depth {} ({} hops)'.format(
 				self._exchanged_particles, self._mposterior_exchange_step_depth, self._mposterior_estimator_radius))
-
-		# ------------
-
-		# the number of particles used is preppended to the names of the algorithms
-		self._estimators_labels[n_algorithms:] = [
-			'[{}] '.format(self._n_particles_per_PE) + l for l in self._estimators_labels[n_algorithms:]]
 
 	def save_data(self, target_position):
 		
@@ -1059,6 +1052,13 @@ class MposteriorNumberOfParticles(Mposterior):
 
 		for n_particles in self._simulation_parameters['number of particles']:
 
+			# how many algorithms were queued so far
+			n_algorithms = len(self._estimators)
+
 			self._n_particles_per_PE = n_particles
 
 			super().add_algorithms()
+
+			# the number of particles used is prepended to the names of the algorithms
+			self._estimators_labels[n_algorithms:] = [
+				'[{} particles per PE] '.format(n_particles) + l for l in self._estimators_labels[n_algorithms:]]
