@@ -87,7 +87,7 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 
 		else:
 
-			# # the "reference" is set to the (varying) "particles_not_swapped_yet"
+			# the "reference" is set to the (varying) "particles_not_swapped_yet"
 			candidate_particles = particles_not_swapped_yet
 
 		# named tuples as defined above, each representing an exchange

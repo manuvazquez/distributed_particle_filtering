@@ -144,6 +144,7 @@
     "number of iterations": 1,
     "sharing step depth": 2,
     "estimation step radius": 4,
+    "allow sharing each particle more than once": false,
     "findWeiszfeldMedian parameters": {
       "sigma": 0.1,
       "maxit": 100,

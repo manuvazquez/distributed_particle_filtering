@@ -636,6 +636,9 @@ class Mposterior(SimpleSimulation):
 		# the same at estimation time
 		self._mposterior_estimator_radius = parameters["Mposterior"]["estimation step radius"]
 
+		self._mposterior_exchange_particles_more_than_once = parameters["Mposterior"][
+			"allow sharing each particle more than once"]
+
 		# DPF with M-posterior-based exchange gets its estimates from this PE
 		self._i_PE_estimation = self._simulation_parameters["index of reference PE"]
 
@@ -710,11 +713,13 @@ class Mposterior(SimpleSimulation):
 
 		mposterior_exchange_recipe = smc.exchange_recipe.IteratedMposteriorExchangeRecipe(
 			self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
-			self._MposteriorSettings["number of iterations"], PRNG=self._PRNGs["topology pseudo random numbers generator"])
+			self._MposteriorSettings["number of iterations"], PRNG=self._PRNGs["topology pseudo random numbers generator"],
+			allow_exchange_one_particle_more_than_once=self._mposterior_exchange_particles_more_than_once)
 
 		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.MposteriorWithinRadiusExchangeRecipe(
 			self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles, self._mposterior_exchange_step_depth,
-			PRNG=self._PRNGs["topology pseudo random numbers generator"])
+			PRNG=self._PRNGs["topology pseudo random numbers generator"],
+			allow_exchange_one_particle_more_than_once=self._mposterior_exchange_particles_more_than_once)
 
 		# ------------
 
@@ -739,15 +744,15 @@ class Mposterior(SimpleSimulation):
 			self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], 0))
 
 			self._estimators_colors.append(color)
-			self._estimators_labels.append('LC DPF with {} iterations'.format(n_consensus_iter))
+			self._estimators_labels.append('Likelihood Consensus DPF with {} iterations'.format(n_consensus_iter))
 		
 		# ------------
 
 		# a single PE (with the number of particles of any other PE) that has access to all the observations
 		self._PFs.append(
-			particle_filter.CentralizedTargetTrackingParticleFilter(
+			particle_filter.CentralizedTargetTrackingParticleFilterWithFusionCenter(
 				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
-				self._transition_kernel, self._sensors
+				self._transition_kernel, self._sensors, self._i_PE_estimation
 				)
 		)
 
@@ -846,7 +851,7 @@ class Mposterior(SimpleSimulation):
 			tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 
 		self._estimators_colors.append('green')
-		self._estimators_labels.append('M-posterior exch. {} (geometric median, 1 particle from each PE)'.format(
+		self._estimators_labels.append('M-posterior exch. {} (1 particle from each PE)'.format(
 			self._exchanged_particles))
 		
 		# ------------
@@ -887,7 +892,7 @@ class Mposterior(SimpleSimulation):
 			tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 
 		self._estimators_colors.append('blue')
-		self._estimators_labels.append('M-posterior exch. {} - depth {}'.format(
+		self._estimators_labels.append('M-posterior exch. {} - depth {} (1 particle from each PE)'.format(
 			self._exchanged_particles, self._mposterior_exchange_step_depth))
 
 		# ------------
@@ -899,7 +904,7 @@ class Mposterior(SimpleSimulation):
 
 		self._estimators_colors.append('khaki')
 		self._estimators_labels.append(
-			'M-posterior exch. {} - depth {} ({} hops)'.format(
+			'M-posterior exch. {} - depth {} ({} hops geometric median)'.format(
 				self._exchanged_particles, self._mposterior_exchange_step_depth, self._mposterior_estimator_radius))
 
 	def save_data(self, target_position):
