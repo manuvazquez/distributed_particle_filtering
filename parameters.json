@@ -142,6 +142,8 @@
   "Mposterior": {
     "sharing period": 10,
     "number of iterations": 1,
+    "sharing step depth": 2,
+    "estimation step radius": 4,
     "findWeiszfeldMedian parameters": {
       "sigma": 0.1,
       "maxit": 100,
@@ -158,6 +160,7 @@
       "network": "fixed number of sensors per PE",
       "exchanged particles": 0.15,
       "sensors-PEs connector": "sensors connected to the closest PEs",
+      "index of reference PE": 0,
       "file name prefix for the estimation error vs time plot": "errorVsTime"
     },
     "Mposterior: exchange": {

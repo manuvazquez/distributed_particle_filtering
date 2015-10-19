@@ -746,7 +746,7 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 		# a numpy array containing all the particles (coming from all the PEs)
 		joint_particles = np.array(weiszfeld_median[3]).T
 		
-		# the weight of each PE is scaled according to the "weiszfeld_weights" and, all of them are stacked together
+		# the weight of each PE is scaled according to the "Weiszfeld_weights" and, all of them are stacked together
 		joint_weights =	np.hstack([posterior[1]*weight for posterior, weight in zip(posterior_distributions, weiszfeld_weights)])
 		
 		return joint_particles, joint_weights
@@ -766,3 +766,24 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 			processing_elements_topology, each_processing_element_connected_sensors)
 
 		return messages_observations_propagation + self.exchange_recipe.messages()/self._sharingPeriod
+
+
+class CentralizedTargetTrackingParticleFilterWithFusionCenter(CentralizedTargetTrackingParticleFilter):
+
+	def __init__(
+			self, n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
+			i_fusion_center_neighbour, aggregated_weight=1.0):
+
+		super().__init__(
+			n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors, aggregated_weight)
+
+		self._i_fusion_center_neighbour = i_fusion_center_neighbour
+
+	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
+
+
+		distances = processing_elements_topology.distances_between_processing_elements[self._i_fusion_center_neighbour] + 1
+
+		return sum([d*len(each_processing_element_connected_sensors) for d, c in zip(
+			distances, each_processing_element_connected_sensors)])
+

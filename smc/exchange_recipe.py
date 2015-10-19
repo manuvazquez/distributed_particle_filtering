@@ -239,6 +239,7 @@ class MposteriorWithinRadiusExchangeRecipe(MposteriorExchangeRecipe):
 
 		return self._PEs_topology.i_neighbours_within_hops(self.radius)
 
+
 class IteratedMposteriorExchangeRecipe(MposteriorExchangeRecipe):
 
 	def __init__(

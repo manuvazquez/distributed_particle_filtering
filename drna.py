@@ -105,9 +105,10 @@ settings_simulation = parameters['simulations']
 
 # we use the "agg" backend if the DISPLAY variable is not present
 # (the program is running without a display server) or the parameters file says so
-useAgg = ('DISPLAY' not in os.environ) or (not parameters["painter"]["use display server if available?"])
+use_matplotlib_agg_backend = ('DISPLAY' not in os.environ) or (
+	not parameters["painter"]["use display server if available?"])
 
-if useAgg:
+if use_matplotlib_agg_backend:
 	import matplotlib
 	matplotlib.use('agg')
 
@@ -322,7 +323,7 @@ print('Execution time: {}'.format(datetime.timedelta(seconds=elapsed_time)))
 # ----------------------------------------------------------------------------------------------------------------------
 
 # if using the agg backend (no pictures shown), there is no point in bringing up the interactive prompt before exiting
-if not useAgg:
+if not use_matplotlib_agg_backend:
 
 	import code
 	code.interact(local=dict(globals(), **locals()))

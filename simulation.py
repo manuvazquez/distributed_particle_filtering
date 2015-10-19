@@ -149,6 +149,7 @@ class SimpleSimulation(Simulation):
 		# these are going to be set/used by other methods
 		self._observations = None
 		self._h5_current_frame = None
+		self._painter = None
 		
 	def process_frame(self, target_position, target_velocity):
 		
@@ -435,8 +436,8 @@ class Convergence(SimpleSimulation):
 
 			if self._settings_painter['display evolution?']:
 
-				# if this is not the first iteration...
-				if hasattr(self, '_painter'):
+				# if this is not the first frame...
+				if self._painter:
 
 					# ...then, the previous figure is closed
 					self._painter.close()
@@ -630,13 +631,13 @@ class Mposterior(SimpleSimulation):
 		self._exchanged_particles = self._simulation_parameters["exchanged particles"]
 
 		# the maximum number of hops that a PE can be to exchange particles with a given PE
-		self._mposterior_exchange_step_depth = 2
+		self._mposterior_exchange_step_depth = parameters["Mposterior"]["sharing step depth"]
 
 		# the same at estimation time
-		self._mposterior_estimator_radius = 4
+		self._mposterior_estimator_radius = parameters["Mposterior"]["estimation step radius"]
 
 		# DPF with M-posterior-based exchange gets its estimates from this PE
-		self._i_PE_estimation = 0
+		self._i_PE_estimation = self._simulation_parameters["index of reference PE"]
 
 		# -----------------------------------------------------------
 		
@@ -683,8 +684,10 @@ class Mposterior(SimpleSimulation):
 
 		for estimator, label in zip(self._estimators, self._estimators_labels):
 
+			# number of messages due to the particular estimator used
 			messages_during_estimation = estimator.messages(self._PEsTopology)
 
+			# number of messages related to the algorithm
 			messages_algorithm_operation = estimator.DPF.messages(self._PEsTopology, self._PEsSensorsConnections)
 
 			algorithms_messages.append(messages_during_estimation+messages_algorithm_operation)
@@ -758,9 +761,9 @@ class Mposterior(SimpleSimulation):
 
 		# centralized PF
 		self._PFs.append(
-			particle_filter.CentralizedTargetTrackingParticleFilter(
+			particle_filter.CentralizedTargetTrackingParticleFilterWithFusionCenter(
 				self._n_particles_per_PE*self._nPEs, self._resampling_algorithm, self._resampling_criterion, self._prior,
-				self._transition_kernel, self._sensors
+				self._transition_kernel, self._sensors, self._i_PE_estimation
 				)
 		)
 			
@@ -943,8 +946,8 @@ class Mposterior(SimpleSimulation):
 
 		if self._settings_painter['display evolution?']:
 
-			# if this is not the first iteration...
-			if hasattr(self, '_painter'):
+			# if this is not the first frame...
+			if self._painter:
 
 				# ...then, the previous figure is closed
 				self._painter.close()
