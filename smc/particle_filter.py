@@ -430,7 +430,7 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 		self._n_sensors = len(sensors)
 		
 		# a list of lists, the first one containing the indices of the sensors "seen" by the first PE...and so on
-		self._PEsSensorsConnections = each_processing_element_required_sensors
+		self._each_processing_element_required_sensors = each_processing_element_required_sensors
 
 		# number of particles per Pe
 		self._nParticlesPerPE = n_particles_per_processing_element
@@ -458,8 +458,9 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 
 	def step(self, observations):
 		
-		# a step is taken in every PF (ideally, this would occur concurrently)
-		for PE, sensorsConnections in zip(self._PEs, self._PEsSensorsConnections):
+		# a step is taken in every PF (ideally, this would occur concurrently); notice that every PE always accesses the
+		# sensors it needs (whatever the cost in communication messages)
+		for PE, sensorsConnections in zip(self._PEs, self._each_processing_element_required_sensors):
 			
 			# only the appropriate observations are passed to this PE
 			# NOTE: it is assumed that the order in which the observations are passed is the same as that of the sensors
@@ -488,13 +489,10 @@ class DistributedTargetTrackingParticleFilter(ParticleFilter):
 		# the distance in hops between each pair of PEs
 		distances = processing_elements_topology.distances_between_processing_elements
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-
 		n_messages = 0
 
 		# we loop through the observations "required" by each PE
-		for i_PE, i_sensors in enumerate(self._PEsSensorsConnections):
+		for i_PE, i_sensors in enumerate(self._each_processing_element_required_sensors):
 
 			# for every observation required by the PE...
 			for i in i_sensors:
@@ -577,7 +575,7 @@ class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTarg
 	def step(self, observations):
 		
 		# each PE initializes its local state
-		for PE, sensors_connections in zip(self._PEs, self._PEsSensorsConnections):
+		for PE, sensors_connections in zip(self._PEs, self._each_processing_element_required_sensors):
 			
 			PE.pre_consensus_step(observations[sensors_connections])
 		
@@ -585,7 +583,7 @@ class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTarg
 		self.exchange_recipe.perform_exchange(self)
 		
 		# a step is taken in every PF (ideally, this would occur concurrently)
-		for PE, sensors_connections in zip(self._PEs, self._PEsSensorsConnections):
+		for PE, sensors_connections in zip(self._PEs, self._each_processing_element_required_sensors):
 			
 			# only the appropriate observations are passed to this PE. Note that it is assumed that the order in which
 			# the observations are passed is the same as that of the sensors when building the PF
@@ -595,6 +593,9 @@ class LikelihoodConsensusDistributedTargetTrackingParticleFilter(DistributedTarg
 
 		messages_observations_propagation = super().messages_observations_propagation(
 			processing_elements_topology, each_processing_element_connected_sensors)
+
+		# in LC-based DPF, observations are not transmitted between PEs
+		assert(messages_observations_propagation) == 0
 
 		return messages_observations_propagation + self.exchange_recipe.messages()
 
@@ -616,13 +617,13 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 			particle_filters_initial_aggregated_weight=1.0/exchange_recipe.n_processing_elements)
 		
 		# a exchange of particles among PEs will happen every...
-		self._exchangePeriod = exchange_period
+		self._exchange_period = exchange_period
 
 		# ...and this object is responsible
 		self.exchange_recipe = exchange_recipe
 
 		# period for the normalization of the aggregated weights
-		self._normalizationPeriod = normalization_period
+		self._normalization_period = normalization_period
 		
 		self._estimator = smc.estimator.WeightedMean(self)
 		
@@ -631,7 +632,7 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		super().step(observations)
 		
 		# if it is exchanging particles time
-		if self._n % self._exchangePeriod == 0:
+		if self._n % self._exchange_period == 0:
 			
 			self.exchange_recipe.perform_exchange(self)
 			
@@ -653,7 +654,7 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 			return
 		
 		# the aggregated weights must be normalized every now and then to avoid computer precision issues
-		if self._n % self._normalizationPeriod == 0:
+		if self._n % self._normalization_period == 0:
 			
 			# ...to scale all the weights within ALL the PEs
 			for PE in self._PEs:
@@ -691,7 +692,7 @@ class TargetTrackingParticleFilterWithDRNA(DistributedTargetTrackingParticleFilt
 		messages_observations_propagation = super().messages_observations_propagation(
 			processing_elements_topology, each_processing_element_connected_sensors)
 
-		return messages_observations_propagation + self.exchange_recipe.messages()/self._exchangePeriod
+		return messages_observations_propagation + self.exchange_recipe.messages()/self._exchange_period
 
 
 # =========================================================================================================

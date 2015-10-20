@@ -103,6 +103,13 @@ class WeightedMean(Mean):
 			np.hstack([PE.compute_mean() for PE in self.DPF._PEs]),
 			normalized_aggregated_weights).sum(axis=1)[:, np.newaxis]
 
+	def messages(self, processing_elements_topology):
+
+		distances = processing_elements_topology.distances_between_processing_elements
+
+		# the same as in "Mean" but we also have to transmit the aggregated weight
+		return super().messages(processing_elements_topology) + distances[self.i_processing_element, :].sum()
+
 
 class Mposterior(Estimator):
 

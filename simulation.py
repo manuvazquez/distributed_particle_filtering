@@ -792,7 +792,7 @@ class Mposterior(SimpleSimulation):
 		)
 		
 		# the estimator is the mean
-		self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
+		self._estimators.append(smc.estimator.WeightedMean(self._PFs[-1]))
 		
 		self._estimators_colors.append('black')
 		self._estimators_labels.append('DRNA exch. {}'.format(self._exchanged_particles))
@@ -810,7 +810,7 @@ class Mposterior(SimpleSimulation):
 		)
 
 		# the estimator is still the mean
-		self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
+		self._estimators.append(smc.estimator.WeightedMean(self._PFs[-1]))
 
 		self._estimators_colors.append('magenta')
 		self._estimators_labels.append('DRNA exch. {} (partial observations)'.format(self._exchanged_particles))
@@ -832,7 +832,7 @@ class Mposterior(SimpleSimulation):
 			tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 
 		self._estimators_colors.append('seagreen')
-		self._estimators_labels.append('Plain DPF (geometric median with 1 particle from each PE)')
+		self._estimators_labels.append('Plain DPF (1 particle from each PE)')
 		
 		# ------------
 

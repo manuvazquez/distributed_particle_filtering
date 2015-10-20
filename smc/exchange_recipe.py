@@ -167,16 +167,16 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 		n_messages = 0
 
 		# for every PE (index) along with its list of neighbours
-		for iPE, neighboursList in enumerate(self._neighbours_particles):
+		for i_processing_element, neighbours_list in enumerate(self._neighbours_particles):
 
 			# each element of the list is a tuple (<index neighbour>,<indexes of the particles exchanged with that neighbour>)
-			for iNeighbour, iParticles in neighboursList:
+			for i_neighbour, i_particles in neighbours_list:
 
 				# the number of messages required to send the samples
-				n_messages += distances[iPE,iNeighbour]*len(iParticles)*state.nElements
+				n_messages += distances[i_processing_element, i_neighbour]*len(i_particles)*state.nElements
 
 			# we also need to send the aggregated weight to each neighbour
-			n_messages += len(neighboursList)
+			n_messages += len(neighbours_list)
 
 		return n_messages
 
