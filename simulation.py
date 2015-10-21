@@ -49,13 +49,13 @@ class Simulation(metaclass=abc.ABCMeta):
 		self._settings_room = parameters["room"]
 		
 		# the settings for the topology or topologies given...if it is a list...
-		if isinstance(parameters['topologies']['type'], list):
+		if isinstance(parameters['topologies types'], list):
 			# ...we have a list of settings
-			self._settings_topologies = [parameters['topologies'][i] for i in parameters['topologies']['type']]
+			self._settings_topologies = [parameters['topologies'][i] for i in parameters['topologies types']]
 		# otherwise...
 		else:
 			# the "topology settings" object is just a dictionary
-			self._settings_topologies = parameters['topologies'][parameters['topologies']['type']]
+			self._settings_topologies = parameters['topologies'][parameters['topologies types']]
 		
 		# so that it equals 0 the first time it is incremented...
 		self._i_current_frame = -1
@@ -109,7 +109,7 @@ class SimpleSimulation(Simulation):
 
 		if n_sensors is None:
 			
-			n_sensors = parameters["sensors"]['number']
+			n_sensors = parameters["number of sensors"]
 		
 		if n_processing_elements is None:
 
@@ -137,13 +137,13 @@ class SimpleSimulation(Simulation):
 		self._sensorsPositions, self._PEsPositions = self._network.sensorsPositions, self._network.PEsPositions
 		
 		# the class to be instantiated is figured out from the settings for that particular sensor type
-		sensor_class = getattr(sensor, sensors_settings[sensors_settings['type']]['implementing class'])
+		sensor_class = getattr(sensor, sensors_settings[parameters['sensors type']]['implementing class'])
 		
 		self._sensors = [sensor_class(
 			pos[:, np.newaxis],
 			pseudo_random_numbers_generator=pseudo_random_numbers_generators[
 				'Sensors and Monte Carlo pseudo random numbers generator'],
-			**sensors_settings[sensors_settings['type']]['parameters']
+			**sensors_settings[parameters['sensors type']]['parameters']
 		) for pos in self._sensorsPositions.T]
 
 		# these are going to be set/used by other methods

@@ -215,9 +215,9 @@ class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 		n_messages = super().messages()
 
 		# ...but there is no need for a PE to send its aggregated weight to each one of its neighbours
-		for neighboursList in self._neighbours_particles:
+		for neighbours_list in self._neighbours_particles:
 
-			n_messages -= len(neighboursList)
+			n_messages -= len(neighbours_list)
 
 		return n_messages
 

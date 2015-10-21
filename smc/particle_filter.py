@@ -766,6 +766,9 @@ class DistributedTargetTrackingParticleFilterWithMposterior(DistributedTargetTra
 		messages_observations_propagation = super().messages_observations_propagation(
 			processing_elements_topology, each_processing_element_connected_sensors)
 
+		# no messages should be used in this algorithm to transmit observation between PEs
+		assert messages_observations_propagation==0
+
 		return messages_observations_propagation + self.exchange_recipe.messages()/self._sharingPeriod
 
 
