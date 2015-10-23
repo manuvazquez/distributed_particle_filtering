@@ -4,7 +4,8 @@ import scipy.io
 import math
 import h5py
 
-from smc import particle_filter
+import smc.particle_filter.centralized as centralized
+import smc.particle_filter.distributed as distributed
 import smc.exchange_recipe
 import smc.estimator
 import PEs_topology
@@ -279,14 +280,14 @@ class Convergence(SimpleSimulation):
 		) for t in self._settings_topologies]
 
 		# plain non-parallelized particle filter
-		self._PFsForTopologies = [particle_filter.CentralizedTargetTrackingParticleFilter(
+		self._PFsForTopologies = [centralized.TargetTrackingParticleFilter(
 			self._n_particles_per_PE*t.n_processing_elements, resampling_algorithm, resampling_criterion, prior,
 			transition_kernel, self._sensors) for t in topologies]
 
 		PEs_sensors_requirements = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensorsPositions)
 
 		# distributed particle filter
-		self._distributedPFsForTopologies = [particle_filter.TargetTrackingParticleFilterWithDRNA(
+		self._distributedPFsForTopologies = [distributed.TargetTrackingParticleFilterWithDRNA(
 			self._settings_DRNA["exchange period"], e, self._n_particles_per_PE, self._settings_DRNA["normalization period"],
 			resampling_algorithm, resampling_criterion, prior, transition_kernel, self._sensors,
 			PEs_sensors_requirements.getConnections(e.n_processing_elements)) for e in exchange_recipes]
@@ -732,11 +733,11 @@ class Mposterior(SimpleSimulation):
 
 			# consensus
 			self._PFs.append(
-				particle_filter.LikelihoodConsensusDistributedTargetTrackingParticleFilter(
+				distributed.LikelihoodConsensusTargetTrackingParticleFilter(
 					likelihood_consensus_exchange_recipe, self._nPEs, self._n_particles_per_PE, self._resampling_algorithm,
 					self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
 					self._PEsSensorsConnections, self._LCDPFsettings['degree of the polynomial approximation'],
-					particle_filters_class=smc.particle_filter.CentralizedTargetTrackingParticleFilterWithConsensusCapabilities
+					particle_filters_class=centralized.TargetTrackingParticleFilterWithConsensusCapabilities
 					)
 			)
 
@@ -750,7 +751,7 @@ class Mposterior(SimpleSimulation):
 
 		# a single PE (with the number of particles of any other PE) that has access to all the observations
 		self._PFs.append(
-			particle_filter.CentralizedTargetTrackingParticleFilterWithFusionCenter(
+			centralized.TargetTrackingParticleFilterWithFusionCenter(
 				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
 				self._transition_kernel, self._sensors, self._i_PE_estimation
 				)
@@ -766,7 +767,7 @@ class Mposterior(SimpleSimulation):
 
 		# centralized PF
 		self._PFs.append(
-			particle_filter.CentralizedTargetTrackingParticleFilterWithFusionCenter(
+			centralized.TargetTrackingParticleFilterWithFusionCenter(
 				self._n_particles_per_PE*self._nPEs, self._resampling_algorithm, self._resampling_criterion, self._prior,
 				self._transition_kernel, self._sensors, self._i_PE_estimation
 				)
@@ -782,12 +783,12 @@ class Mposterior(SimpleSimulation):
 		
 		# a distributed PF with DRNA
 		self._PFs.append(
-			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
+			distributed.TargetTrackingParticleFilterWithDRNA(
 				self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
 				self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
 				self._prior, self._transition_kernel, self._sensors,
 				self._everySensorWithEveryPEConnector.getConnections(self._nPEs),
-				particle_filters_class=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
+				particle_filters_class=centralized.EmbeddedTargetTrackingParticleFilter
 			)
 		)
 		
@@ -801,11 +802,11 @@ class Mposterior(SimpleSimulation):
 		
 		# a distributed PF using a variation of DRNA in which each PE only sees a subset of the observations
 		self._PFs.append(
-			smc.particle_filter.TargetTrackingParticleFilterWithDRNA(
+			distributed.TargetTrackingParticleFilterWithDRNA(
 				self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
 				self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
 				self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-				particle_filters_class=smc.particle_filter.EmbeddedTargetTrackingParticleFilter
+				particle_filters_class=centralized.EmbeddedTargetTrackingParticleFilter
 			)
 		)
 
@@ -819,10 +820,10 @@ class Mposterior(SimpleSimulation):
 		
 		# a "distributed" PF in which each PE does its computation independently of the rest
 		self._PFs.append(
-			smc.particle_filter.DistributedTargetTrackingParticleFilter(
+			distributed.TargetTrackingParticleFilter(
 				self._nPEs, self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion,
 				self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-				particle_filters_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter
+				particle_filters_class=centralized.TargetTrackingParticleFilter
 			)
 		)
 
@@ -838,11 +839,11 @@ class Mposterior(SimpleSimulation):
 
 		# DPF with M-posterior-based exchange
 		self._PFs.append(
-			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
+			distributed.TargetTrackingParticleFilterWithMposterior(
 				mposterior_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion,
 				self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
 				self._MposteriorSettings['findWeiszfeldMedian parameters'], self._MposteriorSettings['sharing period'],
-				particle_filters_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter)
+				particle_filters_class=centralized.TargetTrackingParticleFilter)
 		)
 		
 		# an estimator computing the geometric median with 1 particle taken from each PE
@@ -879,11 +880,11 @@ class Mposterior(SimpleSimulation):
 
 		# DPF with M-posterior-based exchange within a certain depth
 		self._PFs.append(
-			smc.particle_filter.DistributedTargetTrackingParticleFilterWithMposterior(
+			distributed.TargetTrackingParticleFilterWithMposterior(
 				mposterior_within_radius_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
 				self._resampling_criterion, self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
 				self._MposteriorSettings['findWeiszfeldMedian parameters'], self._MposteriorSettings['sharing period'],
-				particle_filters_class=smc.particle_filter.CentralizedTargetTrackingParticleFilter)
+				particle_filters_class=centralized.TargetTrackingParticleFilter)
 		)
 
 		# an estimator computing the geometric median with 1 particle taken from each PE
