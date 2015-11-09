@@ -184,9 +184,21 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 
 class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 
+	def __init__(
+			self, processing_elements_topology, n_particles_per_processing_element, exchanged_particles,
+			PRNG=np.random.RandomState(), allow_exchange_one_particle_more_than_once=False):
+
+		super().__init__(processing_elements_topology, n_particles_per_processing_element, exchanged_particles,
+			PRNG, allow_exchange_one_particle_more_than_once)
+
+		self.i_particles_within_processing_elements = [np.random.randint(
+			n_particles_per_processing_element, size=self.n_particles_exchanged_between_neighbours
+		) for _ in range(self._n_PEs)]
+
 	def perform_exchange(self, DPF):
 
-		for PE, this_PE_neighbours_particles in zip(DPF._PEs, self._neighbours_particles):
+		for PE, this_PE_neighbours_particles, i_this_PE_particles in zip(
+				DPF._PEs, self._neighbours_particles, self.i_particles_within_processing_elements):
 
 			# a list with the subset posterior of each neighbour
 			subset_posterior_distributions = [
@@ -195,9 +207,9 @@ class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 				for neighbour_particles in this_PE_neighbours_particles]
 
 			# a subset posterior obtained from this PE is also added: it encompasses
-			# its FIRST "self.n_particles_exchanged_between_neighbours" particles
+			# the particles whose indexes are given in "i_this_PE_particles"
 			subset_posterior_distributions.append(
-				(PE.get_samples_at(range(self.n_particles_exchanged_between_neighbours)).T,
+				(PE.get_samples_at(i_this_PE_particles).T,
 				 np.full(self.n_particles_exchanged_between_neighbours, 1.0/self.n_particles_exchanged_between_neighbours)))
 
 			# M posterior on the posterior distributions collected above
