@@ -21,6 +21,8 @@
 		"Mposterior: exchange": {
 			"implementing class": "MposteriorExchange",
 			"network": "randomly strewn sensors and PEs",
+			"sensors-PEs connector": "sensors connected to the closest PEs",
+			"index of reference PE": 0,
 			"exchanged particles": [0.02, 0.05, 0.1, 0.15, 0.25, 0.50],
 			"file name prefix for the estimation error vs time plot": "errorVsTime"
 		},
