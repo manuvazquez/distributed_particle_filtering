@@ -719,10 +719,12 @@ class Mposterior(SimpleSimulation):
 				allow_exchange_one_particle_more_than_once=self._mposterior_exchange_particles_more_than_once),
 			self._MposteriorSettings["number of iterations"])
 
-		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.MposteriorWithinRadiusExchangeRecipe(
-			self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles, self._mposterior_exchange_step_depth,
-			PRNG=self._PRNGs["topology pseudo random numbers generator"],
-			allow_exchange_one_particle_more_than_once=self._mposterior_exchange_particles_more_than_once)
+		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
+			smc.exchange_recipe.MposteriorWithinRadiusExchangeRecipe(
+				self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
+				self._mposterior_exchange_step_depth, PRNG=self._PRNGs["topology pseudo random numbers generator"],
+				allow_exchange_one_particle_more_than_once=self._mposterior_exchange_particles_more_than_once),
+			self._MposteriorSettings["number of iterations"])
 
 		# ------------
 
