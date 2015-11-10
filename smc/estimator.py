@@ -234,14 +234,16 @@ class SinglePEGeometricMedian(Estimator):
 
 class SinglePEGeometricMedianWithinRadius(SinglePEGeometricMedian):
 
-	def __init__(self, distributed_particle_filter, iPE, PEs_topology, radius, max_iterations=100, tolerance=0.001):
+	def __init__(
+			self, distributed_particle_filter, iPE, PEs_topology, radius,
+			radius_lower_bound=0, max_iterations=100, tolerance=0.001):
 
 		super().__init__(distributed_particle_filter, iPE, max_iterations, tolerance)
 
 		self._distances = PEs_topology.distances_between_processing_elements
 
 		# the indexes of the PEs that are at most "radius" hops from the selected PE
-		self._i_relevant_PEs, = np.where((self._distances[self.i_processing_element] > 0) & (self._distances[self.i_processing_element]<=radius))
+		self._i_relevant_PEs = PEs_topology.i_neighbours_within_hops(radius, radius_lower_bound)[self.i_processing_element]
 
 		# the selected PE is also included
 		self._i_relevant_PEs = np.append(self._i_relevant_PEs, self.i_processing_element)

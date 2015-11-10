@@ -64,7 +64,7 @@ class Topology:
 
 		return distances
 
-	def i_neighbours_within_hops(self, n_hops):
+	def i_neighbours_within_hops(self, n_hops, lower_bound=0):
 
 		distances_between_processing_elements = self.distances_between_processing_elements
 
@@ -72,7 +72,7 @@ class Topology:
 
 		for neighbours in distances_between_processing_elements:
 
-			i_within_radius, = np.where((neighbours > 0) & (neighbours <= n_hops))
+			i_within_radius, = np.where((neighbours > lower_bound) & (neighbours <= n_hops))
 
 			exchanging_processing_elements.append(list(i_within_radius))
 
