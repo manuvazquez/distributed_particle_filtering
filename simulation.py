@@ -801,43 +801,6 @@ class Mposterior(SimpleSimulation):
 		
 		self._estimators_colors.append('black')
 		self._estimators_labels.append('DRNA exch. {}'.format(self._exchanged_particles))
-
-		# ------------
-		
-		# a distributed PF using a variation of DRNA in which each PE only sees a subset of the observations
-		self._PFs.append(
-			distributed.TargetTrackingParticleFilterWithDRNA(
-				self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
-				self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
-				self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-				particle_filters_class=centralized.EmbeddedTargetTrackingParticleFilter
-			)
-		)
-
-		# the estimator is still the mean
-		self._estimators.append(smc.estimator.WeightedMean(self._PFs[-1]))
-
-		self._estimators_colors.append('magenta')
-		self._estimators_labels.append('DRNA exch. {} (partial observations)'.format(self._exchanged_particles))
-
-		# ------------
-		
-		# a "distributed" PF in which each PE does its computation independently of the rest
-		self._PFs.append(
-			distributed.TargetTrackingParticleFilter(
-				self._nPEs, self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion,
-				self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-				particle_filters_class=centralized.TargetTrackingParticleFilter
-			)
-		)
-
-		# an estimator computing the geometric median with 1 particle taken from each PE
-		self._estimators.append(smc.estimator.GeometricMedian(
-			self._PFs[-1], max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
-			tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
-
-		self._estimators_colors.append('seagreen')
-		self._estimators_labels.append('Plain DPF (1 particle from each PE)')
 		
 		# ------------
 
@@ -863,7 +826,8 @@ class Mposterior(SimpleSimulation):
 
 		# an estimator which yields the geometric median of the particles in the "self._i_PE_estimation"-th PE
 		self._estimators.append(smc.estimator.SinglePEGeometricMedianWithinRadius(
-			self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_estimator_radius)
+			self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_estimator_radius,
+			radius_lower_bound=self._mposterior_exchange_step_depth)
 		)
 
 		self._estimators_colors.append('coral')
@@ -904,7 +868,8 @@ class Mposterior(SimpleSimulation):
 
 		# an estimator which yields the geometric median of the particles in the "self._i_PE_estimation"-th PE
 		self._estimators.append(smc.estimator.SinglePEGeometricMedianWithinRadius(
-			self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_estimator_radius)
+			self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_estimator_radius,
+			radius_lower_bound=self._mposterior_exchange_step_depth)
 		)
 
 		self._estimators_colors.append('khaki')
