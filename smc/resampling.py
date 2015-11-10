@@ -12,27 +12,31 @@ class ResamplingAlgorithm:
 		Notice that it doesn't perform any "real" resampling"...the real work must be performed somewhere else.
 		"""
 		pass
-	
+
+
 class MultinomialResamplingAlgorithm(ResamplingAlgorithm):
 	
-	def __init__(self,PRNG=np.random.RandomState()):
+	def __init__(self, PRNG=np.random.RandomState()):
 		
 		super().__init__()
 		
 		self._PRNG = PRNG
 		
-	def getIndexes(self,weights,n=None):
+	def getIndexes(self, weights, n=None):
 		
-		if n==None:
+		if n is None:
+
 			n = weights.size
 		
 		return self._PRNG.choice(range(weights.size), n, p=weights)
+
 
 class ResamplingCriterion:
 	
 	def isResamplingNeeded(self,weights):
 		
 		pass
+
 
 class EffectiveSampleSizeBasedResamplingCriterion(ResamplingCriterion):
 	

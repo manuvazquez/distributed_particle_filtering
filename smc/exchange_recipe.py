@@ -25,6 +25,35 @@ class ExchangeRecipe(metaclass=abc.ABCMeta):
 
 		return
 
+	@property
+	def n_processing_elements(self):
+
+		return self._n_PEs
+
+
+# a decorator
+class IteratedExchangeRecipe(ExchangeRecipe):
+
+	def __init__(self, exchange_recipe, n_iterations):
+
+		self._exchange_recipe = exchange_recipe
+		self._n_iterations = n_iterations
+
+	def messages(self):
+
+		return self._exchange_recipe.messages()*self._n_iterations
+
+	def perform_exchange(self, DPF):
+
+		for _ in range(self._n_iterations):
+
+			self._exchange_recipe.perform_exchange(DPF)
+
+	@property
+	def n_processing_elements(self):
+
+		return self._exchange_recipe.n_processing_elements
+
 
 class DRNAExchangeRecipe(ExchangeRecipe):
 
@@ -140,11 +169,6 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 
 		return self._PEs_topology.get_neighbours()
 
-	@property
-	def n_processing_elements(self):
-
-		return self._n_PEs
-
 	def perform_exchange(self, DPF):
 
 		# first, we compile all the particles that are going to be exchanged in an auxiliar variable
@@ -208,9 +232,8 @@ class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 
 			# a subset posterior obtained from this PE is also added: it encompasses
 			# the particles whose indexes are given in "i_this_PE_particles"
-			subset_posterior_distributions.append(
-				(PE.get_samples_at(i_this_PE_particles).T,
-				 np.full(self.n_particles_exchanged_between_neighbours, 1.0/self.n_particles_exchanged_between_neighbours)))
+			subset_posterior_distributions.append((PE.get_samples_at(i_this_PE_particles).T, np.full(
+				self.n_particles_exchanged_between_neighbours, 1.0/self.n_particles_exchanged_between_neighbours)))
 
 			# M posterior on the posterior distributions collected above
 			joint_particles, joint_weights = DPF.Mposterior(subset_posterior_distributions)
@@ -241,7 +264,7 @@ class MposteriorWithinRadiusExchangeRecipe(MposteriorExchangeRecipe):
 			self, processing_elements_topology, n_particles_per_processing_element, exchanged_particles, radius,
 			PRNG=np.random.RandomState(), allow_exchange_one_particle_more_than_once=False):
 
-		# this needs be before super() because the ancestor class is depends "get_PEs_contacts" which,
+		# this needs to be set before super() because the ancestor class "__init__" depends on "get_PEs_contacts" which,
 		#  in turn, depends on radius
 		self.radius = radius
 
@@ -252,29 +275,6 @@ class MposteriorWithinRadiusExchangeRecipe(MposteriorExchangeRecipe):
 	def get_PEs_contacts(self):
 
 		return self._PEs_topology.i_neighbours_within_hops(self.radius)
-
-
-class IteratedMposteriorExchangeRecipe(MposteriorExchangeRecipe):
-
-	def __init__(
-			self, processing_elements_topology, n_particles_per_processing_element, exchanged_particles, number_iterations,
-			PRNG=np.random.RandomState(), allow_exchange_one_particle_more_than_once=False):
-
-		super().__init__(
-			processing_elements_topology, n_particles_per_processing_element, exchanged_particles, PRNG,
-			allow_exchange_one_particle_more_than_once)
-
-		self._number_iterations = number_iterations
-
-	def perform_exchange(self, DPF):
-
-		for _ in range(self._number_iterations):
-
-			super().perform_exchange(DPF)
-
-	def messages(self):
-
-		return super().messages()*self._number_iterations
 
 
 class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
