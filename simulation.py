@@ -94,11 +94,14 @@ class SimpleSimulation(Simulation):
 
 		# if a reference to an HDF5 file was not received...
 		if h5py_file is None:
+
 			# ...a new HDF5 file is created
 			self._f = h5py.File('res_' + self._output_file + '.hdf5', 'w', driver='core', libver='latest')
 			# self._f = h5py.File('res_' + self._outputFile + '.hdf5', 'w')
+
 		# otherwise...
 		else:
+
 			# the value received is assumed to be a reference to an already open file
 			self._f = self._h5py_file
 
@@ -146,6 +149,14 @@ class SimpleSimulation(Simulation):
 				'Sensors and Monte Carlo pseudo random numbers generator'],
 			**sensors_settings[parameters['sensors type']]['parameters']
 		) for pos in self._sensorsPositions.T]
+
+		self._f.create_dataset(
+			self._h5py_prefix + 'room/bottom left corner',
+			parameters['room']['bottom left corner'].shape, data=parameters['room']['bottom left corner'])
+
+		self._f.create_dataset(
+			self._h5py_prefix + 'room/top right corner',
+			parameters['room']['top right corner'].shape, data=parameters['room']['top right corner'])
 
 		# these are going to be set/used by other methods
 		self._observations = None
@@ -671,11 +682,14 @@ class Mposterior(SimpleSimulation):
 		for il, l in enumerate(self._estimators_labels):
 			h5algorithms[il] = l
 		
-		# the position and connected sensors of each PE
-		for iPE, (pos, sens) in enumerate(zip(self._PEsPositions.T, self._PEsSensorsConnections)):
+		# the position, connected sensors, and neighbours of each PE
+		for iPE, (pos, sens, neighbours) in enumerate(zip(
+				self._PEsPositions.T, self._PEsSensorsConnections, self._PEsTopology.get_neighbours())):
 			self._f.create_dataset(self._h5py_prefix + 'PEs/{}/position'.format(iPE), shape=(2,), data=pos)
 			self._f.create_dataset(
 				self._h5py_prefix + 'PEs/{}/connected sensors'.format(iPE), shape=(len(sens),), data=sens)
+			self._f.create_dataset(
+				self._h5py_prefix + 'PEs/{}/neighbours'.format(iPE), shape=(len(neighbours),), data=neighbours)
 
 		self._f[self._h5py_prefix + 'PEs'].attrs['max number of hops'] = max_hops_number
 

@@ -317,6 +317,69 @@ def trajectory(filename, i_trajectory=0, n_time_instants=-1, ticks_font_size=12)
 	painter.save()
 
 
+def trajectory_from_hdf5(filename, i_trajectory=0, n_time_instants=-1, ticks_font_size=12):
+
+	import pickle
+	import os
+	import h5py
+
+	import simulation
+
+	data_file = h5py.File(filename,'r')
+	position = simulation.Mposterior.parse_hdf5(data_file)[0][..., i_trajectory]
+
+	# parameters are loaded
+	with open(os.path.splitext(filename)[0] + '.parameters', "rb") as f:
+
+		# ...is loaded
+		parameters = pickle.load(f)[0]
+
+	if isinstance(parameters['topologies types'], list):
+
+		n_processing_elements = parameters['topologies'][parameters['topologies types'][0]]['number of PEs']
+
+	else:
+
+		n_processing_elements = parameters['topologies'][parameters['topologies types']]['number of PEs']
+
+	# the positions of the sensors are extracted
+	sensors_positions = data_file['sensors/positions'][...]
+
+	proc_elem_positions = np.zeros((2, n_processing_elements))
+	proc_elem_sensors_connections = []
+	proc_elem_neighbours = []
+
+	for i_PE in range(n_processing_elements):
+
+		proc_elem_positions[:,i_PE] = data_file['PEs/{}/position'.format(i_PE)][...]
+		proc_elem_sensors_connections.append(list(data_file['PEs/{}/connected sensors'.format(i_PE)][...]))
+		proc_elem_neighbours.append(list(data_file['PEs/{}/neighbours'.format(i_PE)][...]))
+
+	painter = TightRectangularRoomPainterWithPEs(
+		data_file['room/bottom left corner'][...], data_file['room/top right corner'][...], sensors_positions,
+		proc_elem_positions, proc_elem_sensors_connections, proc_elem_neighbours,
+		sleepTime=parameters["painter"]["sleep time between updates"])
+
+	painter.setup()
+
+	# if the number of time instants to be plotted received is not within the proper limits...
+	if not (0 < n_time_instants <= position.shape[1]):
+
+		# ...the entire trajectory is plotted
+		n_time_instants = position.shape[1]
+
+		print(
+			'trajectory: the number of time instants to be plotted is not within the limits...plotting the entire sequence...')
+
+	for i in range(n_time_instants):
+
+		painter.updateTargetPosition(position[:, i])
+
+	painter.save()
+
+	# HDF5 must be closed
+	data_file.close()
+
 class RoomPainter:
 	
 	def __init__(self, sensorsPositions, sleepTime=0.5):
