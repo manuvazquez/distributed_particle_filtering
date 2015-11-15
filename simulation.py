@@ -170,7 +170,7 @@ class SimpleSimulation(Simulation):
 		# observations for all the sensors at every time instant (each list)
 		# NOTE: conversion to float is done so that the observations (1 or 0) are amenable to be used in later computations
 		self._observations = [np.array(
-			[sensor.detect(state.position(s[:, np.newaxis])) for sensor in self._sensors], dtype=float
+			[sens.detect(state.position(s[:, np.newaxis])) for sens in self._sensors], dtype=float
 		) for s in target_position.T]
 		
 		# a reference to the "group" for the current frame (notice the prefix in the name given "self._h5py_prefix")...

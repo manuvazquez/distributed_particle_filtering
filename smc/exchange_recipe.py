@@ -107,7 +107,7 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 		# in order to keep tabs on which particles a given PE has already "promised" to exchange
 		particles_not_swapped_yet = np.ones((self._n_PEs, n_particles_per_processing_element), dtype=bool)
 
-		# this will be always true across all the iterations of the loop below
+		# all the elements in this array will be "true" across all the iterations of the loop below
 		candidate_particles_all_true = particles_not_swapped_yet.copy()
 
 		if allow_exchange_one_particle_more_than_once:
@@ -133,7 +133,7 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 
 				if not already_processed_PEs[iPE, iNeighbour]:
 
-					# the particles to be exchanged are chosen randomly (with no replacement) for both, the this PE...
+					# the particles to be exchanged are chosen randomly (with no replacement) for both, this PE...
 					i_exchanged_particles_within_PE = PRNG.choice(
 						i_particles[candidate_particles[iPE, :]],
 						size=self.n_particles_exchanged_between_neighbours, replace=False)
