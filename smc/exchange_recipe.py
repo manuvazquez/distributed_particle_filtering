@@ -5,6 +5,14 @@ import scipy
 
 import state
 
+# a named tuple for a more intuitive access to a "exchange tuple"
+ExchangeTuple = collections.namedtuple(
+	'ExchangeTuple', ['i_PE', 'i_particle_within_PE', 'i_neighbour', 'i_particle_within_neighbour'])
+
+# a named tuple for a more intuitive access to a "exchange tuple"
+NeighbourParticlesTuple = collections.namedtuple(
+	'NeighbourParticlesTuple', ['i_neighbour', 'i_particles'])
+
 
 class ExchangeRecipe(metaclass=abc.ABCMeta):
 
@@ -69,14 +77,6 @@ class DRNAExchangeRecipe(ExchangeRecipe):
 
 		# the "contacts" of each PE are the PEs it is going to exchange/share particles with
 		processing_elements_contacts = self.get_PEs_contacts()
-
-		# a named tuple for a more intuitive access to a "exchange tuple"
-		ExchangeTuple = collections.namedtuple(
-			'ExchangeTuple', ['i_PE', 'i_particle_within_PE', 'i_neighbour', 'i_particle_within_neighbour'])
-
-		# a named tuple for a more intuitive access to a "exchange tuple"
-		NeighbourParticlesTuple = collections.namedtuple(
-			'NeighbourParticlesTuple', ['i_neighbour', 'i_particles'])
 
 		# indexes of the particles...just for the sake of efficiency (this array will be used many times)
 		i_particles = np.arange(n_particles_per_processing_element)

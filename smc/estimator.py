@@ -246,7 +246,7 @@ class SinglePEGeometricMedianWithinRadius(SinglePEGeometricMedian):
 		self._i_relevant_PEs = PEs_topology.i_neighbours_within_hops(radius, radius_lower_bound)[self.i_processing_element]
 
 		# the selected PE is also included
-		self._i_relevant_PEs = np.append(self._i_relevant_PEs, self.i_processing_element)
+		self._i_relevant_PEs.append(self.i_processing_element)
 
 	def estimate(self):
 
@@ -256,9 +256,6 @@ class SinglePEGeometricMedianWithinRadius(SinglePEGeometricMedian):
 		return geometric_median(samples, max_iterations=self._maxIterations, tolerance=self._tolerance)[:,np.newaxis]
 	
 	def messages(self, processing_elements_topology):
-		"""
-		:return: the number of messages exchanged between PEs due to a call to "estimate"
-		"""
 
 		# the number of hops for each neighbour times the number of floats sent per message
 		return self._distances[self.i_processing_element, self._i_relevant_PEs].sum()*state.n_elements_position
