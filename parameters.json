@@ -69,6 +69,7 @@
 		"number of iterations": 1,
 		"sharing step depth": 2,
 		"estimation step radius": 4,
+		"number of particles from each PE for estimation": 1,
 		"allow sharing each particle more than once": false,
 		"findWeiszfeldMedian parameters": {
 			"sigma": 0.1,

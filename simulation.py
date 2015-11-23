@@ -654,6 +654,9 @@ class Mposterior(SimpleSimulation):
 		# DPF with M-posterior-based exchange gets its estimates from this PE
 		self._i_PE_estimation = self._simulation_parameters["index of reference PE"]
 
+		# number of particles gathered from each PE within the estimation radius
+		self._mposterior_n_part_estimation = parameters["Mposterior"]["number of particles from each PE for estimation"]
+
 		# -----------------------------------------------------------
 		
 		# the lists of PFs, estimators, colors and labels are initialized...
@@ -854,7 +857,7 @@ class Mposterior(SimpleSimulation):
 		# an estimator which yields the geometric median of the particles in the "self._i_PE_estimation"-th PE
 		self._estimators.append(smc.estimator.SinglePEGeometricMedianWithinRadius(
 			self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_estimator_radius,
-			radius_lower_bound=self._mposterior_exchange_step_depth)
+			n_particles=self._mposterior_n_part_estimation, radius_lower_bound=self._mposterior_exchange_step_depth)
 		)
 
 		self._estimators_colors.append('coral')
@@ -896,7 +899,7 @@ class Mposterior(SimpleSimulation):
 		# an estimator which yields the geometric median of the particles in the "self._i_PE_estimation"-th PE
 		self._estimators.append(smc.estimator.SinglePEGeometricMedianWithinRadius(
 			self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_estimator_radius,
-			radius_lower_bound=self._mposterior_exchange_step_depth)
+			n_particles=self._mposterior_n_part_estimation, radius_lower_bound=self._mposterior_exchange_step_depth)
 		)
 
 		self._estimators_colors.append('khaki')

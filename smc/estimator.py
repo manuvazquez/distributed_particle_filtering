@@ -236,10 +236,12 @@ class SinglePEGeometricMedian(Estimator):
 class SinglePEGeometricMedianWithinRadius(SinglePEGeometricMedian):
 
 	def __init__(
-			self, distributed_particle_filter, iPE, PEs_topology, radius,
+			self, distributed_particle_filter, iPE, PEs_topology, radius, n_particles=1,
 			radius_lower_bound=0, max_iterations=100, tolerance=0.001):
 
 		super().__init__(distributed_particle_filter, iPE, max_iterations, tolerance)
+
+		self.n_particles = n_particles
 
 		self._distances = PEs_topology.distances_between_processing_elements
 
@@ -251,12 +253,12 @@ class SinglePEGeometricMedianWithinRadius(SinglePEGeometricMedian):
 
 	def estimate(self):
 
-		# one sample from each of the above PEs
-		samples = np.vstack([self.DPF._PEs[iPE].get_samples_at(0) for iPE in self._i_relevant_PEs]).T
+		# the first "self.n_particles" samples from each of the above PEs
+		samples = np.vstack([self.DPF._PEs[iPE].get_samples_at(range(self.n_particles)).T for iPE in self._i_relevant_PEs]).T
 
 		return geometric_median(samples, max_iterations=self._maxIterations, tolerance=self._tolerance)[:, np.newaxis]
 	
 	def messages(self, processing_elements_topology):
 
 		# the number of hops for each neighbour times the number of floats sent per message
-		return self._distances[self.i_processing_element, self._i_relevant_PEs].sum()*state.n_elements_position
+		return (self._distances[self.i_processing_element, self._i_relevant_PEs].sum()*state.n_elements_position)*self.n_particles
