@@ -34,8 +34,8 @@
 			"sensors-PEs connector": "sensors connected to the closest PEs",
 			"number of particles": [10, 50, 100, 200, 400]
 		},
-		"Mposterior: number of particles exchanged during estimation": {
-			"implementing class": "MposteriorNumberOfParticlesExchangedForEstimation",
+		"Mposterior: radius for estimation": {
+			"implementing class": "MposteriorEstimationRadius",
 			"network": "randomly strewn sensors and PEs",
 			"sensors-PEs connector": "sensors connected to the closest PEs",
 			"index of reference PE": 0,

@@ -1068,7 +1068,8 @@ class MposteriorNumberOfParticles(Mposterior):
 			self._estimators_labels[n_algorithms:] = [
 				'[{} particles per PE] '.format(n_particles) + l for l in self._estimators_labels[n_algorithms:]]
 
-class MposteriorNumberOfParticlesExchangedForEstimation(Mposterior):
+
+class MposteriorEstimationRadius(Mposterior):
 
 	def add_algorithms(self):
 
