@@ -1067,3 +1067,15 @@ class MposteriorNumberOfParticles(Mposterior):
 			# the number of particles used is prepended to the names of the algorithms
 			self._estimators_labels[n_algorithms:] = [
 				'[{} particles per PE] '.format(n_particles) + l for l in self._estimators_labels[n_algorithms:]]
+
+class MposteriorNumberOfParticlesExchangedForEstimation(Mposterior):
+
+	def add_algorithms(self):
+
+		for n_particles in self._simulation_parameters['number of particles']:
+
+			self._mposterior_estimator_radius = n_particles
+
+			super().add_algorithms()
+
+		self.drop_duplicated_estimators()

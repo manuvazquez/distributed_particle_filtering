@@ -34,6 +34,15 @@
 			"sensors-PEs connector": "sensors connected to the closest PEs",
 			"number of particles": [10, 50, 100, 200, 400]
 		},
+		"Mposterior: number of particles exchanged during estimation": {
+			"implementing class": "MposteriorNumberOfParticlesExchangedForEstimation",
+			"network": "randomly strewn sensors and PEs",
+			"sensors-PEs connector": "sensors connected to the closest PEs",
+			"index of reference PE": 0,
+			"exchanged particles": 0.15,
+			"number of particles": [1,2,3,5,10],
+			"file name prefix for the estimation error vs time plot": "errorVsTime"
+		},
 		"DRNA convergence": {
 			"implementing class": "Convergence",
 			"network": "PEs without position and equispaced sensors",
