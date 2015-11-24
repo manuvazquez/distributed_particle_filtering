@@ -40,6 +40,15 @@
 			"sensors-PEs connector": "sensors connected to the closest PEs",
 			"index of reference PE": 0,
 			"exchanged particles": 0.15,
+			"radius": [1,2,3,5,10],
+			"file name prefix for the estimation error vs time plot": "errorVsTime"
+		},
+		"Mposterior: number of particles from each PE for estimation": {
+			"implementing class": "MposteriorNumberOfParticlesForEstimation",
+			"network": "randomly strewn sensors and PEs",
+			"sensors-PEs connector": "sensors connected to the closest PEs",
+			"index of reference PE": 0,
+			"exchanged particles": 0.15,
 			"number of particles": [1,2,3,5,10],
 			"file name prefix for the estimation error vs time plot": "errorVsTime"
 		},

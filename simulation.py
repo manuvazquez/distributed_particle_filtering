@@ -849,8 +849,8 @@ class Mposterior(SimpleSimulation):
 			tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 
 		self._estimators_colors.append('green')
-		self._estimators_labels.append('M-posterior exch. {} (1 particle from each PE)'.format(
-			self._exchanged_particles))
+		self._estimators_labels.append('M-posterior exch. {} ({} particle(s) from each PE)'.format(
+			self._exchanged_particles, self._mposterior_n_part_estimation))
 		
 		# ------------
 
@@ -861,8 +861,8 @@ class Mposterior(SimpleSimulation):
 		)
 
 		self._estimators_colors.append('coral')
-		self._estimators_labels.append('M-posterior exch. {} ({} hops geometric median)'.format(
-			self._exchanged_particles, self._mposterior_estimator_radius))
+		self._estimators_labels.append('M-posterior exch. {} ({} hops, {} particle(s))'.format(
+			self._exchanged_particles, self._mposterior_estimator_radius, self._mposterior_n_part_estimation))
 		
 		# ------------
 
@@ -891,8 +891,8 @@ class Mposterior(SimpleSimulation):
 			tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
 
 		self._estimators_colors.append('blue')
-		self._estimators_labels.append('M-posterior exch. {} - depth {} (1 particle from each PE)'.format(
-			self._exchanged_particles, self._mposterior_exchange_step_depth))
+		self._estimators_labels.append('M-posterior exch. {} - depth {} ({} particle(s) from each PE)'.format(
+			self._exchanged_particles, self._mposterior_exchange_step_depth, self._mposterior_n_part_estimation))
 
 		# ------------
 
@@ -904,8 +904,9 @@ class Mposterior(SimpleSimulation):
 
 		self._estimators_colors.append('khaki')
 		self._estimators_labels.append(
-			'M-posterior exch. {} - depth {} ({} hops geometric median)'.format(
-				self._exchanged_particles, self._mposterior_exchange_step_depth, self._mposterior_estimator_radius))
+			'M-posterior exch. {} - depth {} ({} hops, {} particle(s))'.format(
+				self._exchanged_particles, self._mposterior_exchange_step_depth, self._mposterior_estimator_radius,
+				self._mposterior_n_part_estimation))
 
 	def save_data(self, target_position):
 		
@@ -1076,9 +1077,22 @@ class MposteriorEstimationRadius(Mposterior):
 
 	def add_algorithms(self):
 
+		for radius in self._simulation_parameters['radius']:
+
+			self._mposterior_estimator_radius = radius
+
+			super().add_algorithms()
+
+		self.drop_duplicated_estimators()
+
+
+class MposteriorNumberOfParticlesForEstimation(Mposterior):
+
+	def add_algorithms(self):
+
 		for n_particles in self._simulation_parameters['number of particles']:
 
-			self._mposterior_estimator_radius = n_particles
+			self._mposterior_n_part_estimation = n_particles
 
 			super().add_algorithms()
 
