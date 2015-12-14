@@ -4,6 +4,7 @@ import numpy as np
 import scipy
 
 import state
+import mposterior
 
 # a named tuple for a more intuitive access to a "exchange tuple"
 ExchangeTuple = collections.namedtuple(
@@ -239,10 +240,12 @@ class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 
 	def __init__(
 			self, processing_elements_topology, n_particles_per_processing_element, exchanged_particles,
-			PRNG=np.random.RandomState(), allow_exchange_one_particle_more_than_once=False):
+			weiszfeld_parameters, PRNG=np.random.RandomState(), allow_exchange_one_particle_more_than_once=False):
 
 		super().__init__(processing_elements_topology, n_particles_per_processing_element, exchanged_particles,
 			PRNG, allow_exchange_one_particle_more_than_once)
+
+		self.weiszfeld_parameters = weiszfeld_parameters
 
 		self.i_own_particles_within_processing_elements = [np.random.randint(
 			n_particles_per_processing_element, size=self.n_particles_exchanged_between_neighbours
@@ -255,17 +258,15 @@ class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 
 			# a list with the subset posterior of each neighbour
 			subset_posterior_distributions = [
-				(DPF._PEs[neighbour_particles.i_neighbour].get_samples_at(neighbour_particles.i_particles).T,
-				np.full(self.n_particles_exchanged_between_neighbours, 1.0/self.n_particles_exchanged_between_neighbours))
+				DPF._PEs[neighbour_particles.i_neighbour].get_samples_at(neighbour_particles.i_particles).T
 				for neighbour_particles in this_PE_neighbours_particles]
 
 			# a subset posterior obtained from this PE is also added: it encompasses
 			# the particles whose indexes are given in "i_this_PE_particles"
-			subset_posterior_distributions.append((PE.get_samples_at(i_this_PE_particles).T, np.full(
-				self.n_particles_exchanged_between_neighbours, 1.0/self.n_particles_exchanged_between_neighbours)))
+			subset_posterior_distributions.append(PE.get_samples_at(i_this_PE_particles).T)
 
-			# M posterior on the posterior distributions collected above
-			joint_particles, joint_weights = DPF.Mposterior(subset_posterior_distributions)
+			joint_particles, joint_weights = mposterior.find_weiszfeld_median(
+					subset_posterior_distributions, **self.weiszfeld_parameters)
 
 			# the indexes of the particles to be kept
 			i_new_particles = DPF._resamplingAlgorithm.getIndexes(joint_weights, PE._nParticles)
@@ -290,16 +291,16 @@ class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 class MposteriorWithinRadiusExchangeRecipe(MposteriorExchangeRecipe):
 
 	def __init__(
-			self, processing_elements_topology, n_particles_per_processing_element, exchanged_particles, radius,
-			PRNG=np.random.RandomState(), allow_exchange_one_particle_more_than_once=False):
+			self, processing_elements_topology, n_particles_per_processing_element, exchanged_particles,
+			weiszfeld_parameters, radius, PRNG=np.random.RandomState(), allow_exchange_one_particle_more_than_once=False):
 
 		# this needs to be set before super() because the ancestor class "__init__" depends on "get_PEs_contacts" which,
 		#  in turn, depends on radius
 		self.radius = radius
 
 		super().__init__(
-			processing_elements_topology, n_particles_per_processing_element, exchanged_particles, PRNG,
-			allow_exchange_one_particle_more_than_once)
+				processing_elements_topology, n_particles_per_processing_element, exchanged_particles,
+				weiszfeld_parameters, PRNG, allow_exchange_one_particle_more_than_once)
 
 	def get_PEs_contacts(self):
 
@@ -309,11 +310,12 @@ class MposteriorWithinRadiusExchangeRecipe(MposteriorExchangeRecipe):
 class EfficientMposteriorWithinRadiusExchangeRecipe(MposteriorWithinRadiusExchangeRecipe):
 
 	def __init__(
-			self, processing_elements_topology, n_particles_per_processing_element, exchanged_particles, radius,
-			PRNG=np.random.RandomState()):
+			self, processing_elements_topology, n_particles_per_processing_element, exchanged_particles,
+			weiszfeld_parameters, radius, PRNG=np.random.RandomState(), allow_exchange_one_particle_more_than_once=False):
 
-		super().__init__(processing_elements_topology, n_particles_per_processing_element, exchanged_particles, radius,
-			PRNG)
+		super().__init__(
+				processing_elements_topology, n_particles_per_processing_element, exchanged_particles,
+				weiszfeld_parameters, radius, PRNG, allow_exchange_one_particle_more_than_once)
 
 		i_shared_particles_within_processing_elements = [
 			PRNG.choice(n_particles_per_processing_element, size=self.n_particles_exchanged_between_neighbours, replace=False)

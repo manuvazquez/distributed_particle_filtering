@@ -746,14 +746,16 @@ class Mposterior(SimpleSimulation):
 		mposterior_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
 			smc.exchange_recipe.EfficientMposteriorWithinRadiusExchangeRecipe(
 				self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
-				1, PRNG=self._PRNGs["topology pseudo random numbers generator"]),
+					self._MposteriorSettings['findWeiszfeldMedian parameters'], 1,
+					PRNG=self._PRNGs["topology pseudo random numbers generator"]),
 			self._MposteriorSettings["number of iterations"])
 
 
 		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
 			smc.exchange_recipe.EfficientMposteriorWithinRadiusExchangeRecipe(
-				self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
-				self._mposterior_exchange_step_depth, PRNG=self._PRNGs["topology pseudo random numbers generator"]),
+					self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
+					self._MposteriorSettings['findWeiszfeldMedian parameters'], self._mposterior_exchange_step_depth,
+					PRNG=self._PRNGs["topology pseudo random numbers generator"]),
 			self._MposteriorSettings["number of iterations"])
 
 		# ------------
@@ -839,7 +841,7 @@ class Mposterior(SimpleSimulation):
 			distributed.TargetTrackingParticleFilterWithMposterior(
 				mposterior_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion,
 				self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-				self._MposteriorSettings['findWeiszfeldMedian parameters'], self._MposteriorSettings['sharing period'],
+				self._MposteriorSettings['sharing period'],
 				particle_filters_class=centralized.TargetTrackingParticleFilter)
 		)
 		
@@ -881,7 +883,7 @@ class Mposterior(SimpleSimulation):
 			distributed.TargetTrackingParticleFilterWithMposterior(
 				mposterior_within_radius_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
 				self._resampling_criterion, self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-				self._MposteriorSettings['findWeiszfeldMedian parameters'], self._MposteriorSettings['sharing period'],
+				self._MposteriorSettings['sharing period'],
 				particle_filters_class=centralized.TargetTrackingParticleFilter)
 		)
 

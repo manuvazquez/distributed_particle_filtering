@@ -1,19 +1,6 @@
 import numpy as np
 import scipy.misc
 import itertools
-
-# this is required (due to a bug?) for import rpy2
-import readline
-
-import rpy2.robjects as robjects
-
-# in order to load an R package
-from rpy2.robjects.packages import importr
-
-# for automatic conversion from numpy arrays to R data types
-import rpy2.robjects.numpy2ri
-rpy2.robjects.numpy2ri.activate()
-
 import smc.estimator
 from .particle_filter import ParticleFilter
 from . import centralized
@@ -306,8 +293,7 @@ class TargetTrackingParticleFilterWithMposterior(TargetTrackingParticleFilter):
 
 	def __init__(
 			self, exchange_recipe, n_particles_per_processing_element, resampling_algorithm, resampling_criterion,
-			prior, state_transition_kernel, sensors, each_processing_element_required_sensors,
-			find_weiszfeld_median_parameters, sharing_period,
+			prior, state_transition_kernel, sensors, each_processing_element_required_sensors, sharing_period,
 			particle_filters_class=centralized.TargetTrackingParticleFilter):
 
 		super().__init__(
@@ -317,45 +303,6 @@ class TargetTrackingParticleFilterWithMposterior(TargetTrackingParticleFilter):
 
 		self._sharingPeriod = sharing_period
 		self.exchange_recipe = exchange_recipe
-
-		# the (R) Mposterior package is imported...
-		self._Mposterior = importr('Mposterior')
-
-		# ...and the parameters to be passed to the required function are kept
-		self._findWeiszfeldMedianParameters = find_weiszfeld_median_parameters
-
-	def Mposterior(self, posterior_distributions):
-
-		"""Applies the Mposterior algorithm to weight the samples of a list of "subset posterior distribution"s.
-
-		Parameters
-		----------
-		posterior_distributions: list of tuples
-			A list in which each element is a tuple representing a "subset posterior distribution": the first element is
-			the samples, and the second the associated weights
-
-		Returns
-		-------
-		samples: tuple
-			The first element is a 2-D ndarray with all the samples, and the second the corresponding weights.
-		"""
-
-		# the samples of all the "subset posterior distribution"s are extracted
-		samples = [posterior[0] for posterior in posterior_distributions]
-
-		# an R function implementing the "M posterior" algorithm is called
-		weiszfeld_median = self._Mposterior.findWeiszfeldMedian(samples, **self._findWeiszfeldMedianParameters)
-
-		# the weights assigned by the algorithm to each "subset posterior distribution"
-		weiszfeld_weights = np.array(weiszfeld_median[1])
-
-		# a numpy array containing all the particles (coming from all the PEs)
-		joint_particles = np.array(weiszfeld_median[3]).T
-
-		# the weight of each PE is scaled according to the "Weiszfeld_weights" and, all of them are stacked together
-		joint_weights =	np.hstack([posterior[1]*weight for posterior, weight in zip(posterior_distributions, weiszfeld_weights)])
-
-		return joint_particles, joint_weights
 
 	def step(self, observations):
 

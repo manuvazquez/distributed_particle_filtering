@@ -4,6 +4,7 @@ import numpy as np
 import numpy.linalg
 
 import state
+import mposterior
 
 
 def geometric_median(points, max_iterations=100, tolerance=0.001):
@@ -113,10 +114,15 @@ class WeightedMean(Mean):
 
 class Mposterior(Estimator):
 
+	def __init__(self, distributed_particle_filter, weiszfeld_parameters, i_processing_element=0):
+
+		super().__init__(distributed_particle_filter, i_processing_element)
+
+		self.weiszfeld_parameters = weiszfeld_parameters
+
 	def combine_posterior_distributions(self, posteriors):
 
-		# the Mposterior algorithm is used to obtain a a new distribution
-		joint_particles, joint_weights = self.DPF.Mposterior(posteriors)
+		joint_particles, joint_weights = mposterior.find_weiszfeld_median(posteriors, **self.weiszfeld_parameters)
 
 		return np.multiply(joint_particles, joint_weights).sum(axis=1)[np.newaxis].T
 
@@ -134,32 +140,6 @@ class Mposterior(Estimator):
 
 		# TODO: this assumes all PEs have the same number of particles: that of the self.i_PE-th one
 		return distances[self.i_processing_element, :].sum()*self.DPF._PEs[self.i_processing_element].n_particles*state.n_elements_position
-
-
-class PartialMposterior(Mposterior):
-
-	def __init__(self, distributed_particle_filter, n_particles, i_processing_element=0):
-
-		super().__init__(distributed_particle_filter, i_processing_element)
-
-		self.n_particles = n_particles
-
-	def estimate(self):
-
-		# a number of samples is drawn from the distribution of each PE (all equally weighted) to build a list of tuples
-		# (samples and weights)
-		posteriors = [(PE.get_samples_at(
-			self.DPF._resamplingAlgorithm.getIndexes(np.exp(PE.log_weights), self.n_particles)
-		).T, np.full(self.n_particles, 1.0/self.n_particles)) for PE in self.DPF._PEs]
-
-		return self.combine_posterior_distributions(posteriors)
-
-	def messages(self, processing_elements_topology):
-
-		# the distances (in hops) between each pair of PEs
-		distances = processing_elements_topology.distances_between_processing_elements
-
-		return distances[self.i_processing_element, :].sum()*self.n_particles*state.n_elements_position
 
 
 class GeometricMedian(Estimator):
