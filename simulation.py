@@ -446,7 +446,7 @@ class Convergence(SimpleSimulation):
 			pf.initialize()
 			distributed_pf.initialize()
 
-			if self._settings_painter['display evolution?']:
+			if self._settings_painter['display evolution?'] and self._settings_painter["use display server if available?"]:
 
 				# if this is not the first frame...
 				if self._painter:
@@ -489,7 +489,7 @@ class Convergence(SimpleSimulation):
 				print('centralized PF\n', centralizedPF_mean)
 				print('distributed PF\n', distributedPF_mean)
 
-				if self._settings_painter["display evolution?"]:
+				if self._settings_painter["display evolution?"] and self._settings_painter["use display server if available?"]:
 
 					# the plot is updated with the position of the target...
 					self._painter.updateTargetPosition(target_position[:, iTime:iTime+1])
@@ -952,7 +952,7 @@ class Mposterior(SimpleSimulation):
 			# ...initialization
 			pf.initialize()
 
-		if self._settings_painter['display evolution?']:
+		if self._settings_painter['display evolution?'] and self._settings_painter["use display server if available?"]:
 
 			# if this is not the first frame...
 			if self._painter:
@@ -991,7 +991,7 @@ class Mposterior(SimpleSimulation):
 
 				print('position estimated by {}\n'.format(label), self._estimatedPos[:, iTime:iTime+1, self._i_current_frame, iEstimator])
 
-			if self._settings_painter["display evolution?"]:
+			if self._settings_painter["display evolution?"] and self._settings_painter["use display server if available?"]:
 
 				# the plot is updated with the position of the target...
 				self._painter.updateTargetPosition(target_position[:, iTime:iTime+1])
