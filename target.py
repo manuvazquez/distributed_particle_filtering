@@ -45,7 +45,7 @@ class Target:
 		for iTime in range(1, nTimeInstants):
 			
 			# a new state is obtained as the target moves...
-			self._state = self._transition_kernel.nextState(self._state, PRNG=self._pseudo_random_numbers_generator)
+			self._state = self._transition_kernel.next_state(self._state, PRNG=self._pseudo_random_numbers_generator)
 			
 			# ..and it is stored in the corresponding position (which is iTime+1)
 			computedTrajectory[:,iTime:iTime+1] = self._state

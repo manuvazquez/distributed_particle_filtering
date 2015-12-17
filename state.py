@@ -15,28 +15,31 @@ n_elements_position = 2
 def position(state):
 	"""It extracts the position elements out of the state vector.
 	
-	The purpose is to encapsulate the state so that other modules/classes don't need to know about the structure of the state vector.
+	The purpose is to encapsulate the state so that other modules/classes don't need to know about the structure of the
+	state vector.
 	"""
 	
-	return state[0:2,:]
+	return state[0:2, :]
 
 
 def velocity(state):
 	"""It extracts the velocity elements out of the state vector.
 	
-	The purpose is to encapsulate the state so that other modules/classes don't need to know about the structure of the state vector.
+	The purpose is to encapsulate the state so that other modules/classes don't need to know about the structure of the
+	state vector.
 	"""
 	
-	return state[2:4,:]
+	return state[2:4, :]
 
 
-def buildState(position,velocity):
+def build_state(position, velocity):
 	"""It builds a state vector given a position and a velocity vectors.
 	
-	The purpose is to encapsulate the state so that other modules/classes don't need to know about the structure of the state vector.
+	The purpose is to encapsulate the state so that other modules/classes don't need to know about the structure of the
+	state vector.
 	"""
 	
-	return np.vstack((position,velocity))
+	return np.vstack((position, velocity))
 
 
 class Prior:
@@ -49,17 +52,18 @@ class Prior:
 class UniformBoundedPositionGaussianVelocityPrior(Prior):
 	
 	def __init__(
-			self, bottomLeftCorner, topRightCorner, velocityMean=0, velocityVariance=0.25, PRNG=np.random.RandomState()):
+			self, bottom_left_corner, top_right_corner, velocity_mean=0, velocity_variance=0.25,
+			PRNG=np.random.RandomState()):
 		
-		self._bottomLeftCorner = bottomLeftCorner
-		self._topRightCorner = topRightCorner
+		self._bottom_left_corner = bottom_left_corner
+		self._top_right_corner = top_right_corner
 		
-		self._velocityMean = velocityMean
-		self._velocityVariance = velocityVariance
+		self._velocity_mean = velocity_mean
+		self._velocity_variance = velocity_variance
 		
 		self._PRNG = PRNG
 		
-	def sample(self, nSamples=1, PRNG=None):
+	def sample(self, n_samples=1, PRNG=None):
 		
 		# if for this particular call, no pseudo random numbers generator is received...
 		if PRNG is None:
@@ -68,24 +72,24 @@ class UniformBoundedPositionGaussianVelocityPrior(Prior):
 			PRNG = self._PRNG
 		
 		# position
-		position = np.empty((2, nSamples))
-		position[0,:] = PRNG.uniform(self._bottomLeftCorner[0], self._topRightCorner[0], nSamples)
-		position[1,:] = PRNG.uniform(self._bottomLeftCorner[1], self._topRightCorner[1], nSamples)
+		position = np.empty((2, n_samples))
+		position[0, :] = PRNG.uniform(self._bottom_left_corner[0], self._top_right_corner[0], n_samples)
+		position[1, :] = PRNG.uniform(self._bottom_left_corner[1], self._top_right_corner[1], n_samples)
 		
 		# velocity
-		velocity = PRNG.normal(self._velocityMean, math.sqrt(self._velocityVariance/2), (2, nSamples))
+		velocity = PRNG.normal(self._velocity_mean, math.sqrt(self._velocity_variance / 2), (2, n_samples))
 		
 		return np.vstack((position, velocity))
 
 
 class TransitionKernel:
 	
-	def __init__(self, stepDuration):
+	def __init__(self, step_duration):
 		
 		# a step lasts this time units (distance travelled each step equals velocity times this value)
-		self._stepDuration = stepDuration
+		self._step_duration = step_duration
 	
-	def nextState(self, state):
+	def next_state(self, state):
 		
 		pass
 
@@ -93,28 +97,33 @@ class TransitionKernel:
 class UnboundedTransitionKernel(TransitionKernel):
 	
 	def __init__(
-			self, bottomLeftCorner, topRightCorner, velocityVariance=0.5, noiseVariance=0.1, stepDuration=1,
+			self, bottom_left_corner, top_right_corner, velocity_variance=0.5, noise_variance=0.1, step_duration=1,
 			PRNG=np.random.RandomState()):
 		
 		# the parent's constructor is called
-		super().__init__(stepDuration)
+		super().__init__(step_duration)
 		
-		self._bottomLeftCorner = bottomLeftCorner
-		self._topRightCorner = topRightCorner
+		self._bottom_left_corner = bottom_left_corner
+		self._top_right_corner = top_right_corner
 		
 		# variance of the noise affecting the velocity
-		self._velocityVariance = velocityVariance
+		self._velocity_variance = velocity_variance
 		
 		# variance of the noise affecting the position
-		self._noiseVariance = noiseVariance
+		self._noise_variance = noise_variance
 		
 		# the pseudo random numbers generator
 		self._PRNG = PRNG
 		
 		# top right, top left, bottom left, and bottom right corners stored as column vectors
-		self._corners = [topRightCorner[np.newaxis].T,np.array([[bottomLeftCorner[0]],[topRightCorner[1]]]),bottomLeftCorner[np.newaxis].T,np.array([[topRightCorner[0]],[bottomLeftCorner[1]]])]
+		self._corners = [
+			top_right_corner[np.newaxis].T,
+			np.array([[bottom_left_corner[0]], [top_right_corner[1]]]),
+			bottom_left_corner[np.newaxis].T,
+			np.array([[top_right_corner[0]], [bottom_left_corner[1]]])
+		]
 		
-	def nextState(self, state, PRNG=None):
+	def next_state(self, state, PRNG=None):
 		
 		# if for this particular call, no pseudo random numbers generator is received...
 		if PRNG is None:
@@ -125,22 +134,22 @@ class UnboundedTransitionKernel(TransitionKernel):
 		velocity = state[2:4]
 
 		# the velocity changes BEFORE moving...
-		velocity += PRNG.normal(0,math.sqrt(self._velocityVariance/2),(2,1))
+		velocity += PRNG.normal(0, math.sqrt(self._velocity_variance / 2), (2, 1))
 		
 		# step to be taken is obtained from the velocity and a noise component
-		step = velocity*self._stepDuration + PRNG.normal(0,math.sqrt(self._noiseVariance/2),(2,1))
+		step = velocity*self._step_duration + PRNG.normal(0, math.sqrt(self._noise_variance / 2), (2, 1))
 		
-		return np.vstack((state[0:2] + step,velocity))
+		return np.vstack((state[0:2] + step, velocity))
 
 
 class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 	
 	def __init__(
-			self, bottomLeftCorner, topRightCorner, velocityVariance=0.5, noiseVariance=0.1, stepDuration=1,
+			self, bottom_left_corner, top_right_corner, velocity_variance=0.5, noise_variance=0.1, step_duration=1,
 			PRNG=np.random.RandomState()):
 		
 		# the parent's constructor is called
-		super().__init__(bottomLeftCorner,topRightCorner,velocityVariance,noiseVariance,stepDuration,PRNG)
+		super().__init__(bottom_left_corner, top_right_corner, velocity_variance, noise_variance, step_duration, PRNG)
 		
 		# canonical vectors used in computations
 		self._iVector = np.array([[1.0], [0.0]])
@@ -148,16 +157,17 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 		
 		# top right, top left, bottom left, and bottom right corners stored as column vectors
 		self._corners = [
-			topRightCorner[np.newaxis].T, np.array([[bottomLeftCorner[0]], [topRightCorner[1]]]),
-			bottomLeftCorner[np.newaxis].T, np.array([[topRightCorner[0]], [bottomLeftCorner[1]]])]
+			top_right_corner[np.newaxis].T, np.array([[bottom_left_corner[0]], [top_right_corner[1]]]),
+			bottom_left_corner[np.newaxis].T, np.array([[top_right_corner[0]], [bottom_left_corner[1]]])
+		]
 		
-	def nextState(self, state, PRNG=None):
+	def next_state(self, state, PRNG=None):
 		
 		# this may be updated in the while loop when bouncing off several walls
 		previousPos = state[0:2].copy()
 		
 		# the new (unbounded) state as computed by the parent class
-		unboundedState = super().nextState(state,PRNG)
+		unboundedState = super().next_state(state, PRNG)
 		
 		# the first two elements of the above state is the new (here tentative) position...
 		tentativeNewPos = unboundedState[:2]
@@ -180,7 +190,7 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 			
 			else:
 				
-				for i,corner in enumerate(self._corners):
+				for i, corner in enumerate(self._corners):
 					
 					# a vector joining the previous position and the corresponding corner
 					positionToCorner = corner - previousPos
@@ -188,32 +198,34 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 					# the angle between the above vector and a horizontal line
 					anglesWithCorners[i] = math.acos(positionToCorner[0]/np.linalg.norm(positionToCorner))
 				
-				# we account for the fact that the angle between two vectors computed by means of the dot product is always between 0 and pi (the shortest)
+				# we account for the fact that the angle between two vectors computed by means of the dot product is
+				# always between 0 and pi (the shortest)
 				anglesWithCorners[2:] = 2*math.pi - anglesWithCorners[2:]
 				
 				# angle between the step to be taken and the horizontal line
 				angle = math.acos(step[0]/np.linalg.norm(step))
 				
-				if step[1]<=0:
-					# we account for the fact that the angle between two vectors computed by means of the dot product (the shortest) is always between 0 and pi
+				if step[1] <= 0:
+					# we account for the fact that the angle between two vectors computed by means of the dot product
+					# (the shortest) is always between 0 and pi
 					angle = 2*math.pi - angle
 				
 				# up
 				if anglesWithCorners[0] <= angle < anglesWithCorners[1]:
 					normal = -self._jVector
-					scaleFactor = (self._topRightCorner[1] - previousPos[1])/step[1]
+					scaleFactor = (self._top_right_corner[1] - previousPos[1]) / step[1]
 				# left
 				elif anglesWithCorners[1] <= angle < anglesWithCorners[2]:
 					normal = self._iVector
-					scaleFactor = (self._bottomLeftCorner[0] - previousPos[0])/step[0]
+					scaleFactor = (self._bottom_left_corner[0] - previousPos[0]) / step[0]
 				# down
 				elif anglesWithCorners[2] <= angle < anglesWithCorners[3]:
 					normal = self._jVector
-					scaleFactor = (self._bottomLeftCorner[1] - previousPos[1])/step[1]
+					scaleFactor = (self._bottom_left_corner[1] - previousPos[1]) / step[1]
 				# right
 				else:
 					normal = -self._iVector
-					scaleFactor = (self._topRightCorner[0] - previousPos[0])/step[0]
+					scaleFactor = (self._top_right_corner[0] - previousPos[0]) / step[0]
 
 				# the components of the "step" vector before...
 				stepBeforeBounce = scaleFactor*step
@@ -224,31 +236,33 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 				# in case we need to bounce again, we update the previous position...
 				previousPos = previousPos + stepBeforeBounce
 
-				# ...and the step, this one by computing the reflected ray using a formula involving the normal of the reflecting surface...
-				step = stepAfterBounce - 2*normal*np.dot(normal.T,stepAfterBounce)
+				# ...and the step, this one by computing the reflected ray using a formula involving the normal of the
+				# reflecting surface...
+				step = stepAfterBounce - 2*normal*np.dot(normal.T, stepAfterBounce)
 
 				tentativeNewPos = previousPos + step
 				
 				# the direction of the velocity is updated according to the reflection that occured in the trajectory
-				# note that this only needs to be done in the last iteration of the while loop, but since the velocity is not used within the "else" part, it's not a problem
+				# note that this only needs to be done in the last iteration of the while loop, but since the velocity
+				# is not used within the "else" part, it's not a problem
 				velocity = step/np.linalg.norm(step)*np.linalg.norm(velocity)
 
-		return np.vstack((tentativeNewPos,velocity))
+		return np.vstack((tentativeNewPos, velocity))
 
 
 class OnEdgeResetTransitionKernel(UnboundedTransitionKernel):
 	
-	def __init__(self,bottomLeftCorner,topRightCorner,velocityVariance=0.5,noiseVariance=0.1,stepDuration=1,PRNG=np.random.RandomState(),reset_velocity_variance=0.01):
+	def __init__(self, bottom_left_corner, top_right_corner, velocity_variance=0.5, noise_variance=0.1, step_duration=1, PRNG=np.random.RandomState(), reset_velocity_variance=0.01):
 		
 		# the parent's constructor is called
-		super().__init__(bottomLeftCorner,topRightCorner,velocityVariance,noiseVariance,stepDuration,PRNG)
+		super().__init__(bottom_left_corner, top_right_corner, velocity_variance, noise_variance, step_duration, PRNG)
 		
 		self._resetVelocityVariance = reset_velocity_variance
 		
-	def nextState(self,state,PRNG=None):
+	def next_state(self, state, PRNG=None):
 		
 		# the new (unbounded) state as computed by the parent class
-		unboundedState = super().nextState(state,PRNG)
+		unboundedState = super().next_state(state, PRNG)
 		
 		# the first two elements of the above state is the new (here tentative) position...
 		tentativeNewPos = unboundedState[:2]
@@ -264,6 +278,6 @@ class OnEdgeResetTransitionKernel(UnboundedTransitionKernel):
 			# ...the corresponding class attribute is used
 			PRNG = self._PRNG
 		
-		velocity = PRNG.normal(0,math.sqrt(self._resetVelocityVariance/2),(2,1))
+		velocity = PRNG.normal(0, math.sqrt(self._resetVelocityVariance/2), (2,1))
 		
-		return np.vstack((state[0:2],velocity))
+		return np.vstack((state[0:2], velocity))

@@ -48,7 +48,7 @@ class TargetTrackingParticleFilter(ParticleFilter):
 
 		# every particle is updated (previous state is not stored...)
 		self._state = np.hstack(
-			[self._state_transition_kernel.nextState(self._state[:, i:i+1]) for i in range(self._nParticles)])
+			[self._state_transition_kernel.next_state(self._state[:, i:i + 1]) for i in range(self._nParticles)])
 
 		# TODO: this may cause a "divide by zero" warning when a likelihood is very small
 		# for each sensor, we compute the likelihood of EVERY particle (position)
@@ -303,7 +303,7 @@ class TargetTrackingParticleFilterWithConsensusCapabilities(TargetTrackingPartic
 
 		# every particle is updated (previous state is not stored...)
 		self._state = np.hstack(
-			[self._state_transition_kernel.nextState(self._state[:, i:i+1]) for i in range(self._nParticles)])
+			[self._state_transition_kernel.next_state(self._state[:, i:i + 1]) for i in range(self._nParticles)])
 
 		self.polynomial_approximation(observations)
 

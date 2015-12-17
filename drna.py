@@ -205,7 +205,7 @@ signal.signal(signal.SIGINT, sigint_handler)
 # a object that represents the prior distribution is instantiated...
 prior = state.UniformBoundedPositionGaussianVelocityPrior(
 	settings_room["bottom left corner"], settings_room["top right corner"],
-	velocityVariance=parameters["prior distribution"]["velocity variance"],
+	velocity_variance=parameters["prior distribution"]["velocity variance"],
 	PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ...and a different one for the transition kernel belonging to class...
@@ -214,8 +214,8 @@ settings_transition_kernel = settings_state_transition[settings_state_transition
 # ...is instantiated here
 transitionKernel = getattr(state, settings_transition_kernel['implementing class'])(
 	settings_room["bottom left corner"], settings_room["top right corner"],
-	velocityVariance=settings_state_transition["velocity variance"],
-	noiseVariance=settings_state_transition["position variance"], stepDuration=settings_state_transition['time step size'],
+	velocity_variance=settings_state_transition["velocity variance"],
+	noise_variance=settings_state_transition["position variance"], step_duration=settings_state_transition['time step size'],
 	PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"], **settings_transition_kernel['parameters'])
 
 # ------------------------------------------------ SMC stuff -----------------------------------------------------------

@@ -778,7 +778,7 @@ class Mposterior(SimpleSimulation):
 					likelihood_consensus_exchange_recipe, self._nPEs, self._n_particles_per_PE, self._resampling_algorithm,
 					self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
 					self._PEsSensorsConnections, self._LCDPFsettings['degree of the polynomial approximation'],
-					particle_filters_class=centralized.TargetTrackingParticleFilterWithConsensusCapabilities
+					pf_class=centralized.TargetTrackingParticleFilterWithConsensusCapabilities
 					)
 			)
 
@@ -829,7 +829,7 @@ class Mposterior(SimpleSimulation):
 				self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
 				self._prior, self._transition_kernel, self._sensors,
 				self._everySensorWithEveryPEConnector.getConnections(self._nPEs),
-				particle_filters_class=centralized.EmbeddedTargetTrackingParticleFilter
+				pf_class=centralized.EmbeddedTargetTrackingParticleFilter
 			)
 		)
 		
@@ -847,7 +847,7 @@ class Mposterior(SimpleSimulation):
 				mposterior_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion,
 				self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
 				self._MposteriorSettings['sharing period'],
-				particle_filters_class=centralized.TargetTrackingParticleFilter)
+				pf_class=centralized.TargetTrackingParticleFilter)
 		)
 		
 		# an estimator computing the geometric median with 1 particle taken from each PE
@@ -889,7 +889,7 @@ class Mposterior(SimpleSimulation):
 				mposterior_within_radius_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
 				self._resampling_criterion, self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
 				self._MposteriorSettings['sharing period'],
-				particle_filters_class=centralized.TargetTrackingParticleFilter)
+				pf_class=centralized.TargetTrackingParticleFilter)
 		)
 
 		# an estimator computing the geometric median with 1 particle taken from each PE
