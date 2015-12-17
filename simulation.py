@@ -222,11 +222,16 @@ class SimpleSimulation(Simulation):
 				'pseudo random numbers generators/{}/5'.format(key), shape=(1,), dtype=float, data=prng_state[4])
 
 	@staticmethod
-	def pseudo_random_numbers_generators_from_file(filename, i_frame):
+	def pseudo_random_numbers_generators_from_file(filename, i_frame=None):
+
+		if i_frame:
+			path_within_file = 'frames/{}/pseudo random numbers generators'.format(i_frame)
+		else:
+			path_within_file = 'pseudo random numbers generators'
 
 		with h5py.File(filename, 'r') as data_file:
 
-			prngs = data_file['frames/{}/pseudo random numbers generators'.format(i_frame)]
+			prngs = data_file[path_within_file]
 
 			res = {}
 

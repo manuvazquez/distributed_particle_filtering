@@ -14,24 +14,6 @@ import pickle
 import argparse
 
 
-# def info(type, value, tb):
-#    if hasattr(sys, 'ps1') or not sys.stderr.isatty():
-#       # we are in interactive mode or we don't have a tty-like device, so we call the default hook
-#       sys.__excepthook__(type, value, tb)
-#    else:
-#       import traceback, pdb
-#       # we are NOT in interactive mode, print the exception...
-#       traceback.print_exception(type, value, tb)
-#       print
-#       # ...then start the debugger in post-mortem mode.
-#       pdb.pm()
-#
-# sys.excepthook = info
-
-# # so that numpy takes a specified measure when an "error" occurs
-# np.seterr(divide='raise')
-# np.seterr(all='raise')
-
 # keys used to identify the different pseudo random numbers generators
 # (they must coincide with those in the parameters file...)
 PRNGsKeys = ['Sensors and Monte Carlo pseudo random numbers generator',
@@ -56,40 +38,16 @@ command_arguments = parser.parse_args(sys.argv[1:])
 
 # -----
 
-# a dictionary that will be filled with several "RandomState" (pseudo random number generator) objects
-PRNGs = {}
+with open('parameters.json') as jsonData:
 
-# if this is a re-run of a previous simulation...
-if command_arguments.reproduce_filename:
+	# the parameters file is read to memory
+	parameters = json.load(jsonData)
 
-	# we open the file passed...
-	with open(command_arguments.reproduce_filename.name, "rb") as f:
+# if a new number of frames was passed...
+if command_arguments.new_n_frames:
 
-		# ...to extract the parameters and random state from the previous simulation
-		parameters, randomStates = pickle.load(f)
-
-	# if a new number of frames was passed...
-	if command_arguments.new_n_frames:
-		# ...it is used
-		parameters['number of frames'] = command_arguments.new_n_frames
-
-	# every pseudo random numbers generator...
-	for key in PRNGsKeys:
-		# ...is restored via the key
-		PRNGs[key] = randomStates[key]
-
-# otherwise, we just read the parameters in the usual way
-else:
-
-	# if a new number of frames was passed...
-	if command_arguments.new_n_frames:
-
-		print('ignoring argument "--new-number-of-frames" (only valid when "--reproduce" is also specified')
-
-	with open('parameters.json') as jsonData:
-
-		# the parameters file is read to memory
-		parameters = json.load(jsonData)
+	# ...it is used
+	parameters['number of frames'] = command_arguments.new_n_frames
 
 # number of time instants
 n_time_instants = parameters["number of time instants"]
@@ -131,8 +89,6 @@ output_file = hostname + '_' + date + '_' + str(os.getpid())
 # how numpy arrays are printed on screen is specified here
 np.set_printoptions(precision=3, linewidth=100)
 
-# ---------------------------------------------
-
 # NOTE: most functions access global variables, though they don't modify them (except one of the handlers)
 
 
@@ -156,8 +112,25 @@ settings_room["top right corner"] = np.array(settings_room["top right corner"])
 
 # ---------------------------------------------- random numbers --------------------------------------------------------
 
-# if this is NOT a rerun of a previous simulation... (dictionary with PRNGs is empty)
-if not PRNGs:
+# a dictionary that will be filled with several "RandomState" (pseudo random number generator) objects
+PRNGs = {}
+
+# if this is a re-run of a previous simulation...
+if command_arguments.reproduce_filename:
+
+	assert os.path.splitext(command_arguments.reproduce_filename.name)[1]==".hdf5"
+
+	saved_PRNGs = simulation.SimpleSimulation.pseudo_random_numbers_generators_from_file(
+			command_arguments.reproduce_filename.name)
+
+	# every pseudo random numbers generator...
+	for k in PRNGsKeys:
+
+		# ...is restored
+		PRNGs[k] = saved_PRNGs[k]
+
+# if this is NOT a rerun of a previous simulation...
+else:
 
 	for question_within_parameters_file, key in zip([
 		"load sensors and Monte Carlo pseudo random numbers generator?",
@@ -274,7 +247,7 @@ if command_arguments.reproduce_filename:
 
 	# the pseudo-random numbers generators for the requested frame (default is 0) are extracted from the data file...
 	saved_pseudo_random_numbers_generators = simulation.SimpleSimulation.pseudo_random_numbers_generators_from_file(
-		os.path.splitext(command_arguments.reproduce_filename.name)[0] + '.hdf5', command_arguments.i_first_frame)
+		command_arguments.reproduce_filename.name, command_arguments.i_first_frame)
 
 	# ...and used to set the state of existing ones
 	for k in PRNGs:
