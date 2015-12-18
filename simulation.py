@@ -651,7 +651,7 @@ class Mposterior(SimpleSimulation):
 		self._mposterior_exchange_step_depth = parameters["Mposterior"]["sharing step depth"]
 
 		# the same at estimation time
-		self._mposterior_estimator_radius = parameters["Mposterior"]["estimation step radius"]
+		self._mposterior_estimator_radius = [parameters["Mposterior"]["estimation step radius"]]
 
 		self._mposterior_exchange_particles_more_than_once = parameters["Mposterior"][
 			"allow sharing each particle more than once"]
@@ -861,15 +861,17 @@ class Mposterior(SimpleSimulation):
 		
 		# ------------
 
-		# an estimator which yields the geometric median of the particles in the "self._i_PE_estimation"-th PE
-		self._estimators.append(smc.estimator.SinglePEGeometricMedianWithinRadius(
-			self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_estimator_radius,
-			n_particles=self._mposterior_n_part_estimation, radius_lower_bound=self._mposterior_exchange_step_depth)
-		)
+		for mposterior_estimator_radius in self._mposterior_estimator_radius:
 
-		self._estimators_colors.append('coral')
-		self._estimators_labels.append('M-posterior exch. {} ({} hops, {} particle(s))'.format(
-			self._exchanged_particles, self._mposterior_estimator_radius, self._mposterior_n_part_estimation))
+			# an estimator which yields the geometric median of the particles in the "self._i_PE_estimation"-th PE
+			self._estimators.append(smc.estimator.SinglePEGeometricMedianWithinRadius(
+				self._PFs[-1], self._i_PE_estimation, self._PEsTopology, mposterior_estimator_radius,
+				n_particles=self._mposterior_n_part_estimation, radius_lower_bound=self._mposterior_exchange_step_depth)
+			)
+
+			self._estimators_colors.append('coral')
+			self._estimators_labels.append('M-posterior exch. {} ({} hops, {} particle(s))'.format(
+				self._exchanged_particles, mposterior_estimator_radius, self._mposterior_n_part_estimation))
 		
 		# ------------
 
@@ -903,17 +905,19 @@ class Mposterior(SimpleSimulation):
 
 		# ------------
 
-		# an estimator which yields the geometric median of the particles in the "self._i_PE_estimation"-th PE
-		self._estimators.append(smc.estimator.SinglePEGeometricMedianWithinRadius(
-			self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_estimator_radius,
-			n_particles=self._mposterior_n_part_estimation, radius_lower_bound=self._mposterior_exchange_step_depth)
-		)
+		for mposterior_estimator_radius in self._mposterior_estimator_radius:
 
-		self._estimators_colors.append('khaki')
-		self._estimators_labels.append(
-			'M-posterior exch. {} - depth {} ({} hops, {} particle(s))'.format(
-				self._exchanged_particles, self._mposterior_exchange_step_depth, self._mposterior_estimator_radius,
-				self._mposterior_n_part_estimation))
+			# an estimator which yields the geometric median of the particles in the "self._i_PE_estimation"-th PE
+			self._estimators.append(smc.estimator.SinglePEGeometricMedianWithinRadius(
+				self._PFs[-1], self._i_PE_estimation, self._PEsTopology, mposterior_estimator_radius,
+				n_particles=self._mposterior_n_part_estimation, radius_lower_bound=self._mposterior_exchange_step_depth)
+			)
+
+			self._estimators_colors.append('khaki')
+			self._estimators_labels.append(
+				'M-posterior exch. {} - depth {} ({} hops, {} particle(s))'.format(
+					self._exchanged_particles, self._mposterior_exchange_step_depth, mposterior_estimator_radius,
+					self._mposterior_n_part_estimation))
 
 	def save_data(self, target_position):
 		
@@ -1084,13 +1088,9 @@ class MposteriorEstimationRadius(Mposterior):
 
 	def add_algorithms(self):
 
-		for radius in self._simulation_parameters['radius']:
+		self._mposterior_estimator_radius = self._simulation_parameters['radius']
 
-			self._mposterior_estimator_radius = radius
-
-			super().add_algorithms()
-
-		self.drop_duplicated_estimators()
+		super().add_algorithms()
 
 
 class MposteriorNumberOfParticlesForEstimation(Mposterior):
