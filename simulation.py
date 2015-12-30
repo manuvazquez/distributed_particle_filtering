@@ -138,7 +138,7 @@ class SimpleSimulation(Simulation):
 			n_sensors, **network_nodes_settings['parameters'])
 		
 		# the positions of the PEs and the sensors are collected from the network just built
-		self._sensorsPositions, self._PEsPositions = self._network.sensorsPositions, self._network.PEsPositions
+		self._sensorsPositions, self._PEsPositions = self._network.sensors_positions, self._network.PEs_positions
 		
 		# the class to be instantiated is figured out from the settings for that particular sensor type
 		sensor_class = getattr(sensor, sensors_settings[parameters['sensors type']]['implementing class'])
@@ -170,7 +170,7 @@ class SimpleSimulation(Simulation):
 		# observations for all the sensors at every time instant (each list)
 		# NOTE: conversion to float is done so that the observations (1 or 0) are amenable to be used in later computations
 		self._observations = [np.array(
-			[sens.detect(state.position(s[:, np.newaxis])) for sens in self._sensors], dtype=float
+			[sens.detect(state.to_position(s[:, np.newaxis])) for sens in self._sensors], dtype=float
 		) for s in target_position.T]
 		
 		# a reference to the "group" for the current frame (notice the prefix in the name given "self._h5py_prefix")...
@@ -481,11 +481,11 @@ class Convergence(SimpleSimulation):
 				# the mean computed by the centralized and distributed PFs
 				centralizedPF_mean, distributedPF_mean = pf.compute_mean(), distributed_pf.compute_mean()
 
-				estimated_pos[:, iTime:iTime+1, 0] = state.position(centralizedPF_mean)
-				estimated_pos[:, iTime:iTime+1, 1] = state.position(distributedPF_mean)
+				estimated_pos[:, iTime:iTime+1, 0] = state.to_position(centralizedPF_mean)
+				estimated_pos[:, iTime:iTime+1, 1] = state.to_position(distributedPF_mean)
 
-				self._centralizedPF_pos[:, iTime:iTime+1, self._i_current_frame, iTopology] = state.position(centralizedPF_mean)
-				self._distributedPF_pos[:, iTime:iTime+1, self._i_current_frame, iTopology] = state.position(distributedPF_mean)
+				self._centralizedPF_pos[:, iTime:iTime+1, self._i_current_frame, iTopology] = state.to_position(centralizedPF_mean)
+				self._distributedPF_pos[:, iTime:iTime+1, self._i_current_frame, iTopology] = state.to_position(distributedPF_mean)
 
 				# the aggregated weights of the different PEs in the distributed PF are stored
 				self._distributedPFaggregatedWeights[iTopology][iTime, :, self._i_current_frame] = distributed_pf.aggregated_weights
@@ -500,14 +500,14 @@ class Convergence(SimpleSimulation):
 					self._painter.updateTargetPosition(target_position[:, iTime:iTime+1])
 
 					# ...those estimated by the PFs
-					self._painter.updateEstimatedPosition(state.position(centralizedPF_mean), identifier='centralized',color=self._settings_painter["color for the centralized PF"])
-					self._painter.updateEstimatedPosition(state.position(distributedPF_mean), identifier='distributed', color=self._settings_painter["color for the distributed PF"])
+					self._painter.updateEstimatedPosition(state.to_position(centralizedPF_mean), identifier='centralized', color=self._settings_painter["color for the centralized PF"])
+					self._painter.updateEstimatedPosition(state.to_position(distributedPF_mean), identifier='distributed', color=self._settings_painter["color for the distributed PF"])
 
 					if self._settings_painter["display particles evolution?"]:
 
 						# ...and those of the particles...
-						self._painter.updateParticlesPositions(state.position(pf.get_state()), identifier='centralized', color=self._settings_painter["color for the centralized PF"])
-						self._painter.updateParticlesPositions(state.position(distributed_pf.get_state()), identifier='distributed', color=self._settings_painter["color for the distributed PF"])
+						self._painter.updateParticlesPositions(state.to_position(pf.get_state()), identifier='centralized', color=self._settings_painter["color for the centralized PF"])
+						self._painter.updateParticlesPositions(state.to_position(distributed_pf.get_state()), identifier='distributed', color=self._settings_painter["color for the distributed PF"])
 
 			# data is saved
 			h5_estimated_pos = self._h5_current_frame.create_dataset(
@@ -993,10 +993,10 @@ class Mposterior(SimpleSimulation):
 			# for every estimator, along with its corresponding label,...
 			for iEstimator, (estimator, label) in enumerate(zip(self._estimators, self._estimators_labels)):
 
-				self._estimatedPos[:, iTime:iTime+1, self._i_current_frame, iEstimator] = state.position(estimator.estimate())
+				self._estimatedPos[:, iTime:iTime+1, self._i_current_frame, iEstimator] = state.to_position(estimator.estimate())
 
 				# the position given by this estimator at the current time instant is written to the HDF5 file
-				estimated_pos[:, iTime:iTime+1, iEstimator] = state.position(estimator.estimate())
+				estimated_pos[:, iTime:iTime+1, iEstimator] = state.to_position(estimator.estimate())
 
 				print('position estimated by {}\n'.format(label), self._estimatedPos[:, iTime:iTime+1, self._i_current_frame, iEstimator])
 
@@ -1015,7 +1015,7 @@ class Mposterior(SimpleSimulation):
 					if self._settings_painter["display particles evolution?"]:
 
 						self._painter.updateParticlesPositions(
-							state.position(pf.get_state()), identifier='#{}'.format(iEstimator), color=color)
+							state.to_position(pf.get_state()), identifier='#{}'.format(iEstimator), color=color)
 
 		# the results (estimated positions) are saved
 		self._h5_current_frame.create_dataset(

@@ -38,10 +38,10 @@ command_arguments = parser.parse_args(sys.argv[1:])
 
 # -----
 
-with open('parameters.json') as jsonData:
+with open('parameters.json') as json_data:
 
 	# the parameters file is read to memory
-	parameters = json.load(jsonData)
+	parameters = json.load(json_data)
 
 # if a new number of frames was passed...
 if command_arguments.new_n_frames:

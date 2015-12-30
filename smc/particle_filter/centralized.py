@@ -53,7 +53,7 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		# TODO: this may cause a "divide by zero" warning when a likelihood is very small
 		# for each sensor, we compute the likelihood of EVERY particle (position)
 		loglikelihoods = np.log(np.array(
-			[sensor.likelihood(obs, state.position(self._state)) for sensor, obs in zip(self._sensors, observations)]))
+			[sensor.likelihood(obs, state.to_position(self._state)) for sensor, obs in zip(self._sensors, observations)]))
 
 		# for each particle, we compute the product of the likelihoods for all the sensors
 		log_likelihoods_product = loglikelihoods.sum(axis=0)
@@ -77,11 +77,11 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		normalized_weights = np.exp(normalized_log_weights)
 
 		# we check whether a resampling step is actually needed or not
-		if self._resamplingCriterion.isResamplingNeeded(normalized_weights):
+		if self._resamplingCriterion.is_resampling_needed(normalized_weights):
 
 			try:
 				# the resampling algorithm is used to decide which particles to keep
-				i_particles_to_be_kept = self._resamplingAlgorithm.getIndexes(normalized_weights)
+				i_particles_to_be_kept = self._resamplingAlgorithm.get_indexes(normalized_weights)
 
 			except ValueError:
 
@@ -89,7 +89,7 @@ class TargetTrackingParticleFilter(ParticleFilter):
 				normalized_weights /= normalized_weights.sum()
 
 				# ...and try again
-				i_particles_to_be_kept = self._resamplingAlgorithm.getIndexes(normalized_weights)
+				i_particles_to_be_kept = self._resamplingAlgorithm.get_indexes(normalized_weights)
 
 			# the above indexes are used to update the state
 			self._state = self._state[:, i_particles_to_be_kept]
@@ -161,8 +161,8 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		if self._aggregated_weight == 0:
 
 			# ...then an all-zeros estimate is returned...though any should do since this estimate must contribute zero
-			# return np.zeros((state.nElements, 1))
-			return np.full((state.nElements, 1), np.pi)
+			# return np.zeros((state.n_elements, 1))
+			return np.full((state.n_elements, 1), np.pi)
 
 		normalized_log_weights = self._log_weights - np.log(self._aggregated_weight)
 
@@ -276,7 +276,7 @@ class TargetTrackingParticleFilterWithConsensusCapabilities(TargetTrackingPartic
 		betas = np.array(list(self.betaConsensus.values()))
 
 		# for the sake of convenience
-		x = state.position(self._state)
+		x = state.to_position(self._state)
 
 		# a matrix containing the monomials evaluated for the all the x's
 		phi = (x[:, :, np.newaxis]**exponents.T[:, np.newaxis, :]).prod(axis=0)
@@ -309,7 +309,7 @@ class TargetTrackingParticleFilterWithConsensusCapabilities(TargetTrackingPartic
 
 	def polynomial_approximation(self, observations):
 
-		x = state.position(self._state)
+		x = state.to_position(self._state)
 
 		# in the first matrix, we just replicate the samples matrix (<component within sample>,<number of sample>)
 		# along the third dimension; in the second matrix, the third dimension gives the number of monomial

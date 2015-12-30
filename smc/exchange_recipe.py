@@ -123,7 +123,7 @@ class ParticlesBasedExchangeRecipe(ExchangeRecipe):
 			for i_neighbour, i_particles in neighbours_list:
 
 				# the number of messages required to send the samples
-				n_messages += distances[i_processing_element, i_neighbour]*len(i_particles)*state.nElements
+				n_messages += distances[i_processing_element, i_neighbour]*len(i_particles)*state.n_elements
 
 			# we also need to send the aggregated weight to each neighbour
 			n_messages += len(neighbours_list)
@@ -269,7 +269,7 @@ class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 					subset_posterior_distributions, **self.weiszfeld_parameters)
 
 			# the indexes of the particles to be kept
-			i_new_particles = DPF._resamplingAlgorithm.getIndexes(joint_weights, PE._nParticles)
+			i_new_particles = DPF._resamplingAlgorithm.get_indexes(joint_weights, PE._nParticles)
 
 			PE.samples = joint_particles[:, i_new_particles]
 			PE.log_weights = np.full(PE._nParticles, -np.log(PE._nParticles))

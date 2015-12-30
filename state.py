@@ -8,25 +8,47 @@ import numpy as np
 # 	[ vel_y ]
 
 # so that only this module needs to know about implementation details...
-nElements = 4
+n_elements = 4
 n_elements_position = 2
 
 
-def position(state):
+def to_position(state):
 	"""It extracts the position elements out of the state vector.
 	
 	The purpose is to encapsulate the state so that other modules/classes don't need to know about the structure of the
 	state vector.
+
+	Parameters
+	----------
+	state : array_like
+		The source array.
+
+	Returns
+	-------
+	position : array_like
+		The position embedded in the state.
+
 	"""
 	
 	return state[0:2, :]
 
 
-def velocity(state):
+def to_velocity(state):
 	"""It extracts the velocity elements out of the state vector.
 	
 	The purpose is to encapsulate the state so that other modules/classes don't need to know about the structure of the
 	state vector.
+
+	Parameters
+	----------
+	state : array_like
+		The source array.
+
+	Returns
+	-------
+	velocity : array_like
+		The velocity embedded in the state.
+
 	"""
 	
 	return state[2:4, :]
@@ -37,6 +59,19 @@ def build_state(position, velocity):
 	
 	The purpose is to encapsulate the state so that other modules/classes don't need to know about the structure of the
 	state vector.
+
+	Parameters
+	----------
+	position : array_like
+		source for the position.
+	velocity : array_like
+		source for the velocity.
+
+	Returns
+	-------
+	state : array_like
+		The state determined by the given position and velocity.
+
 	"""
 	
 	return np.vstack((position, velocity))
@@ -164,26 +199,26 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 	def next_state(self, state, PRNG=None):
 		
 		# this may be updated in the while loop when bouncing off several walls
-		previousPos = state[0:2].copy()
+		previous_pos = state[0:2].copy()
 		
 		# the new (unbounded) state as computed by the parent class
-		unboundedState = super().next_state(state, PRNG)
+		unbounded_state = super().next_state(state, PRNG)
 		
 		# the first two elements of the above state is the new (here tentative) position...
-		tentativeNewPos = unboundedState[:2]
+		tentative_new_pos = unbounded_state[:2]
 		
 		# ...whereas the last ones are the new velocity
-		velocity = unboundedState[2:]
+		velocity = unbounded_state[2:]
 		
 		# the step "suggested" by the parent class is then given by the new tentative position and the starting 
-		step = tentativeNewPos - previousPos
+		step = tentative_new_pos - previous_pos
 		
 		# to be used in the loop...
-		anglesWithCorners = np.empty(4)
+		angles_with_corners = np.empty(4)
 		
-		while(True):
+		while True:
 			
-			if (tentativeNewPos > self._corners[2]).all() and (tentativeNewPos < self._corners[0]).all():
+			if (tentative_new_pos > self._corners[2]).all() and (tentative_new_pos < self._corners[0]).all():
 			
 				# the new position is OK
 				break
@@ -193,14 +228,14 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 				for i, corner in enumerate(self._corners):
 					
 					# a vector joining the previous position and the corresponding corner
-					positionToCorner = corner - previousPos
+					position_to_corner = corner - previous_pos
 					
 					# the angle between the above vector and a horizontal line
-					anglesWithCorners[i] = math.acos(positionToCorner[0]/np.linalg.norm(positionToCorner))
+					angles_with_corners[i] = math.acos(position_to_corner[0]/np.linalg.norm(position_to_corner))
 				
 				# we account for the fact that the angle between two vectors computed by means of the dot product is
 				# always between 0 and pi (the shortest)
-				anglesWithCorners[2:] = 2*math.pi - anglesWithCorners[2:]
+				angles_with_corners[2:] = 2*math.pi - angles_with_corners[2:]
 				
 				# angle between the step to be taken and the horizontal line
 				angle = math.acos(step[0]/np.linalg.norm(step))
@@ -211,73 +246,75 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 					angle = 2*math.pi - angle
 				
 				# up
-				if anglesWithCorners[0] <= angle < anglesWithCorners[1]:
+				if angles_with_corners[0] <= angle < angles_with_corners[1]:
 					normal = -self._jVector
-					scaleFactor = (self._top_right_corner[1] - previousPos[1]) / step[1]
+					scale_factor = (self._top_right_corner[1] - previous_pos[1]) / step[1]
 				# left
-				elif anglesWithCorners[1] <= angle < anglesWithCorners[2]:
+				elif angles_with_corners[1] <= angle < angles_with_corners[2]:
 					normal = self._iVector
-					scaleFactor = (self._bottom_left_corner[0] - previousPos[0]) / step[0]
+					scale_factor = (self._bottom_left_corner[0] - previous_pos[0]) / step[0]
 				# down
-				elif anglesWithCorners[2] <= angle < anglesWithCorners[3]:
+				elif angles_with_corners[2] <= angle < angles_with_corners[3]:
 					normal = self._jVector
-					scaleFactor = (self._bottom_left_corner[1] - previousPos[1]) / step[1]
+					scale_factor = (self._bottom_left_corner[1] - previous_pos[1]) / step[1]
 				# right
 				else:
 					normal = -self._iVector
-					scaleFactor = (self._top_right_corner[0] - previousPos[0]) / step[0]
+					scale_factor = (self._top_right_corner[0] - previous_pos[0]) / step[0]
 
 				# the components of the "step" vector before...
-				stepBeforeBounce = scaleFactor*step
+				step_before_bounce = scale_factor*step
 				
 				# ...and after reaching the wall
-				stepAfterBounce = (1.0-scaleFactor)*step
+				step_after_bounce = (1.0-scale_factor)*step
 				
 				# in case we need to bounce again, we update the previous position...
-				previousPos = previousPos + stepBeforeBounce
+				previous_pos = previous_pos + step_before_bounce
 
 				# ...and the step, this one by computing the reflected ray using a formula involving the normal of the
 				# reflecting surface...
-				step = stepAfterBounce - 2*normal*np.dot(normal.T, stepAfterBounce)
+				step = step_after_bounce - 2*normal*np.dot(normal.T, step_after_bounce)
 
-				tentativeNewPos = previousPos + step
+				tentative_new_pos = previous_pos + step
 				
-				# the direction of the velocity is updated according to the reflection that occured in the trajectory
+				# the direction of the velocity is updated according to the reflection that occurred in the trajectory
 				# note that this only needs to be done in the last iteration of the while loop, but since the velocity
 				# is not used within the "else" part, it's not a problem
 				velocity = step/np.linalg.norm(step)*np.linalg.norm(velocity)
 
-		return np.vstack((tentativeNewPos, velocity))
+		return np.vstack((tentative_new_pos, velocity))
 
 
 class OnEdgeResetTransitionKernel(UnboundedTransitionKernel):
 	
-	def __init__(self, bottom_left_corner, top_right_corner, velocity_variance=0.5, noise_variance=0.1, step_duration=1, PRNG=np.random.RandomState(), reset_velocity_variance=0.01):
+	def __init__(
+			self, bottom_left_corner, top_right_corner, velocity_variance=0.5, noise_variance=0.1, step_duration=1,
+			PRNG=np.random.RandomState(), reset_velocity_variance=0.01):
 		
 		# the parent's constructor is called
 		super().__init__(bottom_left_corner, top_right_corner, velocity_variance, noise_variance, step_duration, PRNG)
 		
-		self._resetVelocityVariance = reset_velocity_variance
+		self._reset_velocity_variance = reset_velocity_variance
 		
 	def next_state(self, state, PRNG=None):
 		
 		# the new (unbounded) state as computed by the parent class
-		unboundedState = super().next_state(state, PRNG)
+		unbounded_state = super().next_state(state, PRNG)
 		
 		# the first two elements of the above state is the new (here tentative) position...
-		tentativeNewPos = unboundedState[:2]
+		tentative_new_pos = unbounded_state[:2]
 		
 		# if the tentative position is within the bounds of the rectangle...
-		if (tentativeNewPos > self._corners[2]).all() and (tentativeNewPos < self._corners[0]).all():
+		if (tentative_new_pos > self._corners[2]).all() and (tentative_new_pos < self._corners[0]).all():
 			
 			# it's already ok
-			return unboundedState
+			return unbounded_state
 		
 		# if for this particular call, no pseudo random numbers generator is received...
 		if PRNG is None:
 			# ...the corresponding class attribute is used
 			PRNG = self._PRNG
 		
-		velocity = PRNG.normal(0, math.sqrt(self._resetVelocityVariance/2), (2,1))
+		velocity = PRNG.normal(0, math.sqrt(self._reset_velocity_variance / 2), (2, 1))
 		
 		return np.vstack((state[0:2], velocity))

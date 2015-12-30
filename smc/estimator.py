@@ -180,8 +180,8 @@ class StochasticGeometricMedian(GeometricMedian):
 		# a number of samples is drawn from the distribution of each PE (all equally weighted)
 		# to build a list of tuples (samples and weights)
 		samples = np.hstack(
-			[PE.get_samples_at(self.DPF._resamplingAlgorithm.getIndexes(np.exp(PE.log_weights),
-			self.n_particles)) for PE in self.DPF._PEs])
+			[PE.get_samples_at(self.DPF._resamplingAlgorithm.get_indexes(np.exp(PE.log_weights),
+			                                                             self.n_particles)) for PE in self.DPF._PEs])
 
 		return geometric_median(samples, max_iterations=self._maxIterations, tolerance=self._tolerance)[:, np.newaxis]
 

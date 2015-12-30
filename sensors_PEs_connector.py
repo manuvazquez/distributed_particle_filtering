@@ -46,7 +46,7 @@ class SensorOrientedConnector(SensorsPEsConnector):
 		# a bipartite graph with one set of nodes given by the sensors and other by the PEs
 		graph = networkx.bipartite_havel_hakimi_graph(sensorsDegrees,PEsDegrees)
 		
-		# we only "look" at the nodes from "self._nSensors" onwards, since the previous ones correspond to the sensors
+		# we only "look" at the nodes from "self._n_sensors" onwards, since the previous ones correspond to the sensors
 		return [sorted(graph.neighbors(iPE+self._nSensors)) for iPE in range(nPEs)]
 
 class ProximityBasedConnector(SensorsPEsConnector):

@@ -20,11 +20,11 @@ class Target:
 
 	def pos(self):
 		
-		return state.position(self._state)
+		return state.to_position(self._state)
 	
 	def velocity(self):
 		
-		return state.velocity(self._state)
+		return state.to_velocity(self._state)
 		
 	def simulate_trajectory(self, nTimeInstants):
 		
@@ -32,13 +32,13 @@ class Target:
 		self._state = self._prior.sample(PRNG=self._pseudo_random_numbers_generator)
 		
 		# a trajectory with the requested number of time instants...plus the initial one
-		computedTrajectory = np.empty((state.nElements,nTimeInstants))
+		computedTrajectory = np.empty((state.n_elements, nTimeInstants))
 		
 		# initial state is set
 		computedTrajectory[:,0:1] = self._state
 
-		print('initial position:\n',state.position(computedTrajectory[:, 0:1]))
-		print('initial velocity:\n',state.velocity(computedTrajectory[:, 0:1]))
+		print('initial position:\n', state.to_position(computedTrajectory[:, 0:1]))
+		print('initial velocity:\n', state.to_velocity(computedTrajectory[:, 0:1]))
 
 		# the trajectory is simulated, and the corresponding observations are obtained (notice that there is no
 		# observation for initial position)
@@ -50,4 +50,4 @@ class Target:
 			# ..and it is stored in the corresponding position (which is iTime+1)
 			computedTrajectory[:,iTime:iTime+1] = self._state
 		
-		return (state.position(computedTrajectory),state.velocity(computedTrajectory))
+		return (state.to_position(computedTrajectory), state.to_velocity(computedTrajectory))

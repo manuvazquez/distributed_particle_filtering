@@ -1,15 +1,29 @@
 import numpy as np
 
+
 class ResamplingAlgorithm:
 	
 	def __init__(self):
 		
 		pass
 	
-	def getIndexes(self,weights,n):
+	def get_indexes(self, weights, n):
 		"""It returns the indexes of the particles that should be kept after resampling.
 		
 		Notice that it doesn't perform any "real" resampling"...the real work must be performed somewhere else.
+
+		Parameters
+		----------
+		weights : array_like
+			The weights of the particles.
+		n : int, optional
+			The number of indexes requested
+
+		Returns
+		-------
+		indices : array_like
+			The indices of the selected particles
+
 		"""
 		pass
 
@@ -22,9 +36,9 @@ class MultinomialResamplingAlgorithm(ResamplingAlgorithm):
 		
 		self._PRNG = PRNG
 		
-	def getIndexes(self, weights, n=None):
+	def get_indexes(self, weights, n=None):
 		
-		if n is None:
+		if not n:
 
 			n = weights.size
 		
@@ -33,36 +47,36 @@ class MultinomialResamplingAlgorithm(ResamplingAlgorithm):
 
 class ResamplingCriterion:
 	
-	def isResamplingNeeded(self,weights):
+	def is_resampling_needed(self, weights):
 		
 		pass
 
 
 class EffectiveSampleSizeBasedResamplingCriterion(ResamplingCriterion):
 	
-	def __init__(self,resamplingRatio):
+	def __init__(self, resamplingRatio):
 		
-		self._resamplingRatio = resamplingRatio
+		self._resampling_ratio = resamplingRatio
 		
-	def isResamplingNeeded(self,weights):
+	def is_resampling_needed(self, weights):
 		
-		super().isResamplingNeeded(weights)
+		super().is_resampling_needed(weights)
 		
 		# a division by zero may occur...
 		try:
 			
-			nEffectiveParticles = 1/np.dot(weights,weights)
+			n_effective_particles = 1/np.dot(weights, weights)
 			
 		except ZeroDivisionError:
 			
 			raise Exception('all the weights are zero!!')
 			
-		return nEffectiveParticles<(self._resamplingRatio*weights.size)
+		return n_effective_particles < (self._resampling_ratio * weights.size)
 	
 class AlwaysResamplingCriterion(ResamplingCriterion):
 	
-	def isResamplingNeeded(self,weights):
+	def is_resampling_needed(self, weights):
 		
-		super().isResamplingNeeded(weights)
+		super().is_resampling_needed(weights)
 		
 		return True

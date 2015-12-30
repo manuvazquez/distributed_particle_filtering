@@ -292,7 +292,7 @@ def trajectory(filename, i_trajectory=0, n_time_instants=-1, ticks_font_size=12)
 	# the positions of the sensors are computed
 	sensors_positions = network_nodes.PositionlessPEsEquispacedSensors(
 		parameters["room"]["bottom left corner"], parameters["room"]["top right corner"], n_processing_elements, n_sensors
-	).sensorsPositions
+	).sensors_positions
 
 	# a Painter object is created to do the dirty work
 	painter = TightRectangularRoomPainter(
