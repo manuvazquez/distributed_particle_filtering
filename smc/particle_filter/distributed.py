@@ -35,6 +35,11 @@ class TargetTrackingParticleFilter(ParticleFilter):
 
 		return self._n_PEs
 
+	@property
+	def PEs(self):
+
+		return self._PEs
+
 	def initialize(self):
 
 		# all the PFs are initialized

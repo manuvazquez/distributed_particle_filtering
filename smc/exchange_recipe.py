@@ -100,13 +100,13 @@ class ParticlesBasedExchangeRecipe(ExchangeRecipe):
 		aux = []
 		for exchangeTuple in self.exchange_tuples:
 			aux.append(
-				(DPF._PEs[exchangeTuple.i_PE].get_particle(exchangeTuple.i_particle_within_PE),
-				DPF._PEs[exchangeTuple.i_neighbour].get_particle(exchangeTuple.i_particle_within_neighbour)))
+				(DPF.PEs[exchangeTuple.i_PE].get_particle(exchangeTuple.i_particle_within_PE),
+				DPF.PEs[exchangeTuple.i_neighbour].get_particle(exchangeTuple.i_particle_within_neighbour)))
 
 		# afterwards, we loop through all the exchange tuples performing the real exchange
 		for (exchangeTuple, particles) in zip(self.exchange_tuples, aux):
-			DPF._PEs[exchangeTuple.i_PE].set_particle(exchangeTuple.i_particle_within_PE, particles[1])
-			DPF._PEs[exchangeTuple.i_neighbour].set_particle(exchangeTuple.i_particle_within_neighbour, particles[0])
+			DPF.PEs[exchangeTuple.i_PE].set_particle(exchangeTuple.i_particle_within_PE, particles[1])
+			DPF.PEs[exchangeTuple.i_neighbour].set_particle(exchangeTuple.i_particle_within_neighbour, particles[0])
 
 	def messages(self):
 
@@ -254,11 +254,11 @@ class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 	def perform_exchange(self, DPF):
 
 		for PE, this_PE_neighbours_particles, i_this_PE_particles in zip(
-				DPF._PEs, self.neighbours_particles, self.i_own_particles_within_processing_elements):
+				DPF.PEs, self.neighbours_particles, self.i_own_particles_within_processing_elements):
 
 			# a list with the subset posterior of each neighbour
 			subset_posterior_distributions = [
-				DPF._PEs[neighbour_particles.i_neighbour].get_samples_at(neighbour_particles.i_particles).T
+				DPF.PEs[neighbour_particles.i_neighbour].get_samples_at(neighbour_particles.i_particles).T
 				for neighbour_particles in this_PE_neighbours_particles]
 
 			# a subset posterior obtained from this PE is also added: it encompasses
@@ -375,7 +375,7 @@ class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 		# ==========================
 
 		# for every PE, along with its neighbours
-		for PE, neighbours, weights in zip(DPF._PEs, self._neighborhoods, self._metropolis_weights):
+		for PE, neighbours, weights in zip(DPF.PEs, self._neighborhoods, self._metropolis_weights):
 
 			# a dictionary for storing the "consensed" beta's
 			PE.betaConsensus = {}
@@ -384,7 +384,7 @@ class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 			for r in DPF._r_d_tuples:
 
 				PE.betaConsensus[r] = PE.beta[r]*weights[0] + np.array(
-					[DPF._PEs[i_neighbour].beta[r] for i_neighbour in neighbours]).dot(weights[1])
+					[DPF.PEs[i_neighbour].beta[r] for i_neighbour in neighbours]).dot(weights[1])
 
 		# the remaining iterations of the consensus algorithm
 		# ==========================
@@ -393,19 +393,19 @@ class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 		for _ in range(self._max_iterations-1):
 
 			# for every PE, along with its neighbours
-			for PE, neighbours, weights in zip(DPF._PEs, self._neighborhoods, self._metropolis_weights):
+			for PE, neighbours, weights in zip(DPF.PEs, self._neighborhoods, self._metropolis_weights):
 
 				# for every combination of exponents, r
 				for r in DPF._r_d_tuples:
 
 					PE.betaConsensus[r] = PE.betaConsensus[r]*weights[0] + np.array(
-						[DPF._PEs[i_neighbour].betaConsensus[r] for i_neighbour in neighbours]).dot(weights[1])
+						[DPF.PEs[i_neighbour].betaConsensus[r] for i_neighbour in neighbours]).dot(weights[1])
 
 		# every average is turned into a sum
 		# ==========================
 
 		# for every PE...
-		for PE in DPF._PEs:
+		for PE in DPF.PEs:
 
 			# ...and every coefficient computed
 			for r in DPF._r_d_tuples:

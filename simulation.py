@@ -97,7 +97,6 @@ class SimpleSimulation(Simulation):
 
 			# ...a new HDF5 file is created
 			self._f = h5py.File('res_' + self._output_file + '.hdf5', 'w', driver='core', libver='latest')
-			# self._f = h5py.File('res_' + self._outputFile + '.hdf5', 'w')
 
 		# otherwise...
 		else:
@@ -106,7 +105,7 @@ class SimpleSimulation(Simulation):
 			self._f = self._h5py_file
 
 		# this is the number of digits needed to express the frame number
-		self._nFramesWidth = math.ceil(math.log10(parameters["number of frames"]))
+		self._width_n_frames = math.ceil(math.log10(parameters["number of frames"]))
 
 		# for the sake of convenience
 		sensors_settings = parameters["sensors"]
@@ -175,7 +174,7 @@ class SimpleSimulation(Simulation):
 		
 		# a reference to the "group" for the current frame (notice the prefix in the name given "self._h5py_prefix")...
 		self._h5_current_frame = self._f.create_group(
-			self._h5py_prefix + 'frames/{num:0{width}}'.format(num=self._i_current_frame, width=self._nFramesWidth))
+			self._h5py_prefix + 'frames/{num:0{width}}'.format(num=self._i_current_frame, width=self._width_n_frames))
 		
 		# ...where a new dataset is created for the "actual position" of the target...
 		self._h5_current_frame.create_dataset(
@@ -519,6 +518,7 @@ class Convergence(SimpleSimulation):
 			self._h5_current_frame.create_dataset(
 				'topology/{}/DPF aggregated weights'.format(iTopology), aggregated_weights.shape, dtype=float,
 				data=aggregated_weights)
+
 
 class MultipleMposterior(Simulation):
 	

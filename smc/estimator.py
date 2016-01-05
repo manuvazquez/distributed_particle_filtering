@@ -78,7 +78,7 @@ class Mean(Estimator):
 	def estimate(self):
 
 		# the means from all the PEs are stacked (horizontally) in a single array
-		joint_means = np.hstack([PE.compute_mean() for PE in self.DPF._PEs])
+		joint_means = np.hstack([PE.compute_mean() for PE in self.DPF.PEs])
 
 		return joint_means.mean(axis=1)[:, np.newaxis]
 
@@ -101,7 +101,7 @@ class WeightedMean(Mean):
 
 		# notice that "compute_mean" will return a numpy array the size of the state (rather than a scalar)
 		return np.multiply(
-			np.hstack([PE.compute_mean() for PE in self.DPF._PEs]),
+			np.hstack([PE.compute_mean() for PE in self.DPF.PEs]),
 			normalized_aggregated_weights).sum(axis=1)[:, np.newaxis]
 
 	def messages(self, processing_elements_topology):
@@ -129,7 +129,7 @@ class Mposterior(Estimator):
 	def estimate(self):
 
 		# the (FULL) distributions computed by all the PEs are gathered in a list of tuples (samples and weights)
-		posteriors = [(PE.get_state().T, np.exp(PE.log_weights)) for PE in self.DPF._PEs]
+		posteriors = [(PE.get_state().T, np.exp(PE.log_weights)) for PE in self.DPF.PEs]
 
 		return self.combine_posterior_distributions(posteriors)
 
@@ -139,7 +139,7 @@ class Mposterior(Estimator):
 		distances = processing_elements_topology.distances_between_processing_elements
 
 		# TODO: this assumes all PEs have the same number of particles: that of the self.i_PE-th one
-		return distances[self.i_processing_element, :].sum()*self.DPF._PEs[self.i_processing_element].n_particles*state.n_elements_position
+		return distances[self.i_processing_element, :].sum()*self.DPF.PEs[self.i_processing_element].n_particles*state.n_elements_position
 
 
 class GeometricMedian(Estimator):
@@ -154,7 +154,7 @@ class GeometricMedian(Estimator):
 	def estimate(self):
 
 		# the first (0) sample of each PE is collected
-		samples = np.hstack([PE.get_samples_at([0]) for PE in self.DPF._PEs])
+		samples = np.hstack([PE.get_samples_at([0]) for PE in self.DPF.PEs])
 
 		return geometric_median(samples, max_iterations=self._maxIterations, tolerance=self._tolerance)[:, np.newaxis]
 
@@ -181,7 +181,7 @@ class StochasticGeometricMedian(GeometricMedian):
 		# to build a list of tuples (samples and weights)
 		samples = np.hstack(
 			[PE.get_samples_at(self.DPF._resamplingAlgorithm.get_indexes(np.exp(PE.log_weights),
-			                                                             self.n_particles)) for PE in self.DPF._PEs])
+			                                                             self.n_particles)) for PE in self.DPF.PEs])
 
 		return geometric_median(samples, max_iterations=self._maxIterations, tolerance=self._tolerance)[:, np.newaxis]
 
@@ -194,7 +194,7 @@ class SinglePEMean(Estimator):
 
 	def estimate(self):
 
-		return self.DPF._PEs[self.i_processing_element].compute_mean()
+		return self.DPF.PEs[self.i_processing_element].compute_mean()
 
 
 class SinglePEGeometricMedian(Estimator):
@@ -209,7 +209,7 @@ class SinglePEGeometricMedian(Estimator):
 	def estimate(self):
 
 		return geometric_median(
-			self.DPF._PEs[self.i_processing_element].samples, max_iterations=self._maxIterations, tolerance=self._tolerance
+			self.DPF.PEs[self.i_processing_element].samples, max_iterations=self._maxIterations, tolerance=self._tolerance
 		)[:, np.newaxis]
 
 
@@ -234,7 +234,7 @@ class SinglePEGeometricMedianWithinRadius(SinglePEGeometricMedian):
 	def estimate(self):
 
 		# the first "self.n_particles" samples from each of the above PEs
-		samples = np.vstack([self.DPF._PEs[iPE].get_samples_at(range(self.n_particles)).T for iPE in self._i_relevant_PEs]).T
+		samples = np.vstack([self.DPF.PEs[iPE].get_samples_at(range(self.n_particles)).T for iPE in self._i_relevant_PEs]).T
 
 		return geometric_median(samples, max_iterations=self._maxIterations, tolerance=self._tolerance)[:, np.newaxis]
 	
