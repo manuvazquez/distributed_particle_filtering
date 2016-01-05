@@ -88,7 +88,7 @@ class ParticlesBasedExchangeRecipe(ExchangeRecipe):
 
 			else:
 
-				raise Exception('type of exchanged_particles is not valid')
+				raise Exception('type of "exchanged_particles" is not valid')
 
 			if self.n_particles_exchanged_between_neighbours is 0:
 
@@ -96,7 +96,7 @@ class ParticlesBasedExchangeRecipe(ExchangeRecipe):
 
 	def perform_exchange(self, DPF):
 
-		# first, we compile all the particles that are going to be exchanged in an auxiliar variable
+		# first, we gather all the particles that are going to be exchanged in an auxiliar variable
 		aux = []
 		for exchangeTuple in self.exchange_tuples:
 			aux.append(
@@ -215,19 +215,31 @@ class DRNAExchangeRecipe(ParticlesBasedExchangeRecipe):
 					# only "already_processed_PEs[iNeighbour, iPe]" should be accessed later on
 					already_processed_PEs[iNeighbour, iPE] = already_processed_PEs[iPE, iNeighbour] = True
 
+					# each tuple specifies a neighbor, and the particles THE LATTER exchanges with it (rather than
+					# the other way around)
 					self._neighbours_particles[iPE].append(
-						NeighbourParticlesTuple(iNeighbour, i_exchanged_particles_within_PE))
+						NeighbourParticlesTuple(iNeighbour, i_exchanged_particles_within_neighbour))
 
 					self._neighbours_particles[iNeighbour].append(
-						NeighbourParticlesTuple(iPE, i_exchanged_particles_within_neighbour))
+						NeighbourParticlesTuple(iPE, i_exchanged_particles_within_PE))
 
 	@property
 	def exchange_tuples(self):
 
 		return self._exchangeTuples
 
+	# this is only meant to be used by subclasses (specifically, Mposterior-related ones)
 	@property
 	def neighbours_particles(self):
+
+		"""Particles received from each neighbour.
+
+		Returns
+		-------
+		neighbours, particles : list of lists
+			Every individual list contains tuples of the form (<index neighbour>, <indexes particles within
+			that neighbour>) for the corresponding PE
+		"""
 
 		return self._neighbours_particles
 
@@ -247,14 +259,14 @@ class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 
 		self.weiszfeld_parameters = weiszfeld_parameters
 
-		self.i_own_particles_within_processing_elements = [np.random.randint(
+		self.i_own_particles_within_PEs = [np.random.randint(
 			n_particles_per_processing_element, size=self.n_particles_exchanged_between_neighbours
 		) for _ in range(self._n_PEs)]
 
 	def perform_exchange(self, DPF):
 
 		for PE, this_PE_neighbours_particles, i_this_PE_particles in zip(
-				DPF.PEs, self.neighbours_particles, self.i_own_particles_within_processing_elements):
+				DPF.PEs, self.neighbours_particles, self.i_own_particles_within_PEs):
 
 			# a list with the subset posterior of each neighbour
 			subset_posterior_distributions = [
@@ -307,23 +319,26 @@ class MposteriorWithinRadiusExchangeRecipe(MposteriorExchangeRecipe):
 		return self._PEs_topology.i_neighbours_within_hops(self.radius)
 
 
-class EfficientMposteriorWithinRadiusExchangeRecipe(MposteriorWithinRadiusExchangeRecipe):
+class SameParticlesMposteriorWithinRadiusExchangeRecipe(MposteriorWithinRadiusExchangeRecipe):
 
 	def __init__(
 			self, processing_elements_topology, n_particles_per_processing_element, exchanged_particles,
-			weiszfeld_parameters, radius, PRNG=np.random.RandomState(), allow_exchange_one_particle_more_than_once=False):
+			weiszfeld_parameters, radius, PRNG=np.random.RandomState()):
 
+		# "allow_exchange_one_particle_more_than_once" is set to true since it is irrelevant here, but could cause the
+		# parent class to throw an exception if set to False
 		super().__init__(
 				processing_elements_topology, n_particles_per_processing_element, exchanged_particles,
-				weiszfeld_parameters, radius, PRNG, allow_exchange_one_particle_more_than_once)
+				weiszfeld_parameters, radius, PRNG, allow_exchange_one_particle_more_than_once=True)
 
-		i_shared_particles_within_processing_elements = [
+		i_particles_shared_by_each_PE = [
 			PRNG.choice(n_particles_per_processing_element, size=self.n_particles_exchanged_between_neighbours, replace=False)
 			for _ in range(self._n_PEs)]
 
 		self._neighbours_particles = []
 
-		for neighbours, i_shared_particles in zip(self.processing_elements_contacts, i_shared_particles_within_processing_elements):
+		for neighbours, i_shared_particles in zip(
+				self.processing_elements_contacts, i_particles_shared_by_each_PE):
 
 			self._neighbours_particles.append([NeighbourParticlesTuple(n, i_shared_particles) for n in neighbours])
 

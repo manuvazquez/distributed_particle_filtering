@@ -674,7 +674,7 @@ class Mposterior(SimpleSimulation):
 		self.add_algorithms()
 		
 		# the position estimates
-		self._estimatedPos = np.empty((2, self._n_time_instants, parameters["number of frames"], len(self._estimators)))
+		self._estimated_pos = np.empty((2, self._n_time_instants, parameters["number of frames"], len(self._estimators)))
 		
 		assert len(self._estimators_colors) == len(self._estimators_labels) == len(self._estimators)
 		
@@ -749,7 +749,7 @@ class Mposterior(SimpleSimulation):
 		# 	self._MposteriorSettings["number of iterations"])
 
 		mposterior_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
-			smc.exchange_recipe.EfficientMposteriorWithinRadiusExchangeRecipe(
+			smc.exchange_recipe.SameParticlesMposteriorWithinRadiusExchangeRecipe(
 				self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
 					self._MposteriorSettings['findWeiszfeldMedian parameters'], 1,
 					PRNG=self._PRNGs["topology pseudo random numbers generator"]),
@@ -757,7 +757,7 @@ class Mposterior(SimpleSimulation):
 
 
 		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
-			smc.exchange_recipe.EfficientMposteriorWithinRadiusExchangeRecipe(
+			smc.exchange_recipe.SameParticlesMposteriorWithinRadiusExchangeRecipe(
 					self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
 					self._MposteriorSettings['findWeiszfeldMedian parameters'], self._mposterior_exchange_step_depth,
 					PRNG=self._PRNGs["topology pseudo random numbers generator"]),
@@ -927,7 +927,7 @@ class Mposterior(SimpleSimulation):
 		# a dictionary encompassing all the data to be saved
 		data_to_be_saved = dict(
 				targetPosition=target_position[:, :, :self._i_current_frame],
-				PF_pos=self._estimatedPos[:, :, :self._i_current_frame, :]
+				PF_pos=self._estimated_pos[:, :, :self._i_current_frame, :]
 			)
 		
 		# data is saved
@@ -936,7 +936,7 @@ class Mposterior(SimpleSimulation):
 		
 		# the mean of the error (euclidean distance) incurred by the PFs
 		pf_error = np.sqrt(
-			((self._estimatedPos[:, :, :self._i_current_frame, :] - target_position[:, :, :self._i_current_frame, np.newaxis])**2).sum(
+			((self._estimated_pos[:, :, :self._i_current_frame, :] - target_position[:, :, :self._i_current_frame, np.newaxis]) ** 2).sum(
 				axis=0)).mean(axis=1)
 		
 		plot.particle_filters(
@@ -945,7 +945,7 @@ class Mposterior(SimpleSimulation):
 			'_' + self._output_file + '_nFrames={}.eps'.format(repr(self._i_current_frame)),
 			[{'label': l, 'color': c} for l, c in zip(self._estimators_labels, self._estimators_colors)])
 		
-		print(self._estimatedPos)
+		print(self._estimated_pos)
 		
 	def process_frame(self, target_position, target_velocity):
 		
@@ -993,12 +993,12 @@ class Mposterior(SimpleSimulation):
 			# for every estimator, along with its corresponding label,...
 			for iEstimator, (estimator, label) in enumerate(zip(self._estimators, self._estimators_labels)):
 
-				self._estimatedPos[:, iTime:iTime+1, self._i_current_frame, iEstimator] = state.to_position(estimator.estimate())
+				self._estimated_pos[:, iTime:iTime + 1, self._i_current_frame, iEstimator] = state.to_position(estimator.estimate())
 
 				# the position given by this estimator at the current time instant is written to the HDF5 file
 				estimated_pos[:, iTime:iTime+1, iEstimator] = state.to_position(estimator.estimate())
 
-				print('position estimated by {}\n'.format(label), self._estimatedPos[:, iTime:iTime+1, self._i_current_frame, iEstimator])
+				print('position estimated by {}\n'.format(label), self._estimated_pos[:, iTime:iTime + 1, self._i_current_frame, iEstimator])
 
 			if self._settings_painter["display evolution?"] and self._settings_painter["use display server if available?"]:
 
@@ -1009,7 +1009,7 @@ class Mposterior(SimpleSimulation):
 				for iEstimator, (pf, color) in enumerate(zip(self._estimators, self._estimators_colors)):
 
 					self._painter.updateEstimatedPosition(
-						self._estimatedPos[:, iTime:iTime+1, self._i_current_frame, iEstimator],
+							self._estimated_pos[:, iTime:iTime + 1, self._i_current_frame, iEstimator],
 						identifier='#{}'.format(iEstimator), color=color)
 
 					if self._settings_painter["display particles evolution?"]:
