@@ -5,10 +5,10 @@ class ParticleFilter(metaclass=abc.ABCMeta):
 
 	def __init__(self, n_particles, resampling_algorithm, resampling_criterion):
 
-		self._nParticles = n_particles
+		self._n_particles = n_particles
 
-		self._resamplingAlgorithm = resampling_algorithm
-		self._resamplingCriterion = resampling_criterion
+		self._resampling_algorithm = resampling_algorithm
+		self._resampling_criterion = resampling_criterion
 
 	@abc.abstractmethod
 	def initialize(self):
@@ -25,7 +25,7 @@ class ParticleFilter(metaclass=abc.ABCMeta):
 
 		pass
 
-	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
+	@property
+	def n_particles(self):
 
-		# to indicate it has not been computed
-		return -1
+		return self._n_particles

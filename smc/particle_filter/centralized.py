@@ -34,10 +34,10 @@ class TargetTrackingParticleFilter(ParticleFilter):
 	def initialize(self):
 
 		# initial samples...
-		self._state = self._prior.sample(self._nParticles)
+		self._state = self._prior.sample(self._n_particles)
 
 		# the weights are assigned equal probabilities
-		self._log_weights.fill(np.log(self._initial_aggregated_weight)-np.log(self._nParticles))
+		self._log_weights.fill(np.log(self._initial_aggregated_weight) - np.log(self._n_particles))
 
 		# this variable just keeps tabs on the sum of all the weights
 		self._aggregated_weight = self._initial_aggregated_weight
@@ -48,7 +48,7 @@ class TargetTrackingParticleFilter(ParticleFilter):
 
 		# every particle is updated (previous state is not stored...)
 		self._state = np.hstack(
-			[self._state_transition_kernel.next_state(self._state[:, i:i + 1]) for i in range(self._nParticles)])
+			[self._state_transition_kernel.next_state(self._state[:, i:i + 1]) for i in range(self._n_particles)])
 
 		# TODO: this may cause a "divide by zero" warning when a likelihood is very small
 		# for each sensor, we compute the likelihood of EVERY particle (position)
@@ -78,11 +78,11 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		normalized_weights = np.exp(normalized_log_weights)
 
 		# we check whether a resampling step is actually needed or not
-		if self._resamplingCriterion.is_resampling_needed(normalized_weights):
+		if self._resampling_criterion.is_resampling_needed(normalized_weights):
 
 			try:
 				# the resampling algorithm is used to decide which particles to keep
-				i_particles_to_be_kept = self._resamplingAlgorithm.get_indexes(normalized_weights)
+				i_particles_to_be_kept = self._resampling_algorithm.get_indexes(normalized_weights)
 
 			except ValueError:
 
@@ -90,14 +90,14 @@ class TargetTrackingParticleFilter(ParticleFilter):
 				normalized_weights /= normalized_weights.sum()
 
 				# ...and try again
-				i_particles_to_be_kept = self._resamplingAlgorithm.get_indexes(normalized_weights)
+				i_particles_to_be_kept = self._resampling_algorithm.get_indexes(normalized_weights)
 
 			# the above indexes are used to update the state
 			self._state = self._state[:, i_particles_to_be_kept]
 
 			# note that if the weights have been normalized ("standard" centralized particle filter),
 			# then "self._aggregated_weight" is equal to 1
-			self._log_weights.fill(np.log(self._aggregated_weight)-np.log(self._nParticles))
+			self._log_weights.fill(np.log(self._aggregated_weight) - np.log(self._n_particles))
 
 	def get_particle(self, index):
 
@@ -121,11 +121,6 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		"""
 
 		return self._state[:, indexes]
-
-	@property
-	def n_particles(self):
-
-		return len(self._log_weights)
 
 	@property
 	def samples(self):
@@ -178,7 +173,7 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		if self._aggregated_weight == 0:
 
 			# ...then normalization makes no sense and we just initialize the weights again
-			self._log_weights.fill(-np.log(self._nParticles))
+			self._log_weights.fill(-np.log(self._n_particles))
 
 		else:
 
@@ -320,7 +315,7 @@ class TargetTrackingParticleFilterWithConsensusCapabilities(TargetTrackingPartic
 
 		# every particle is updated (previous state is not stored...)
 		self._state = np.hstack(
-			[self._state_transition_kernel.next_state(self._state[:, i:i + 1]) for i in range(self._nParticles)])
+			[self._state_transition_kernel.next_state(self._state[:, i:i + 1]) for i in range(self._n_particles)])
 
 		self.polynomial_approximation(observations)
 

@@ -1,13 +1,14 @@
 import numpy as np
 import scipy.misc
 import itertools
+import abc
 
 import smc.estimator
 from .particle_filter import ParticleFilter
 from . import centralized
 
 
-class TargetTrackingParticleFilter(ParticleFilter):
+class TargetTrackingParticleFilter(ParticleFilter, metaclass=abc.ABCMeta):
 
 	def __init__(
 			self, n_PEs, n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
@@ -70,7 +71,7 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		# the state from every PE is gathered together
 		return np.hstack([PE.get_state() for PE in self._PEs])
 
-	def messages_observations_propagation(self, processing_elements_topology, each_processing_element_connected_sensors):
+	def messages_observations_propagation(self, PEs_topology, each_processing_element_connected_sensors):
 
 		i_observation_to_i_processing_element = np.empty(self._n_sensors)
 
@@ -82,7 +83,7 @@ class TargetTrackingParticleFilter(ParticleFilter):
 				i_observation_to_i_processing_element[i] = i_PE
 
 		# the distance in hops between each pair of PEs
-		distances = processing_elements_topology.distances_between_processing_elements
+		distances = PEs_topology.distances_between_processing_elements
 
 		n_messages = 0
 
@@ -99,6 +100,11 @@ class TargetTrackingParticleFilter(ParticleFilter):
 					n_messages += distances[i_PE, i_observation_to_i_processing_element[i]]
 
 		return n_messages
+
+	@abc.abstractmethod
+	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
+
+		pass
 
 # =========================================================================================================
 
@@ -276,7 +282,7 @@ class TargetTrackingParticleFilterWithDRNA(TargetTrackingParticleFilter):
 			PE._aggregated_weight = aggregated_weight
 
 			# ...along with the individual weights within the PE
-			PE.log_weights = np.full(PE._nParticles, -np.log(self._n_PEs) - np.log(PE._nParticles))
+			PE.log_weights = np.full(PE._n_particles, -np.log(self._n_PEs) - np.log(PE._n_particles))
 
 	def compute_mean(self):
 
@@ -304,7 +310,7 @@ class TargetTrackingParticleFilterWithMposterior(TargetTrackingParticleFilter):
 			resampling_criterion, prior, state_transition_kernel, sensors, each_PE_required_sensors,
 			pf_class=pf_class)
 
-		self._sharingPeriod = sharing_period
+		self._sharing_period = sharing_period
 		self.exchange_recipe = exchange_recipe
 
 	def step(self, observations):
@@ -312,7 +318,7 @@ class TargetTrackingParticleFilterWithMposterior(TargetTrackingParticleFilter):
 		super().step(observations)
 
 		# if it is sharing particles time
-		if self._n % self._sharingPeriod == 0:
+		if self._n % self._sharing_period == 0:
 
 			self.exchange_recipe.perform_exchange(self)
 
@@ -324,7 +330,7 @@ class TargetTrackingParticleFilterWithMposterior(TargetTrackingParticleFilter):
 		# no messages should be used in this algorithm to transmit observation between PEs
 		assert messages_observations_propagation==0
 
-		return messages_observations_propagation + self.exchange_recipe.messages()/self._sharingPeriod
+		return messages_observations_propagation + self.exchange_recipe.messages()/self._sharing_period
 
 
 class DiscreteTargetTrackingParticleFilter(TargetTrackingParticleFilter):
@@ -373,4 +379,14 @@ class DiscreteTargetTrackingParticleFilter(TargetTrackingParticleFilter):
 		if self._n % self.exchange_period == 0:
 
 			self.exchange_recipe.perform_exchange(self)
+
+	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
+
+		messages_observations_propagation = super().messages_observations_propagation(
+			processing_elements_topology, each_processing_element_connected_sensors)
+
+		# no messages should be used in this algorithm to transmit observation between PEs
+		assert messages_observations_propagation==0
+
+		return messages_observations_propagation + self.exchange_recipe.messages()/self.exchange_period
 

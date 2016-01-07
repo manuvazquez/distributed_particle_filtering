@@ -281,10 +281,10 @@ class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 					subset_posterior_distributions, **self.weiszfeld_parameters)
 
 			# the indexes of the particles to be kept
-			i_new_particles = DPF._resamplingAlgorithm.get_indexes(joint_weights, PE._nParticles)
+			i_new_particles = DPF._resampling_algorithm.get_indexes(joint_weights, PE.n_particles)
 
 			PE.samples = joint_particles[:, i_new_particles]
-			PE.log_weights = np.full(PE._nParticles, -np.log(PE._nParticles))
+			PE.log_weights = np.full(PE.n_particles, -np.log(PE.n_particles))
 			PE.update_aggregated_weight()
 
 	def messages(self):
@@ -447,7 +447,7 @@ class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 		return n_messages
 
 
-class DiscreteDPFExchangeRecipe(ExchangeRecipe):
+class FullDiscreteDPFExchangeRecipe(ExchangeRecipe):
 
 	def __init__(self, processing_elements_topology, resampling_algorithm, n_particles_per_PE):
 
@@ -456,31 +456,23 @@ class DiscreteDPFExchangeRecipe(ExchangeRecipe):
 		self.resampling_algorithm = resampling_algorithm
 		self._n_particles_per_PE = n_particles_per_PE
 
-	def perform_exchange(self, DPF):
+	def get_means_aggregated_weights(self, DPF):
 
-		i_bin_mean = [None]*self._n_PEs
-
-		# aggregated_weights = [None]*self._n_PEs
 		aggregated_weights = np.empty(self._n_PEs)
 		means = np.empty((state.n_elements, self._n_PEs))
 
 		for i_PE, PE in enumerate(DPF.PEs):
 
 			means[:, i_PE:i_PE+1] = PE.compute_mean()
-
-			# mean = state.position(means[:, i_PE:i_PE+1])
-			# i_bins_particles = DPF.position_to_bin_number(state.position(PE.samples))
-			# i_bin_mean[i_PE] = DPF.position_to_bin_number(mean)
-
 			aggregated_weights[i_PE] = PE.old_aggregated_weight
 
-		# DPF.position_to_bin_number(np.array([[-10],[-4]])).item(0)
-		# DPF.bin_number_to_position(250)
+		return means, aggregated_weights
+
+	def perform_exchange(self, DPF):
+
+		means, aggregated_weights = self.get_means_aggregated_weights(DPF)
 
 		normalized_aggregated_weights = aggregated_weights/aggregated_weights.sum()
-
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
 
 		for PE in DPF.PEs:
 
@@ -490,11 +482,42 @@ class DiscreteDPFExchangeRecipe(ExchangeRecipe):
 			PE.weights = np.full(self._n_particles_per_PE, 1/self._n_particles_per_PE)
 			PE.update_aggregated_weight()
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
+	def messages(self):
 
-		# means[:, np.argsort(normalized_aggregated_weights)[::-1][:4]]
+		# the number of hops between each pair of PEs
+		distances = self._PEs_topology.distances_between_processing_elements
+
+		# every PE must send its "mean particle" to every other PE along with the corresponding aggregated weight
+		n_messages = np.triu(distances).sum()*(state.n_elements + 1)
+
+		return n_messages
+
+
+class DiscreteDPFExchangeRecipe(FullDiscreteDPFExchangeRecipe):
+
+	def perform_exchange(self, DPF):
+
+		means, aggregated_weights = self.get_means_aggregated_weights(DPF)
+
+		for PE, i_neighbours in zip(DPF.PEs, self._PEs_topology.get_neighbours()):
+
+			normalized_aggregated_weights = aggregated_weights[i_neighbours]/aggregated_weights[i_neighbours].sum()
+
+			i = self.resampling_algorithm.get_indexes(normalized_aggregated_weights, n=self._n_particles_per_PE)
+
+			PE.samples = means[:, i]
+			PE.weights = np.full(self._n_particles_per_PE, 1/self._n_particles_per_PE)
+			PE.update_aggregated_weight()
 
 	def messages(self):
 
-		return 0
+		# the number of hops between each pair of PEs
+		distances = self._PEs_topology.distances_between_processing_elements
+
+		n_messages = 0
+
+		for i_PE, i_neighbours in enumerate(self._PEs_topology.get_neighbours()):
+
+			n_messages += distances[i_PE, i_neighbours].sum()*(state.n_elements + 1)
+
+		return n_messages

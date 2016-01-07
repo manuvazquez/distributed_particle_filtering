@@ -51,13 +51,13 @@ def geometric_median(points, max_iterations=100, tolerance=0.001):
 
 class Estimator:
 
-	def __init__(self, distributed_particle_filter, i_processing_element=0):
+	def __init__(self, distributed_particle_filter, i_PE=0):
 
 		self.DPF = distributed_particle_filter
-		self.i_processing_element = i_processing_element
+		self.i_PE = i_PE
 
 	# by default, it is assumed no communication is required
-	def messages(self, processing_elements_topology):
+	def messages(self, PEs_topology):
 
 		return 0
 
@@ -82,12 +82,12 @@ class Mean(Estimator):
 
 		return joint_means.mean(axis=1)[:, np.newaxis]
 
-	def messages(self, processing_elements_topology):
+	def messages(self, PEs_topology):
 
 		# the distances (in hops) between each pair of PEs
-		distances = processing_elements_topology.distances_between_processing_elements
+		distances = PEs_topology.distances_between_processing_elements
 
-		return distances[self.i_processing_element, :].sum()*state.n_elements_position
+		return distances[self.i_PE, :].sum() * state.n_elements_position
 
 
 class WeightedMean(Mean):
@@ -104,19 +104,19 @@ class WeightedMean(Mean):
 			np.hstack([PE.compute_mean() for PE in self.DPF.PEs]),
 			normalized_aggregated_weights).sum(axis=1)[:, np.newaxis]
 
-	def messages(self, processing_elements_topology):
+	def messages(self, PEs_topology):
 
-		distances = processing_elements_topology.distances_between_processing_elements
+		distances = PEs_topology.distances_between_processing_elements
 
 		# the same as in "Mean" but we also have to transmit the aggregated weight
-		return super().messages(processing_elements_topology) + distances[self.i_processing_element, :].sum()
+		return super().messages(PEs_topology) + distances[self.i_PE, :].sum()
 
 
 class Mposterior(Estimator):
 
-	def __init__(self, distributed_particle_filter, weiszfeld_parameters, i_processing_element=0):
+	def __init__(self, distributed_particle_filter, weiszfeld_parameters, i_PE=0):
 
-		super().__init__(distributed_particle_filter, i_processing_element)
+		super().__init__(distributed_particle_filter, i_PE)
 
 		self.weiszfeld_parameters = weiszfeld_parameters
 
@@ -133,20 +133,20 @@ class Mposterior(Estimator):
 
 		return self.combine_posterior_distributions(posteriors)
 
-	def messages(self, processing_elements_topology):
+	def messages(self, PEs_topology):
 
 		# the distances (in hops) between each pair of PEs
-		distances = processing_elements_topology.distances_between_processing_elements
+		distances = PEs_topology.distances_between_processing_elements
 
 		# TODO: this assumes all PEs have the same number of particles: that of the self.i_PE-th one
-		return distances[self.i_processing_element, :].sum()*self.DPF.PEs[self.i_processing_element].n_particles*state.n_elements_position
+		return distances[self.i_PE, :].sum() * self.DPF.PEs[self.i_PE].n_particles * state.n_elements_position
 
 
 class GeometricMedian(Estimator):
 
-	def __init__(self, distributed_particle_filter, i_processing_element=0, max_iterations=100, tolerance=0.001):
+	def __init__(self, distributed_particle_filter, i_PE=0, max_iterations=100, tolerance=0.001):
 
-		super().__init__(distributed_particle_filter, i_processing_element)
+		super().__init__(distributed_particle_filter, i_PE)
 
 		self._maxIterations = max_iterations
 		self._tolerance = tolerance
@@ -158,20 +158,20 @@ class GeometricMedian(Estimator):
 
 		return geometric_median(samples, max_iterations=self._maxIterations, tolerance=self._tolerance)[:, np.newaxis]
 
-	def messages(self, processing_elements_topology):
+	def messages(self, PEs_topology):
 
 		# the distances (in hops) between each pair of PEs
-		distances = processing_elements_topology.distances_between_processing_elements
+		distances = PEs_topology.distances_between_processing_elements
 
-		return distances[self.i_processing_element, :].sum()*state.n_elements_position
+		return distances[self.i_PE, :].sum() * state.n_elements_position
 
 
 class StochasticGeometricMedian(GeometricMedian):
 
 	def __init__(
-			self, distributed_particle_filter, n_particles, i_processing_element=0, max_iterations=100, tolerance=0.001):
+			self, distributed_particle_filter, n_particles, i_PE=0, max_iterations=100, tolerance=0.001):
 
-		super().__init__(distributed_particle_filter, i_processing_element, max_iterations, tolerance)
+		super().__init__(distributed_particle_filter, i_PE, max_iterations, tolerance)
 
 		self.n_particles = n_particles
 
@@ -185,16 +185,16 @@ class StochasticGeometricMedian(GeometricMedian):
 
 		return geometric_median(samples, max_iterations=self._maxIterations, tolerance=self._tolerance)[:, np.newaxis]
 
-	def messages(self, processing_elements_topology):
+	def messages(self, PEs_topology):
 
-		return super().messages(processing_elements_topology)*self.n_particles
+		return super().messages(PEs_topology) * self.n_particles
 
 
 class SinglePEMean(Estimator):
 
 	def estimate(self):
 
-		return self.DPF.PEs[self.i_processing_element].compute_mean()
+		return self.DPF.PEs[self.i_PE].compute_mean()
 
 
 class SinglePEGeometricMedian(Estimator):
@@ -209,7 +209,7 @@ class SinglePEGeometricMedian(Estimator):
 	def estimate(self):
 
 		return geometric_median(
-			self.DPF.PEs[self.i_processing_element].samples, max_iterations=self._maxIterations, tolerance=self._tolerance
+			self.DPF.PEs[self.i_PE].samples, max_iterations=self._maxIterations, tolerance=self._tolerance
 		)[:, np.newaxis]
 
 
@@ -226,10 +226,10 @@ class SinglePEGeometricMedianWithinRadius(SinglePEGeometricMedian):
 		self._distances = PEs_topology.distances_between_processing_elements
 
 		# the indexes of the PEs that are at most "radius" hops from the selected PE
-		self._i_relevant_PEs = PEs_topology.i_neighbours_within_hops(radius, radius_lower_bound)[self.i_processing_element]
+		self._i_relevant_PEs = PEs_topology.i_neighbours_within_hops(radius, radius_lower_bound)[self.i_PE]
 
 		# the selected PE is also included
-		self._i_relevant_PEs.append(self.i_processing_element)
+		self._i_relevant_PEs.append(self.i_PE)
 
 	def estimate(self):
 
@@ -238,7 +238,7 @@ class SinglePEGeometricMedianWithinRadius(SinglePEGeometricMedian):
 
 		return geometric_median(samples, max_iterations=self._maxIterations, tolerance=self._tolerance)[:, np.newaxis]
 	
-	def messages(self, processing_elements_topology):
+	def messages(self, PEs_topology):
 
 		# the number of hops for each neighbour times the number of floats sent per message
-		return (self._distances[self.i_processing_element, self._i_relevant_PEs].sum()*state.n_elements_position)*self.n_particles
+		return (self._distances[self.i_PE, self._i_relevant_PEs].sum() * state.n_elements_position) * self.n_particles

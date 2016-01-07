@@ -1116,6 +1116,9 @@ class DiscreteDPF(Mposterior):
 		discrete_DPF_exchange_recipe = smc.exchange_recipe.DiscreteDPFExchangeRecipe(
 				self._PEsTopology, self._resampling_algorithm, self._n_particles_per_PE)
 
+		full_discrete_DPF_exchange_recipe = smc.exchange_recipe.FullDiscreteDPFExchangeRecipe(
+				self._PEsTopology, self._resampling_algorithm, self._n_particles_per_PE)
+
 		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
 			smc.exchange_recipe.SameParticlesMposteriorWithinRadiusExchangeRecipe(
 					self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
@@ -1206,3 +1209,36 @@ class DiscreteDPF(Mposterior):
 
 			self._estimators_colors.append('blue')
 			self._estimators_labels.append('Discreet DPF with period {}'.format(exchange_period))
+
+			# an estimator which yields the mean of the particles in the "self._i_PE_estimation"-th PE
+			self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], 0))
+
+			self._estimators_colors.append('olive')
+			self._estimators_labels.append('Discreet DPF with period {} - Single PE'.format(exchange_period))
+
+		# ------------
+
+		# period 200 implies, the exchange recipe is NEVER run
+		for exchange_period in [1, 10]:
+
+			# "Discreet" centralized PF
+			self._PFs.append(
+				distributed.DiscreteTargetTrackingParticleFilter(
+					exchange_period, full_discrete_DPF_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
+					self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
+					self._PEsSensorsConnections, self._settings_room['bottom left corner'],
+					self._settings_room['top right corner'], 40, 20
+					)
+			)
+
+			# the estimator just delegates the calculus of the estimate to the PF
+			self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
+
+			self._estimators_colors.append('blue')
+			self._estimators_labels.append('FULL Discreet DPF with period {}'.format(exchange_period))
+
+			# an estimator which yields the mean of the particles in the "self._i_PE_estimation"-th PE
+			self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], 0))
+
+			self._estimators_colors.append('olive')
+			self._estimators_labels.append('FULL Discreet DPF with period {} - Single PE'.format(exchange_period))
