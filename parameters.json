@@ -63,6 +63,14 @@
 			"exchanged particles": 0.5,
 			"sensors-PEs connector": "sensors connected to the closest PEs",
 			"nPEs-nSensors pairs": [[2, 8], [4, 16], [8, 32]]
+		},
+		"Discrete DPF": {
+			"implementing class": "DiscreteDPF",
+			"network": "fixed number of sensors per PE",
+			"exchanged particles": 0.15,
+			"sensors-PEs connector": "sensors connected to the closest PEs",
+			"index of reference PE": 0,
+			"file name prefix for the estimation error vs time plot": "errorVsTime"
 		}
 	},
 

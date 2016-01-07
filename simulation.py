@@ -755,7 +755,6 @@ class Mposterior(SimpleSimulation):
 					PRNG=self._PRNGs["topology pseudo random numbers generator"]),
 			self._MposteriorSettings["number of iterations"])
 
-
 		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
 			smc.exchange_recipe.SameParticlesMposteriorWithinRadiusExchangeRecipe(
 					self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
@@ -1104,3 +1103,106 @@ class MposteriorNumberOfParticlesForEstimation(Mposterior):
 			super().add_algorithms()
 
 		self.drop_duplicated_estimators()
+
+
+class DiscreteDPF(Mposterior):
+
+	def add_algorithms(self):
+
+		drna_exchange_recipe = smc.exchange_recipe.DRNAExchangeRecipe(
+			self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
+			PRNG=self._PRNGs["topology pseudo random numbers generator"])
+
+		discrete_DPF_exchange_recipe = smc.exchange_recipe.DiscreteDPFExchangeRecipe(
+				self._PEsTopology, self._resampling_algorithm, self._n_particles_per_PE)
+
+		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
+			smc.exchange_recipe.SameParticlesMposteriorWithinRadiusExchangeRecipe(
+					self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
+					self._MposteriorSettings['findWeiszfeldMedian parameters'], self._mposterior_exchange_step_depth,
+					PRNG=self._PRNGs["topology pseudo random numbers generator"]),
+			self._MposteriorSettings["number of iterations"])
+
+		likelihood_consensus_exchange_recipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(
+			self._PEsTopology, 10, self._LCDPFsettings['degree of the polynomial approximation'])
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		# ------------
+
+		# a distributed PF with DRNA
+		self._PFs.append(
+			distributed.TargetTrackingParticleFilterWithDRNA(
+				self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
+				self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
+				self._prior, self._transition_kernel, self._sensors,
+				self._everySensorWithEveryPEConnector.getConnections(self._nPEs),
+				pf_class=centralized.EmbeddedTargetTrackingParticleFilter
+			)
+		)
+
+		# the estimator is the mean
+		self._estimators.append(smc.estimator.WeightedMean(self._PFs[-1]))
+
+		self._estimators_colors.append('black')
+		self._estimators_labels.append('DRNA exch. {}'.format(self._exchanged_particles))
+
+		# ------------
+
+		# consensus
+		self._PFs.append(
+			distributed.LikelihoodConsensusTargetTrackingParticleFilter(
+				likelihood_consensus_exchange_recipe, self._nPEs, self._n_particles_per_PE, self._resampling_algorithm,
+				self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
+				self._PEsSensorsConnections, self._LCDPFsettings['degree of the polynomial approximation'],
+				pf_class=centralized.TargetTrackingParticleFilterWithConsensusCapabilities
+				)
+		)
+
+		# the estimator just delegates the calculus of the estimate to one of the PEs
+		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], 0))
+
+		self._estimators_colors.append('brown')
+		self._estimators_labels.append('Likelihood Consensus DPF with 10 iterations')
+
+		# ------------
+
+		# DPF with M-posterior-based exchange within a certain depth
+		self._PFs.append(
+			distributed.TargetTrackingParticleFilterWithMposterior(
+				mposterior_within_radius_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
+				self._resampling_criterion, self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+				self._MposteriorSettings['sharing period'],
+				pf_class=centralized.TargetTrackingParticleFilter)
+		)
+
+		# an estimator computing the geometric median with 1 particle taken from each PE
+		self._estimators.append(smc.estimator.GeometricMedian(
+			self._PFs[-1], max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
+			tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
+
+		self._estimators_colors.append('blue')
+		self._estimators_labels.append('M-posterior exch. {} - depth {} ({} particle(s) from each PE)'.format(
+			self._exchanged_particles, self._mposterior_exchange_step_depth, self._mposterior_n_part_estimation))
+
+		# ------------
+
+		# period 200 implies, the exchange recipe is NEVER run
+		for exchange_period in [1, 10, 200]:
+
+			# "Discreet" centralized PF
+			self._PFs.append(
+				distributed.DiscreteTargetTrackingParticleFilter(
+					exchange_period, discrete_DPF_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
+					self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
+					self._PEsSensorsConnections, self._settings_room['bottom left corner'],
+					self._settings_room['top right corner'], 40, 20
+					)
+			)
+
+			# the estimator just delegates the calculus of the estimate to the PF
+			self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
+
+			self._estimators_colors.append('blue')
+			self._estimators_labels.append('Discreet DPF with period {}'.format(exchange_period))

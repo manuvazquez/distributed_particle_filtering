@@ -54,9 +54,9 @@ class ResamplingCriterion:
 
 class EffectiveSampleSizeBasedResamplingCriterion(ResamplingCriterion):
 	
-	def __init__(self, resamplingRatio):
+	def __init__(self, resampling_ratio):
 		
-		self._resampling_ratio = resamplingRatio
+		self._resampling_ratio = resampling_ratio
 		
 	def is_resampling_needed(self, weights):
 		
@@ -72,7 +72,8 @@ class EffectiveSampleSizeBasedResamplingCriterion(ResamplingCriterion):
 			raise Exception('all the weights are zero!!')
 			
 		return n_effective_particles < (self._resampling_ratio * weights.size)
-	
+
+
 class AlwaysResamplingCriterion(ResamplingCriterion):
 	
 	def is_resampling_needed(self, weights):

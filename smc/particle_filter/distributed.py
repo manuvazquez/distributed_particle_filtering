@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.misc
 import itertools
+
 import smc.estimator
 from .particle_filter import ParticleFilter
 from . import centralized
@@ -324,3 +325,52 @@ class TargetTrackingParticleFilterWithMposterior(TargetTrackingParticleFilter):
 		assert messages_observations_propagation==0
 
 		return messages_observations_propagation + self.exchange_recipe.messages()/self._sharingPeriod
+
+
+class DiscreteTargetTrackingParticleFilter(TargetTrackingParticleFilter):
+
+	def __init__(
+			self, exchange_period, exchange_recipe, n_particles_per_PE, resampling_algorithm, resampling_criterion,
+			prior, state_transition_kernel, sensors, each_PE_required_sensors, bottom_left_corner, top_right_corner,
+			n_cols_bins, n_rows_bins, pf_class=centralized.TargetTrackingParticleFilterRememberingAggregatedWeight,
+			pf_initial_aggregated_weight=1.0):
+
+		super().__init__(
+				exchange_recipe.n_processing_elements, n_particles_per_PE, resampling_algorithm, resampling_criterion,
+				prior, state_transition_kernel, sensors, each_PE_required_sensors, pf_class, pf_initial_aggregated_weight)
+
+		self.exchange_recipe = exchange_recipe
+		self.exchange_period = exchange_period
+
+		self._bottom_left_corner = bottom_left_corner
+		self._top_right_corner = top_right_corner
+
+		self._n_cols_bins = n_cols_bins
+		self._n_rows_bins = n_rows_bins
+
+		self._width, self._height = list(top_right_corner - bottom_left_corner)
+
+		self._bin_size = np.array([self._width / n_cols_bins, self._height / n_rows_bins])
+
+	def position_to_bin_number(self, pos):
+
+		bins_coordinates = (pos - self._bottom_left_corner[:, np.newaxis]) // self._bin_size[:, np.newaxis]
+
+		return (self._n_cols_bins * bins_coordinates[1] + bins_coordinates[0]).astype(int)
+
+	def bin_number_to_position(self, n):
+
+		bin_coordinates = np.array([n % self._n_cols_bins, n // self._n_cols_bins])
+
+		# the "representative" of a bin is given by its center
+		return self._bottom_left_corner + (bin_coordinates + 0.5)*self._bin_size
+
+	def step(self, observations):
+
+		super().step(observations)
+
+		# if it is exchanging particles time
+		if self._n % self.exchange_period == 0:
+
+			self.exchange_recipe.perform_exchange(self)
+

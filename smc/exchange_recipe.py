@@ -445,3 +445,56 @@ class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 		n_messages += n_neighbours
 
 		return n_messages
+
+
+class DiscreteDPFExchangeRecipe(ExchangeRecipe):
+
+	def __init__(self, processing_elements_topology, resampling_algorithm, n_particles_per_PE):
+
+		super().__init__(processing_elements_topology)
+
+		self.resampling_algorithm = resampling_algorithm
+		self._n_particles_per_PE = n_particles_per_PE
+
+	def perform_exchange(self, DPF):
+
+		i_bin_mean = [None]*self._n_PEs
+
+		# aggregated_weights = [None]*self._n_PEs
+		aggregated_weights = np.empty(self._n_PEs)
+		means = np.empty((state.n_elements, self._n_PEs))
+
+		for i_PE, PE in enumerate(DPF.PEs):
+
+			means[:, i_PE:i_PE+1] = PE.compute_mean()
+
+			# mean = state.position(means[:, i_PE:i_PE+1])
+			# i_bins_particles = DPF.position_to_bin_number(state.position(PE.samples))
+			# i_bin_mean[i_PE] = DPF.position_to_bin_number(mean)
+
+			aggregated_weights[i_PE] = PE.old_aggregated_weight
+
+		# DPF.position_to_bin_number(np.array([[-10],[-4]])).item(0)
+		# DPF.bin_number_to_position(250)
+
+		normalized_aggregated_weights = aggregated_weights/aggregated_weights.sum()
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		for PE in DPF.PEs:
+
+			i = self.resampling_algorithm.get_indexes(normalized_aggregated_weights, n=self._n_particles_per_PE)
+
+			PE.samples = means[:, i]
+			PE.weights = np.full(self._n_particles_per_PE, 1/self._n_particles_per_PE)
+			PE.update_aggregated_weight()
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		# means[:, np.argsort(normalized_aggregated_weights)[::-1][:4]]
+
+	def messages(self):
+
+		return 0

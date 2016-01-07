@@ -71,7 +71,7 @@ def find_weiszfeld_median(subset_atoms, sigma, maxit, tol, small_number=1e-6):
 
 			if norms[i] < small_number:
 
-				print('norm is small...truncating')
+				# print('norm is small...truncating')
 				norms[i] = small_number
 
 		sqrt_norms = np.sqrt(norms)
@@ -84,7 +84,7 @@ def find_weiszfeld_median(subset_atoms, sigma, maxit, tol, small_number=1e-6):
 
 		if (abs(norms - old_norms).sum() / n_subsets < tol) and jj > 10:
 
-			print('converged a iteration {}'.format(jj + 1))
+			# print('converged a iteration {}'.format(jj + 1))
 			break
 
 		old_norms = norms

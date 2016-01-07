@@ -67,6 +67,7 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		# whatever is required (it depends on the algorithm) to avoid weights degeneracy...
 		self.avoid_weight_degeneracy()
 
+	# FIXME: this method is useless given the property below
 	def get_state(self):
 
 		return self._state
@@ -200,6 +201,22 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		if self._log_weights.shape == value.shape:
 
 			self._log_weights = value
+
+		else:
+
+			raise Exception('the number of weights does not match the number of particles')
+
+	@property
+	def weights(self):
+
+		return np.exp(self._log_weights)
+
+	@weights.setter
+	def weights(self, value):
+
+		if self._log_weights.shape == value.shape:
+
+			self._log_weights = np.log(value)
 
 		else:
 
@@ -383,3 +400,22 @@ class TargetTrackingParticleFilterWithFusionCenter(TargetTrackingParticleFilter)
 
 		return sum([d*len(each_processing_element_connected_sensors) for d, c in zip(
 			distances, each_processing_element_connected_sensors)])
+
+
+class TargetTrackingParticleFilterRememberingAggregatedWeight(TargetTrackingParticleFilter):
+
+	def __init__(
+			self, n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
+			aggregated_weight=1.0):
+
+		super().__init__(
+				n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
+				aggregated_weight)
+
+		self.old_aggregated_weight = None
+
+	def avoid_weight_degeneracy(self):
+
+		self.old_aggregated_weight = self._aggregated_weight
+
+		super().avoid_weight_degeneracy()
