@@ -70,6 +70,7 @@
 			"exchanged particles": 0.15,
 			"sensors-PEs connector": "sensors connected to the closest PEs",
 			"index of reference PE": 0,
+			"number of time instants before first exchange": 50,
 			"file name prefix for the estimation error vs time plot": "errorVsTime"
 		}
 	},

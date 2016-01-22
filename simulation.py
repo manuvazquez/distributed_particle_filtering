@@ -594,7 +594,6 @@ class Mposterior(SimpleSimulation):
 			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements, n_sensors)
 		
-		self._simulation_parameters = parameters['simulations'][parameters['simulation type']]
 		self._MposteriorSettings = parameters['Mposterior']
 		self._LCDPFsettings = parameters['Likelihood Consensus']
 		
@@ -1194,10 +1193,11 @@ class DiscreteDPF(Mposterior):
 			# "Discreet" centralized PF
 			self._PFs.append(
 				distributed.DiscreteTargetTrackingParticleFilter(
-					exchange_period, discrete_DPF_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
-					self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
-					self._PEsSensorsConnections, self._settings_room['bottom left corner'],
-					self._settings_room['top right corner'], 40, 20, n_before_first_exchange=5
+						exchange_period, discrete_DPF_exchange_recipe, self._n_particles_per_PE,
+						self._resampling_algorithm, self._resampling_criterion, self._prior, self._transition_kernel,
+						self._sensors, self._PEsSensorsConnections, self._settings_room['bottom left corner'],
+						self._settings_room['top right corner'], 40, 20,
+						n_before_first_exchange=self._simulation_parameters["number of time instants before first exchange"]
 					)
 			)
 
@@ -1221,10 +1221,11 @@ class DiscreteDPF(Mposterior):
 			# "Discreet" centralized PF
 			self._PFs.append(
 				distributed.DiscreteTargetTrackingParticleFilter(
-					exchange_period, full_discrete_DPF_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
-					self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
-					self._PEsSensorsConnections, self._settings_room['bottom left corner'],
-					self._settings_room['top right corner'], 40, 20, n_before_first_exchange=5
+						exchange_period, full_discrete_DPF_exchange_recipe, self._n_particles_per_PE,
+						self._resampling_algorithm, self._resampling_criterion, self._prior, self._transition_kernel,
+						self._sensors, self._PEsSensorsConnections, self._settings_room['bottom left corner'],
+						self._settings_room['top right corner'], 40, 20,
+						n_before_first_exchange=self._simulation_parameters["number of time instants before first exchange"]
 					)
 			)
 
