@@ -338,8 +338,8 @@ class DiscreteTargetTrackingParticleFilter(TargetTrackingParticleFilter):
 	def __init__(
 			self, exchange_period, exchange_recipe, n_particles_per_PE, resampling_algorithm, resampling_criterion,
 			prior, state_transition_kernel, sensors, each_PE_required_sensors, bottom_left_corner, top_right_corner,
-			n_cols_bins, n_rows_bins, pf_class=centralized.TargetTrackingParticleFilterRememberingAggregatedWeight,
-			pf_initial_aggregated_weight=1.0):
+			n_cols_bins, n_rows_bins, n_before_first_exchange=0,
+			pf_class=centralized.TargetTrackingParticleFilterRememberingAggregatedWeight, pf_initial_aggregated_weight=1.0):
 
 		super().__init__(
 				exchange_recipe.n_processing_elements, n_particles_per_PE, resampling_algorithm, resampling_criterion,
@@ -353,6 +353,8 @@ class DiscreteTargetTrackingParticleFilter(TargetTrackingParticleFilter):
 
 		self._n_cols_bins = n_cols_bins
 		self._n_rows_bins = n_rows_bins
+
+		self._n_before_first_exchange = n_before_first_exchange
 
 		self._width, self._height = list(top_right_corner - bottom_left_corner)
 
@@ -376,7 +378,7 @@ class DiscreteTargetTrackingParticleFilter(TargetTrackingParticleFilter):
 		super().step(observations)
 
 		# if it is exchanging particles time
-		if self._n % self.exchange_period == 0:
+		if (self._n % self.exchange_period == 0) and (self._n >= self._n_before_first_exchange):
 
 			self.exchange_recipe.perform_exchange(self)
 

@@ -390,7 +390,6 @@ class TargetTrackingParticleFilterWithFusionCenter(TargetTrackingParticleFilter)
 
 	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
 
-
 		distances = processing_elements_topology.distances_between_processing_elements[self._i_fusion_center_neighbour] + 1
 
 		return sum([d*len(each_processing_element_connected_sensors) for d, c in zip(

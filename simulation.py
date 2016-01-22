@@ -1129,9 +1129,6 @@ class DiscreteDPF(Mposterior):
 		likelihood_consensus_exchange_recipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(
 			self._PEsTopology, 10, self._LCDPFsettings['degree of the polynomial approximation'])
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-
 		# ------------
 
 		# a distributed PF with DRNA
@@ -1200,7 +1197,7 @@ class DiscreteDPF(Mposterior):
 					exchange_period, discrete_DPF_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
 					self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
 					self._PEsSensorsConnections, self._settings_room['bottom left corner'],
-					self._settings_room['top right corner'], 40, 20
+					self._settings_room['top right corner'], 40, 20, n_before_first_exchange=5
 					)
 			)
 
@@ -1227,7 +1224,7 @@ class DiscreteDPF(Mposterior):
 					exchange_period, full_discrete_DPF_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
 					self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
 					self._PEsSensorsConnections, self._settings_room['bottom left corner'],
-					self._settings_room['top right corner'], 40, 20
+					self._settings_room['top right corner'], 40, 20, n_before_first_exchange=5
 					)
 			)
 

@@ -487,8 +487,8 @@ class FullDiscreteDPFExchangeRecipe(ExchangeRecipe):
 		# the number of hops between each pair of PEs
 		distances = self._PEs_topology.distances_between_processing_elements
 
-		# every PE must send its "mean particle" to every other PE along with the corresponding aggregated weight
-		n_messages = np.triu(distances).sum()*(state.n_elements + 1)
+		# every PE must send its "mean particle" to the remaining PEs along with its corresponding aggregated weight
+		n_messages = distances.sum()*(state.n_elements + 1)
 
 		return n_messages
 
