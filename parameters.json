@@ -64,8 +64,8 @@
 			"sensors-PEs connector": "sensors connected to the closest PEs",
 			"nPEs-nSensors pairs": [[2, 8], [4, 16], [8, 32]]
 		},
-		"Discrete DPF": {
-			"implementing class": "DiscreteDPF",
+		"Gaussian Mixture": {
+			"implementing class": "GaussianMixture",
 			"network": "fixed number of sensors per PE",
 			"exchanged particles": 0.15,
 			"sensors-PEs connector": "sensors connected to the closest PEs",

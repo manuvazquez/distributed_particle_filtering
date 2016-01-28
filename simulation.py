@@ -1104,7 +1104,7 @@ class MposteriorNumberOfParticlesForEstimation(Mposterior):
 		self.drop_duplicated_estimators()
 
 
-class DiscreteDPF(Mposterior):
+class GaussianMixture(Mposterior):
 
 	def add_algorithms(self):
 
@@ -1114,10 +1114,12 @@ class DiscreteDPF(Mposterior):
 
 		discrete_DPF_exchange_recipe = smc.exchange_recipe.DiscreteDPFExchangeRecipe(
 				self._PEsTopology, self._resampling_algorithm, self._n_particles_per_PE,
+				self._settings_room['bottom left corner'], self._settings_room['top right corner'],
 				self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 		full_discrete_DPF_exchange_recipe = smc.exchange_recipe.FullDiscreteDPFExchangeRecipe(
 				self._PEsTopology, self._resampling_algorithm, self._n_particles_per_PE,
+				self._settings_room['bottom left corner'], self._settings_room['top right corner'],
 				self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
