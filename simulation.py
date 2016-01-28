@@ -1113,10 +1113,12 @@ class DiscreteDPF(Mposterior):
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 		discrete_DPF_exchange_recipe = smc.exchange_recipe.DiscreteDPFExchangeRecipe(
-				self._PEsTopology, self._resampling_algorithm, self._n_particles_per_PE)
+				self._PEsTopology, self._resampling_algorithm, self._n_particles_per_PE,
+				self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 		full_discrete_DPF_exchange_recipe = smc.exchange_recipe.FullDiscreteDPFExchangeRecipe(
-				self._PEsTopology, self._resampling_algorithm, self._n_particles_per_PE)
+				self._PEsTopology, self._resampling_algorithm, self._n_particles_per_PE,
+				self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
 			smc.exchange_recipe.SameParticlesMposteriorWithinRadiusExchangeRecipe(
@@ -1188,7 +1190,8 @@ class DiscreteDPF(Mposterior):
 		# ------------
 
 		# period 200 implies, the exchange recipe is NEVER run
-		for exchange_period in [1, 10, 200]:
+		for exchange_period in [1]:
+		# for exchange_period in [1, 10, 200]:
 
 			# "Discreet" centralized PF
 			self._PFs.append(

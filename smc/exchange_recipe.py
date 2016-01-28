@@ -449,28 +449,47 @@ class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 
 class FullDiscreteDPFExchangeRecipe(ExchangeRecipe):
 
-	def __init__(self, processing_elements_topology, resampling_algorithm, n_particles_per_PE):
+	# def __init__(self, processing_elements_topology, resampling_algorithm, n_particles_per_PE):
+	def __init__(self, processing_elements_topology, resampling_algorithm, n_particles_per_PE, PRNG):
 
 		super().__init__(processing_elements_topology)
 
 		self.resampling_algorithm = resampling_algorithm
 		self._n_particles_per_PE = n_particles_per_PE
+		self._PRNG = PRNG
 
-	def get_means_aggregated_weights(self, DPF):
+	def get_means_covariances_aggregated_weights(self, DPF):
 
 		aggregated_weights = np.empty(self._n_PEs)
 		means = np.empty((state.n_elements, self._n_PEs))
+		covariances = np.empty((state.n_elements, state.n_elements, self._n_PEs))
 
 		for i_PE, PE in enumerate(DPF.PEs):
 
 			means[:, i_PE:i_PE+1] = PE.compute_mean()
+
+			# from IPython.core.debugger import Tracer; debug_here = Tracer()
+			# debug_here()
+
+			covariances[:, :, i_PE] = np.cov(PE.samples)
 			aggregated_weights[i_PE] = PE.old_aggregated_weight
 
-		return means, aggregated_weights
+		return means, covariances, aggregated_weights
+
+	def truncate_samples(self, samples):
+
+		res = samples.copy()
+
+		res[0, res[0, :] < -20] = -19.9
+		res[0, res[0, :] > 20] = 19.9
+		res[1, res[1, :] < -10] = -9.9
+		res[1, res[1, :] > 10] = 9.9
+
+		return res
 
 	def perform_exchange(self, DPF):
 
-		means, aggregated_weights = self.get_means_aggregated_weights(DPF)
+		means, covariances, aggregated_weights = self.get_means_covariances_aggregated_weights(DPF)
 
 		normalized_aggregated_weights = aggregated_weights/aggregated_weights.sum()
 
@@ -478,6 +497,7 @@ class FullDiscreteDPFExchangeRecipe(ExchangeRecipe):
 
 			i = self.resampling_algorithm.get_indexes(normalized_aggregated_weights, n=self._n_particles_per_PE)
 
+			# PE.samples = means[:, i]
 			PE.samples = means[:, i]
 			PE.weights = np.full(self._n_particles_per_PE, 1/self._n_particles_per_PE)
 			PE.update_aggregated_weight()
@@ -497,17 +517,74 @@ class DiscreteDPFExchangeRecipe(FullDiscreteDPFExchangeRecipe):
 
 	def perform_exchange(self, DPF):
 
-		means, aggregated_weights = self.get_means_aggregated_weights(DPF)
+		means, covariances, aggregated_weights = self.get_means_covariances_aggregated_weights(DPF)
 
-		for PE, i_neighbours in zip(DPF.PEs, self._PEs_topology.get_neighbours()):
+		# i_best_PEs = np.argsort(aggregated_weights/aggregated_weights.sum())[::-1]
+		#
+		# foo = DPF.PEs[9]
+		#
+		# # from bokeh.charts import Scatter, output_file, show
+		# from bokeh.plotting import figure, output_file, show
+		#
+		# output_file("line2.html")
+		# foo = DPF.PEs[i_best_PEs[2]]
+		# p2 = figure(plot_width=800, plot_height=800)
+		# p2.circle(foo.old_samples[0,:], foo.old_samples[1,:], size=foo.old_weights/foo.old_weights.sum()*5000, color="navy", alpha=0.5)
+		# show(p2)
+		#
+		# foo = DPF.PEs[i_best_PEs[0]]
+		# output_file("line0.html")
+		# p0 = figure(plot_width=800, plot_height=800)
+		# p0.circle(foo.old_samples[0,:], foo.old_samples[1,:], size=foo.old_weights/foo.old_weights.sum()*5000, color="navy", alpha=0.5)
+		# show(p0)
+		#
+		# output_file("line2_after.html")
+		# foo = DPF.PEs[i_best_PEs[2]]
+		# p2_after = figure(plot_width=800, plot_height=800)
+		# p2_after.circle(foo.samples[0,:], foo.samples[1,:], size=foo.weights/foo.weights.sum()*5000, color="navy", alpha=0.5)
+		# show(p2_after)
+		#
+		# covariance = np.cov(state.to_position(foo.samples))
+		# mean = state.to_position(foo.compute_mean())
+		# np.random.multivariate_normal(mean[:, 0], covariance)
 
-			normalized_aggregated_weights = aggregated_weights[i_neighbours]/aggregated_weights[i_neighbours].sum()
+		# from IPython.core.debugger import Tracer; debug_here = Tracer()
+		# debug_here()
 
-			i = self.resampling_algorithm.get_indexes(normalized_aggregated_weights, n=self._n_particles_per_PE)
+		for i_PE, (PE, i_neighbours) in enumerate(zip(DPF.PEs, self._PEs_topology.get_neighbours())):
 
-			PE.samples = means[:, i]
+			print('i_PE = {}'.format(i_PE))
+
+			i_involved_PEs = [i_PE] + i_neighbours
+
+			normalized_aggregated_weights = aggregated_weights[i_involved_PEs]/aggregated_weights[i_involved_PEs].sum()
+
+			# i = self.resampling_algorithm.get_indexes(normalized_aggregated_weights, n=self._n_particles_per_PE)
+
+			n_particles_from_each_PE = self._PRNG.multinomial(self._n_particles_per_PE, normalized_aggregated_weights)
+
+			# covariance = np.cov(state.to_position(PE.samples))
+			# mean = state.to_position(PE.compute_mean())
+
+			# self._PRNG.multivariate_normal(mean[:, 0], covariance, )
+
+			new_particles = []
+
+			for n, mean, covariance in zip(n_particles_from_each_PE, means[:, i_involved_PEs].T, covariances[:, :, i_involved_PEs].T):
+
+				new_particles.append(self._PRNG.multivariate_normal(mean, covariance, n))
+
+			# from IPython.core.debugger import Tracer; debug_here = Tracer()
+			# debug_here()
+
+			# PE.samples = means[:, i]
+			PE.samples = self.truncate_samples(np.vstack(new_particles).T)
+			# PE.samples = means[:, np.array(i_neighbours)[i]]
 			PE.weights = np.full(self._n_particles_per_PE, 1/self._n_particles_per_PE)
 			PE.update_aggregated_weight()
+
+		# from IPython.core.debugger import Tracer; debug_here = Tracer()
+		# debug_here()
 
 	def messages(self):
 

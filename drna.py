@@ -13,7 +13,6 @@ import socket
 import pickle
 import argparse
 
-
 # keys used to identify the different pseudo random numbers generators
 # (they must coincide with those in the parameters file...)
 PRNGsKeys = ['Sensors and Monte Carlo pseudo random numbers generator',
@@ -87,7 +86,7 @@ date = time.strftime("%a_%Y-%m-%d_%H:%M:%S")
 output_file = hostname + '_' + date + '_' + str(os.getpid())
 
 # how numpy arrays are printed on screen is specified here
-np.set_printoptions(precision=3, linewidth=100)
+np.set_printoptions(precision=3, linewidth=300)
 
 # NOTE: most functions access global variables, though they don't modify them (except one of the handlers)
 

@@ -407,9 +407,16 @@ class TargetTrackingParticleFilterRememberingAggregatedWeight(TargetTrackingPart
 				aggregated_weight)
 
 		self.old_aggregated_weight = None
+		self.old_weights = None
+		self.old_samples = None
 
 	def avoid_weight_degeneracy(self):
 
 		self.old_aggregated_weight = self._aggregated_weight
+		self.old_weights = self.weights
+		self.old_samples = self.samples
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
 
 		super().avoid_weight_degeneracy()
