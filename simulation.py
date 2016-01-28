@@ -1112,15 +1112,15 @@ class GaussianMixture(Mposterior):
 			self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
-		discrete_DPF_exchange_recipe = smc.exchange_recipe.DiscreteDPFExchangeRecipe(
+		mean_covariance_exchange_recipe = smc.exchange_recipe.MeanCovarianceAggregatedWeightExchangeRecipe(
 				self._PEsTopology, self._resampling_algorithm, self._n_particles_per_PE,
 				self._settings_room['bottom left corner'], self._settings_room['top right corner'],
 				self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
-		full_discrete_DPF_exchange_recipe = smc.exchange_recipe.FullDiscreteDPFExchangeRecipe(
+		mean_covariance_full_exchange_recipe = smc.exchange_recipe.MeanCovarianceAggregatedWeightExchangeRecipe(
 				self._PEsTopology, self._resampling_algorithm, self._n_particles_per_PE,
 				self._settings_room['bottom left corner'], self._settings_room['top right corner'],
-				self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
+				self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"], every_PE=True)
 
 		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
 			smc.exchange_recipe.SameParticlesMposteriorWithinRadiusExchangeRecipe(
@@ -1191,57 +1191,31 @@ class GaussianMixture(Mposterior):
 
 		# ------------
 
-		# period 200 implies, the exchange recipe is NEVER run
-		for exchange_period in [1]:
-		# for exchange_period in [1, 10, 200]:
+		for exchange_recipe, exchange_recipe_type in zip(
+				[mean_covariance_exchange_recipe, mean_covariance_full_exchange_recipe], ['Neighbours', 'Full']):
 
-			# "Discreet" centralized PF
-			self._PFs.append(
-				distributed.DiscreteTargetTrackingParticleFilter(
-						exchange_period, discrete_DPF_exchange_recipe, self._n_particles_per_PE,
-						self._resampling_algorithm, self._resampling_criterion, self._prior, self._transition_kernel,
-						self._sensors, self._PEsSensorsConnections, self._settings_room['bottom left corner'],
-						self._settings_room['top right corner'], 40, 20,
-						n_before_first_exchange=self._simulation_parameters["number of time instants before first exchange"]
-					)
-			)
+			# period 200 implies, the exchange recipe is NEVER run
+			for exchange_period in [1, 10]:
 
-			# the estimator just delegates the calculus of the estimate to the PF
-			self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
+				# "Discreet" centralized PF
+				self._PFs.append(
+					distributed.GaussianMixtureTrackingParticleFilter(
+							exchange_period, exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
+							self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
+							self._PEsSensorsConnections, self._settings_room['bottom left corner'],
+							self._settings_room['top right corner'], 40, 20,
+							n_before_first_exchange=self._simulation_parameters["number of time instants before first exchange"]
+						)
+				)
 
-			self._estimators_colors.append('blue')
-			self._estimators_labels.append('Discreet DPF with period {}'.format(exchange_period))
+				# the estimator just delegates the calculus of the estimate to the PF
+				self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
 
-			# an estimator which yields the mean of the particles in the "self._i_PE_estimation"-th PE
-			self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], 0))
+				self._estimators_colors.append('blue')
+				self._estimators_labels.append('({}) GM-DPF with period {}'.format(exchange_recipe_type, exchange_period))
 
-			self._estimators_colors.append('olive')
-			self._estimators_labels.append('Discreet DPF with period {} - Single PE'.format(exchange_period))
+				# an estimator which yields the mean of the particles in the "self._i_PE_estimation"-th PE
+				self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], 0))
 
-		# ------------
-
-		# period 200 implies, the exchange recipe is NEVER run
-		for exchange_period in [1, 10]:
-
-			# "Discreet" centralized PF
-			self._PFs.append(
-				distributed.DiscreteTargetTrackingParticleFilter(
-						exchange_period, full_discrete_DPF_exchange_recipe, self._n_particles_per_PE,
-						self._resampling_algorithm, self._resampling_criterion, self._prior, self._transition_kernel,
-						self._sensors, self._PEsSensorsConnections, self._settings_room['bottom left corner'],
-						self._settings_room['top right corner'], 40, 20,
-						n_before_first_exchange=self._simulation_parameters["number of time instants before first exchange"]
-					)
-			)
-
-			# the estimator just delegates the calculus of the estimate to the PF
-			self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
-
-			self._estimators_colors.append('blue')
-			self._estimators_labels.append('FULL Discreet DPF with period {}'.format(exchange_period))
-
-			# an estimator which yields the mean of the particles in the "self._i_PE_estimation"-th PE
-			self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], 0))
-
-			self._estimators_colors.append('olive')
-			self._estimators_labels.append('FULL Discreet DPF with period {} - Single PE'.format(exchange_period))
+				self._estimators_colors.append('olive')
+				self._estimators_labels.append('({}) GM-DPF with period {} - Single PE'.format(exchange_recipe_type, exchange_period))

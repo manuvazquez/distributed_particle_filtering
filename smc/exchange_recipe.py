@@ -447,11 +447,11 @@ class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 		return n_messages
 
 
-class FullDiscreteDPFExchangeRecipe(ExchangeRecipe):
+class MeanCovarianceAggregatedWeightExchangeRecipe(ExchangeRecipe):
 
 	def __init__(
 			self, processing_elements_topology, resampling_algorithm, n_particles_per_PE, bottom_left_corner,
-			top_right_corner, PRNG):
+			top_right_corner, PRNG, every_PE=False):
 
 		super().__init__(processing_elements_topology)
 
@@ -460,6 +460,14 @@ class FullDiscreteDPFExchangeRecipe(ExchangeRecipe):
 		self._bottom_left_corner = bottom_left_corner
 		self._top_right_corner = top_right_corner
 		self._PRNG = PRNG
+
+		# for the sake of convenience
+		n = processing_elements_topology.n_processing_elements
+
+		if every_PE:
+			self._PEs_partners = [[j for j in range(n) if j != i] for i in range(n)]
+		else:
+			self._PEs_partners = self._PEs_topology.get_neighbours()
 
 		# from IPython.core.debugger import Tracer; debug_here = Tracer()
 		# debug_here()
@@ -493,49 +501,6 @@ class FullDiscreteDPFExchangeRecipe(ExchangeRecipe):
 		res[1, res[1, :] > self._top_right_corner[1]] = self._top_right_corner[1] - 0.1
 
 		return res
-
-	def perform_exchange(self, DPF):
-
-		means, covariances, aggregated_weights = self.get_means_covariances_aggregated_weights(DPF)
-
-		normalized_aggregated_weights = aggregated_weights/aggregated_weights.sum()
-
-		for PE in DPF.PEs:
-
-			i = self.resampling_algorithm.get_indexes(normalized_aggregated_weights, n=self._n_particles_per_PE)
-
-			PE.samples = means[:, i]
-			PE.weights = np.full(self._n_particles_per_PE, 1/self._n_particles_per_PE)
-			PE.update_aggregated_weight()
-
-	def messages(self):
-
-		# the number of hops between each pair of PEs
-		distances = self._PEs_topology.distances_between_processing_elements
-
-		# every PE must send its "mean particle" to the remaining PEs along with its corresponding aggregated weight
-		n_messages = distances.sum()*(state.n_elements + 1)
-
-		return n_messages
-
-
-class DiscreteDPFExchangeRecipe(FullDiscreteDPFExchangeRecipe):
-
-	def __init__(
-			self, processing_elements_topology, resampling_algorithm, n_particles_per_PE, bottom_left_corner,
-			top_right_corner, PRNG, every_PE=False):
-
-		super().__init__(
-				processing_elements_topology, resampling_algorithm, n_particles_per_PE, bottom_left_corner,
-				top_right_corner, PRNG)
-
-		# for the sake of convenience
-		n = processing_elements_topology.n_processing_elements
-
-		if every_PE:
-			self._PEs_partners = [[j for j in range(n) if j != i] for i in range(n)]
-		else:
-			self._PEs_partners = self._PEs_topology.get_neighbours()
 
 	def perform_exchange(self, DPF):
 

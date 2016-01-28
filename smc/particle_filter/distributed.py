@@ -333,7 +333,7 @@ class TargetTrackingParticleFilterWithMposterior(TargetTrackingParticleFilter):
 		return messages_observations_propagation + self.exchange_recipe.messages()/self._sharing_period
 
 
-class DiscreteTargetTrackingParticleFilter(TargetTrackingParticleFilter):
+class GaussianMixtureTrackingParticleFilter(TargetTrackingParticleFilter):
 
 	def __init__(
 			self, exchange_period, exchange_recipe, n_particles_per_PE, resampling_algorithm, resampling_criterion,
