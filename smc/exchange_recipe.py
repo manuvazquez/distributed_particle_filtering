@@ -451,7 +451,7 @@ class MeanCovarianceAggregatedWeightExchangeRecipe(ExchangeRecipe):
 
 	def __init__(
 			self, processing_elements_topology, resampling_algorithm, n_particles_per_PE, bottom_left_corner,
-			top_right_corner, PRNG, every_PE=False):
+			top_right_corner, PRNG, every_PE=False, assume_diagonal_covariance=False):
 
 		super().__init__(processing_elements_topology)
 
@@ -460,6 +460,7 @@ class MeanCovarianceAggregatedWeightExchangeRecipe(ExchangeRecipe):
 		self._bottom_left_corner = bottom_left_corner
 		self._top_right_corner = top_right_corner
 		self._PRNG = PRNG
+		self._assume_diagonal_covariance = assume_diagonal_covariance
 
 		# for the sake of convenience
 		n = processing_elements_topology.n_processing_elements
@@ -483,11 +484,21 @@ class MeanCovarianceAggregatedWeightExchangeRecipe(ExchangeRecipe):
 			# the mean of the current particles
 			means[:, i_PE:i_PE+1] = PE.compute_mean()
 
-			# the covariance thereof
-			covariances[:, :, i_PE] = np.cov(PE.samples)
+			# if a diagonal covariance is assumed...
+			if self._assume_diagonal_covariance:
+
+				# the out-of-diagonal elements are trimmed
+				covariances[:, :, i_PE] = np.diag(np.diag(np.cov(PE.samples)))
+
+			else:
+
+				covariances[:, :, i_PE] = np.cov(PE.samples)
 
 			# the aggregated weight BEFORE normalization
 			aggregated_weights[i_PE] = PE.old_aggregated_weight
+
+		# from IPython.core.debugger import Tracer; debug_here = Tracer()
+		# debug_here()
 
 		return means, covariances, aggregated_weights
 
@@ -542,7 +553,13 @@ class MeanCovarianceAggregatedWeightExchangeRecipe(ExchangeRecipe):
 		# the number of hops between each pair of PEs
 		distances = self._PEs_topology.distances_between_processing_elements
 
-		n_elements_covariance_matrix = (state.n_elements * (state.n_elements - 1))/2 + state.n_elements
+		if self._assume_diagonal_covariance:
+
+			n_elements_covariance_matrix = state.n_elements
+
+		else:
+
+			n_elements_covariance_matrix = (state.n_elements * (state.n_elements - 1))/2 + state.n_elements
 
 		n_messages = 0
 

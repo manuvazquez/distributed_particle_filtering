@@ -1115,12 +1115,13 @@ class GaussianMixture(Mposterior):
 		mean_covariance_exchange_recipe = smc.exchange_recipe.MeanCovarianceAggregatedWeightExchangeRecipe(
 				self._PEsTopology, self._resampling_algorithm, self._n_particles_per_PE,
 				self._settings_room['bottom left corner'], self._settings_room['top right corner'],
-				self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
+				self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"], assume_diagonal_covariance=True)
 
 		mean_covariance_full_exchange_recipe = smc.exchange_recipe.MeanCovarianceAggregatedWeightExchangeRecipe(
 				self._PEsTopology, self._resampling_algorithm, self._n_particles_per_PE,
 				self._settings_room['bottom left corner'], self._settings_room['top right corner'],
-				self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"], every_PE=True)
+				self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"], every_PE=True,
+				assume_diagonal_covariance=True)
 
 		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
 			smc.exchange_recipe.SameParticlesMposteriorWithinRadiusExchangeRecipe(
