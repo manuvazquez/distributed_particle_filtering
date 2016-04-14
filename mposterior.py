@@ -28,11 +28,7 @@ def find_weiszfeld_median(subset_atoms, sigma, maxit, tol, small_number=1e-6):
 		weights_subset = np.log(np.outer(subset_probs[i], subset_probs[i]))
 		kernel_plus_weights_subset[i] = kernel_matrix_subset + weights_subset
 
-	# histWts = np.zeros((n_subsets, maxit))
-
 	median_empirical_measure_atoms = np.vstack(subset_atoms)
-	# median_empirical_measure_probs = np.vstack(subset_probs)
-	# median_empirical_measure_probs /= median_empirical_measure_probs.sum()
 	median_empirical_measure_probs = np.repeat(1/(n_subsets*n_atoms), n_atoms)[:, np.newaxis]
 
 	# distances between atoms for the median posterior

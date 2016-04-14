@@ -358,7 +358,7 @@ def trajectory_from_hdf5(filename, i_trajectory=0, n_time_instants=-1, ticks_fon
 	painter = TightRectangularRoomPainterWithPEs(
 		data_file['room/bottom left corner'][...], data_file['room/top right corner'][...], sensors_positions,
 		proc_elem_positions, proc_elem_sensors_connections, proc_elem_neighbours,
-		sleepTime=parameters["painter"]["sleep time between updates"])
+		sleepTime=parameters["painter"]["sleep time between updates"],ticksFontSize=ticks_font_size)
 
 	painter.setup()
 
