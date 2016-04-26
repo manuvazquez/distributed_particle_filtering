@@ -166,8 +166,7 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		# followed by addition => weighted mean
 		return (self._state*np.exp(normalized_log_weights)[np.newaxis, :]).sum(axis=1)[:, np.newaxis]
 
-	# this methods encapsulates the parts within the code of "step" which are different in this class and its children
-	def avoid_weight_degeneracy(self):
+	def normalize_weights(self):
 
 		# if all the weights are zero...
 		if self._aggregated_weight == 0:
@@ -181,6 +180,11 @@ class TargetTrackingParticleFilter(ParticleFilter):
 
 		# we forced this above
 		self._aggregated_weight = 1.0
+
+	# this methods encapsulates the parts within the code of "step" which are different in this class and its children
+	def avoid_weight_degeneracy(self):
+
+		self.normalize_weights()
 
 		# the normalized weights are used to resample
 		self.resample(self._log_weights)
@@ -376,6 +380,8 @@ class TargetTrackingParticleFilterWithConsensusCapabilities(TargetTrackingPartic
 
 				raise Exception('coefficient for this combination of exponents not found!!')
 
+# =========================================================================================================
+
 
 class TargetTrackingParticleFilterWithFusionCenter(TargetTrackingParticleFilter):
 
@@ -395,28 +401,70 @@ class TargetTrackingParticleFilterWithFusionCenter(TargetTrackingParticleFilter)
 		return sum([d*len(each_processing_element_connected_sensors) for d, c in zip(
 			distances, each_processing_element_connected_sensors)])
 
+# =========================================================================================================
 
-class TargetTrackingParticleFilterRememberingAggregatedWeight(TargetTrackingParticleFilter):
+
+class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 	def __init__(
 			self, n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
 			aggregated_weight=1.0):
 
 		super().__init__(
-				n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
-				aggregated_weight)
+			n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
+			aggregated_weight)
 
-		self.old_aggregated_weight = None
-		self.old_weights = None
-		self.old_samples = None
+		# they will be set later
+		self._Q = None
+		self._nu = None
 
+	def mean_and_covariance(self):
+
+		mean = (self.weights[np.newaxis, :] * self.samples).sum(axis=1)
+
+		# covariance =  self.weights[np.newaxis, :] * (self.samples - mean[:, np.newaxis]) @\
+		#               (self.samples - mean[:, np.newaxis]).T
+
+		covariance = np.cov(self.samples,ddof=0,aweights=self.weights)
+
+		return mean, covariance
+
+	# we do not want to resample
 	def avoid_weight_degeneracy(self):
 
-		self.old_aggregated_weight = self._aggregated_weight
-		self.old_weights = self.weights
-		self.old_samples = self.samples
+		print('avoiding')
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
+		pass
 
-		super().avoid_weight_degeneracy()
+	def step(self, observations):
+
+		super().step(observations)
+
+		# we need to normalize the weights to compute...
+		self.normalize_weights()
+
+		# ...the mean...
+		mean = (self.weights[np.newaxis, :] * self.samples).sum(axis=1)
+
+		# ...and (weighted) covariance
+		covariance = np.cov(self.samples, ddof=0, aweights=self.weights)
+
+		import code
+		code.interact(local=dict(globals(), **locals()))
+
+		# the inverse of the covariance
+		inv_covariance = np.linalg.inv(covariance)
+
+		# Q and nu are updated
+		self._Q, self._nu = inv_covariance, inv_covariance @ mean
+
+	# def Q_and_nu(self):
+	#
+	# 	mean = (self.weights[np.newaxis, :] * self.samples).sum(axis=1)
+	#
+	# 	# weighted covariance
+	# 	covariance = np.cov(self.samples, ddof=0, aweights=self.weights)
+	#
+	# 	inv_covariance = np.linalg.inv(covariance)
+	#
+	# 	return inv_covariance, inv_covariance @ mean

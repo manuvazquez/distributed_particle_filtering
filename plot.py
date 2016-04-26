@@ -185,7 +185,7 @@ def aggregated_weights_supremum_vs_time(
 		max_weights, upper_bound, output_file='maxAggregatedWeightVsTime.pdf',
 		step_exchange_period=1, supremum_line_properties={'label': 'Supremum', 'linestyle': ':'},
 		supremum_at_exchange_steps_line_properties={
-			'label': 'Exchange steps', 'linestyle': '.', 'marker': 'D', 'color': 'black'},
+			'label': 'Exchange steps', 'linestyle': ':', 'marker': 'D', 'color': 'black'},
 		upper_bound_line_properties={
 			'label': '$c^q/M^{q-\\varepsilon}$', 'linestyle': 'dashed', 'color': 'red', 'linewidth': 2},
 		figure_id='Aggregated Weights Supremum Vs Time', axes_properties={}, plot_everything=True, ybound_factor=4):

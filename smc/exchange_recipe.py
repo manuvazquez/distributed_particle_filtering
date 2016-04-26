@@ -447,128 +447,36 @@ class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 		return n_messages
 
 
-class MeanCovarianceAggregatedWeightExchangeRecipe(ExchangeRecipe):
+class GaussianExchangeRecipe(ExchangeRecipe):
 
 	def __init__(
-			self, processing_elements_topology, resampling_algorithm, n_particles_per_PE, bottom_left_corner,
-			top_right_corner, PRNG, every_PE=False, assume_diagonal_covariance=False):
+			self, processing_elements_topology, n_particles_per_PE, PRNG):
 
 		super().__init__(processing_elements_topology)
 
-		self.resampling_algorithm = resampling_algorithm
 		self._n_particles_per_PE = n_particles_per_PE
-		self._bottom_left_corner = bottom_left_corner
-		self._top_right_corner = top_right_corner
 		self._PRNG = PRNG
-		self._assume_diagonal_covariance = assume_diagonal_covariance
 
-		# for the sake of convenience
-		n = processing_elements_topology.n_processing_elements
-
-		if every_PE:
-			self._PEs_partners = [[j for j in range(n) if j != i] for i in range(n)]
-		else:
-			self._PEs_partners = self._PEs_topology.get_neighbours()
-
-		# from IPython.core.debugger import Tracer; debug_here = Tracer()
-		# debug_here()
-
-	def get_means_covariances_aggregated_weights(self, DPF):
-
-		aggregated_weights = np.empty(self._n_PEs)
-		means = np.empty((state.n_elements, self._n_PEs))
-		covariances = np.empty((state.n_elements, state.n_elements, self._n_PEs))
-
-		for i_PE, PE in enumerate(DPF.PEs):
-
-			# the mean of the current particles
-			means[:, i_PE:i_PE+1] = PE.compute_mean()
-
-			# if a diagonal covariance is assumed...
-			if self._assume_diagonal_covariance:
-
-				# the out-of-diagonal elements are trimmed
-				covariances[:, :, i_PE] = np.diag(np.diag(np.cov(PE.samples)))
-
-			else:
-
-				covariances[:, :, i_PE] = np.cov(PE.samples)
-
-			# the aggregated weight BEFORE normalization
-			aggregated_weights[i_PE] = PE.old_aggregated_weight
-
-		# from IPython.core.debugger import Tracer; debug_here = Tracer()
-		# debug_here()
-
-		return means, covariances, aggregated_weights
-
-	def truncate_samples(self, samples):
-
-		res = samples.copy()
-
-		res[0, res[0, :] < self._bottom_left_corner[0]] = self._bottom_left_corner[0] + 0.1
-		res[0, res[0, :] > self._top_right_corner[0]] = self._top_right_corner[0] - 0.1
-		res[1, res[1, :] < self._bottom_left_corner[1]] = self._bottom_left_corner[1] + 0.1
-		res[1, res[1, :] > self._top_right_corner[1]] = self._top_right_corner[1] - 0.1
-
-		return res
+		self.n_iterations = 3
 
 	def perform_exchange(self, DPF):
 
-		# mean, covariance and aggregated weight (before NORMALIZATION) from every PE
-		means, covariances, aggregated_weights = self.get_means_covariances_aggregated_weights(DPF)
+		self._PRNG.exponential(size=(self._n_PEs, self.n_iterations ))
 
-		for i_PE, (PE, i_neighbours) in enumerate(zip(DPF.PEs, self._PEs_partners)):
+		Q_accum = np.zeros((state.n_elements, state.n_elements))
+		nu_accum = np.zeros(state.n_elements)
 
-			# in addition to its neighbours, the PE itself is also involved in this information exchange
-			i_involved_PEs = [i_PE] + i_neighbours
-
-			# the aggregated weights of all the PE participating are normalized...
-			normalized_aggregated_weights = aggregated_weights[i_involved_PEs]/aggregated_weights[i_involved_PEs].sum()
-
-			# ...and used to decide how many particles are drawn from each Gaussian
-			n_particles_from_each_PE = self._PRNG.multinomial(self._n_particles_per_PE, normalized_aggregated_weights)
-
-			# a list with a numpy array of particles coming from every involved PE
-			new_particles = []
-
-			for n, mean, covariance in zip(
-					n_particles_from_each_PE, means[:, i_involved_PEs].T, covariances[:, :, i_involved_PEs].T):
-
-				# the number of particles previously assigned to this PE are drawn using the corresponding mean and covariance
-				new_particles.append(self._PRNG.multivariate_normal(mean, covariance, n))
-
-			# from IPython.core.debugger import Tracer; debug_here = Tracer()
-			# debug_here()
-
-			PE.samples = self.truncate_samples(np.vstack(new_particles).T)
-			PE.weights = np.full(self._n_particles_per_PE, 1/self._n_particles_per_PE)
-			PE.update_aggregated_weight()
-
-		# from IPython.core.debugger import Tracer; debug_here = Tracer()
-		# debug_here()
+		# for i_PE, (PE, i_neighbours) in enumerate(zip(DPF.PEs, self._PEs_topology.get_neighbours())):
+		#
+		# 	# PE.mean_and_covariance()
+		# 	Q, nu = PE.Q_and_nu()
+		#
+		# 	Q_accum += Q
+		# 	nu_accum += nu
+		#
+		# 	import code
+		# 	code.interact(local=dict(globals(), **locals()))
 
 	def messages(self):
 
-		# the number of hops between each pair of PEs
-		distances = self._PEs_topology.distances_between_processing_elements
-
-		if self._assume_diagonal_covariance:
-
-			n_elements_covariance_matrix = state.n_elements
-
-		else:
-
-			n_elements_covariance_matrix = (state.n_elements * (state.n_elements - 1))/2 + state.n_elements
-
-		n_messages = 0
-
-		for i_PE, i_neighbours in enumerate(self._PEs_partners):
-
-			# mean, covariance and aggregated weight must be sent to each neighbour
-			n_messages += distances[i_PE, i_neighbours].sum()*(state.n_elements + n_elements_covariance_matrix + 1)
-
-			# from IPython.core.debugger import Tracer; debug_here = Tracer()
-			# debug_here()
-
-		return n_messages
+		return 0.5
