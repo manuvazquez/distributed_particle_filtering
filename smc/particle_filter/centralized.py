@@ -418,39 +418,44 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		self._Q = None
 		self._nu = None
 
-	def mean_and_covariance(self):
-
-		mean = (self.weights[np.newaxis, :] * self.samples).sum(axis=1)
-
-		# covariance =  self.weights[np.newaxis, :] * (self.samples - mean[:, np.newaxis]) @\
-		#               (self.samples - mean[:, np.newaxis]).T
-
-		covariance = np.cov(self.samples,ddof=0,aweights=self.weights)
-
-		return mean, covariance
-
-	# we do not want to resample
-	def avoid_weight_degeneracy(self):
-
-		print('avoiding')
-
-		pass
+		self._estimated_n_PEs = None
 
 	def step(self, observations):
 
-		super().step(observations)
+		# TODO: this should be estimated!!
+		self._estimated_n_PEs = 2
 
-		# we need to normalize the weights to compute...
+		assert len(observations) == len(self._sensors)
+
+		# every particle is updated (previous state is not stored...)
+		self._state = np.hstack(
+			[self._state_transition_kernel.next_state(self._state[:, i:i + 1]) for i in range(self._n_particles)])
+
+		# TODO: this may cause a "divide by zero" warning when a likelihood is very small
+		# for each sensor, we compute the likelihood of EVERY particle (position)
+		loglikelihoods = np.log(np.array(
+			[sensor.likelihood(obs, state.to_position(self._state)) for sensor, obs in
+			 zip(self._sensors, observations)]))
+
+		# for each particle, we compute the product of the likelihoods for all the sensors
+		log_likelihoods_product = loglikelihoods.sum(axis=0)
+
+		# every likelihood is exponentiated by the estimate of the number of PEs
+		self._log_weights = log_likelihoods_product*self._estimated_n_PEs
+
+		# the aggregated weight is kept up to date at all times
+		self.update_aggregated_weight()
+
+		# normalization of the weights (that will be later used in "step")
 		self.normalize_weights()
 
-		# ...the mean...
+		# -------------------------
+
+		# we compute the mean...
 		mean = (self.weights[np.newaxis, :] * self.samples).sum(axis=1)
 
 		# ...and (weighted) covariance
 		covariance = np.cov(self.samples, ddof=0, aweights=self.weights)
-
-		import code
-		code.interact(local=dict(globals(), **locals()))
 
 		# the inverse of the covariance
 		inv_covariance = np.linalg.inv(covariance)
@@ -458,13 +463,5 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# Q and nu are updated
 		self._Q, self._nu = inv_covariance, inv_covariance @ mean
 
-	# def Q_and_nu(self):
-	#
-	# 	mean = (self.weights[np.newaxis, :] * self.samples).sum(axis=1)
-	#
-	# 	# weighted covariance
-	# 	covariance = np.cov(self.samples, ddof=0, aweights=self.weights)
-	#
-	# 	inv_covariance = np.linalg.inv(covariance)
-	#
-	# 	return inv_covariance, inv_covariance @ mean
+		# import code
+		# code.interact(local=dict(globals(), **locals()))

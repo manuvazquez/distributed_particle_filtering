@@ -459,23 +459,49 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 
 		self.n_iterations = 3
 
+		# so that the corresponding method is only called once
+		self._PEs_neighbors = processing_elements_topology.get_neighbours()
+
 	def perform_exchange(self, DPF):
 
-		self._PRNG.exponential(size=(self._n_PEs, self.n_iterations ))
+		# time elapsed between ticks of the PEs' clocks (each row is the tick of the corresponding PE)
+		time_elapsed_between_ticks = self._PRNG.exponential(size=(self._n_PEs, self.n_iterations))
 
-		Q_accum = np.zeros((state.n_elements, state.n_elements))
-		nu_accum = np.zeros(state.n_elements)
+		# waking times for every PE (for every PE, as many as the number of iterations so that, in principle, it may
+		# always be the selected PE
+		ticks_absolute_time = time_elapsed_between_ticks.cumsum(axis=1)
 
-		# for i_PE, (PE, i_neighbours) in enumerate(zip(DPF.PEs, self._PEs_topology.get_neighbours())):
-		#
-		# 	# PE.mean_and_covariance()
-		# 	Q, nu = PE.Q_and_nu()
-		#
-		# 	Q_accum += Q
-		# 	nu_accum += nu
-		#
-		# 	import code
-		# 	code.interact(local=dict(globals(), **locals()))
+		# these are the indexes of the PEs that will wake up to exchange statistics with a neighbour (notice that a
+		# certain PE can show up several times)
+		i_waking_PEs = np.unravel_index(np.argsort(ticks_absolute_time, axis=None), (self._n_PEs, self.n_iterations))[0]
+
+		for i_PE in i_waking_PEs:
+
+			i_selected_neighbor = self._PRNG.choice(self._PEs_neighbors[i_PE])
+
+			# average of the Qs
+			DPF.PEs[i_PE]._Q = DPF.PEs[i_selected_neighbor]._Q\
+				= (DPF.PEs[i_PE]._Q + DPF.PEs[i_selected_neighbor]._Q)/2
+
+			# average of the nus
+			DPF.PEs[i_PE]._nu = DPF.PEs[i_selected_neighbor]._nu\
+				= (DPF.PEs[i_PE]._nu + DPF.PEs[i_selected_neighbor]._nu) / 2
+
+		for PE in DPF.PEs:
+
+			# an estimate of (n times) the *global* covariance...
+			covariance = np.linalg.inv(PE._Q)
+
+			# ...and another for the *global* mean
+			mean = covariance @ PE._nu
+
+			PE.samples = np.random.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T
+
+			# import code
+			# code.interact(local=dict(globals(), **locals()))
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
 
 	def messages(self):
 

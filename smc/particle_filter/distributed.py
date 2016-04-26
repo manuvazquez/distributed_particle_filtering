@@ -339,26 +339,21 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 	def __init__(
 			self, n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
-			sensors, each_PE_required_sensors, exchange_recipe, exchange_period,
-			pf_class=centralized.TargetTrackingGaussianParticleFilter):
+			sensors, each_PE_required_sensors, exchange_recipe, pf_class=centralized.TargetTrackingGaussianParticleFilter):
 
 		super().__init__(
 			exchange_recipe.n_processing_elements, n_particles_per_PE, resampling_algorithm,
 			resampling_criterion, prior, state_transition_kernel, sensors, each_PE_required_sensors,
 			pf_class=pf_class)
 
-		self._exchange_period = exchange_period
 		self.exchange_recipe = exchange_recipe
 
 	def step(self, observations):
 
 		super().step(observations)
 
-		# if it is sharing particles time
-		if self._n % self._exchange_period == 0:
-
-			self.exchange_recipe.perform_exchange(self)
+		self.exchange_recipe.perform_exchange(self)
 
 	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
 
-		return -10**-6
+		return -10**6

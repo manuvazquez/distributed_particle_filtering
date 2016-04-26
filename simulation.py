@@ -1171,8 +1171,8 @@ class MposteriorRevisited(Mposterior):
 		self._PFs.append(
 			distributed.TargetTrackingGaussianParticleFilter(
 				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
-				self._transition_kernel, self._sensors, self._everySensorWithEveryPEConnector.getConnections(self._nPEs),
-				gaussian_exchange_recipe, self._settings_DRNA["exchange period"]
+				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+				gaussian_exchange_recipe
 			)
 		)
 
