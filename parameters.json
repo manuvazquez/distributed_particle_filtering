@@ -91,6 +91,12 @@
 		"number of consensus iterations": 7
 	},
 
+	"Gaussian products": {
+		"initial_size_estimate": 1,
+		"size_estimate_alpha": 0.95,
+		"size_estimate_threshold": 1e-6
+	},
+
 	"network nodes": {
 		"fixed number of sensors per PE": {
 			"implementing class": "FixedNumberOfSensorsPerPE",

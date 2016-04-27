@@ -23,6 +23,8 @@ class Simulation(metaclass=abc.ABCMeta):
 	def __init__(
 			self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators):
+
+		self._parameters = parameters
 		
 		# these parameters are kept for later use
 		self._resampling_algorithm = resampling_algorithm
@@ -991,10 +993,13 @@ class Mposterior(SimpleSimulation):
 			# for every estimator, along with its corresponding label,...
 			for iEstimator, (estimator, label) in enumerate(zip(self._estimators, self._estimators_labels)):
 
-				self._estimated_pos[:, iTime:iTime + 1, self._i_current_frame, iEstimator] = state.to_position(estimator.estimate())
+				# for the sake of efficiency
+				current_estimated_pos = state.to_position(estimator.estimate())
+
+				self._estimated_pos[:, iTime:iTime + 1, self._i_current_frame, iEstimator] = current_estimated_pos
 
 				# the position given by this estimator at the current time instant is written to the HDF5 file
-				estimated_pos[:, iTime:iTime+1, iEstimator] = state.to_position(estimator.estimate())
+				estimated_pos[:, iTime:iTime+1, iEstimator] = current_estimated_pos
 
 				print('position estimated by {}\n'.format(label), self._estimated_pos[:, iTime:iTime + 1, self._i_current_frame, iEstimator])
 
@@ -1123,7 +1128,8 @@ class MposteriorRevisited(Mposterior):
 			self._MposteriorSettings["number of iterations"])
 
 		gaussian_exchange_recipe = smc.exchange_recipe.GaussianExchangeRecipe(
-			self._PEsTopology, self._n_particles_per_PE, PRNG=self._PRNGs["topology pseudo random numbers generator"])
+			self._PEsTopology, self._n_particles_per_PE, self._parameters["Gaussian products"],
+			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 		# ------------
 
@@ -1172,7 +1178,8 @@ class MposteriorRevisited(Mposterior):
 			distributed.TargetTrackingGaussianParticleFilter(
 				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
 				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-				gaussian_exchange_recipe
+				gaussian_exchange_recipe, self._parameters["Gaussian products"],
+				PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
 			)
 		)
 

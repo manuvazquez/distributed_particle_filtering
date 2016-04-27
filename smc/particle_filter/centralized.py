@@ -418,8 +418,6 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		self._Q = None
 		self._nu = None
 
-		self._estimated_n_PEs = None
-
 	def step(self, observations):
 
 		# TODO: this should be estimated!!

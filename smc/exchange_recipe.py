@@ -39,6 +39,11 @@ class ExchangeRecipe(metaclass=abc.ABCMeta):
 
 		return self._n_PEs
 
+	@property
+	def PEs_topology(self):
+
+		return self._PEs_topology
+
 
 # a decorator
 class IteratedExchangeRecipe(ExchangeRecipe):
@@ -450,11 +455,12 @@ class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 class GaussianExchangeRecipe(ExchangeRecipe):
 
 	def __init__(
-			self, processing_elements_topology, n_particles_per_PE, PRNG):
+			self, processing_elements_topology, n_particles_per_PE, ad_hoc_parameters, PRNG):
 
 		super().__init__(processing_elements_topology)
 
 		self._n_particles_per_PE = n_particles_per_PE
+		self._ad_hoc_parameters = ad_hoc_parameters
 		self._PRNG = PRNG
 
 		self.n_iterations = 3
@@ -506,3 +512,53 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 	def messages(self):
 
 		return 0.5
+
+	def size_estimation(self, DPF):
+
+		alpha = self._ad_hoc_parameters["size_estimate_alpha"]
+
+		PEs_data = [{} for i in range(self._n_PEs)]
+
+		for id, PE in enumerate(DPF.PEs):
+
+			# the probability of a starting value equal to 1
+			ro = 1 / PE.estimated_n_PEs
+
+			starting_value = self._PRNG.choice(2, p=[1 - ro, ro])
+			exponential_moving_average = 1
+
+			if starting_value:
+
+				print('PE #{} starting a random walk'.format(id))
+
+				i_current_PE = id
+				PEs_data[i_current_PE][id] = 1
+
+				while exponential_moving_average > self._ad_hoc_parameters["size_estimate_threshold"]:
+
+					i_next = self._PRNG.choice(self._PEs_neighbors[i_current_PE])
+
+					difference = PEs_data[i_current_PE].setdefault(id, 0) - PEs_data[i_next].setdefault(id, 0)
+
+					PEs_data[i_current_PE][id] = PEs_data[i_next][id] = (PEs_data[i_current_PE].setdefault(id, 0) +
+					                                                     PEs_data[i_next].setdefault(id, 0))/2
+
+					exponential_moving_average = (1-alpha)*exponential_moving_average + alpha*difference**2
+
+					print(exponential_moving_average)
+
+					i_current_PE = i_next
+
+		for i_PE, PE in enumerate(DPF.PEs):
+
+			# if the corresponding dictionary is not empty...
+			if PEs_data[i_PE]:
+
+				PE.estimated_n_PEs = 1/(sum([x for x in PEs_data[i_PE].values()])/len(PEs_data[i_PE].values()))
+
+			print(PE.estimated_n_PEs)
+
+		print('size_estimation: mean is {}'.format(np.array([PE.estimated_n_PEs for PE in DPF.PEs]).mean()))
+
+		import code
+		code.interact(local=dict(globals(), **locals()))
