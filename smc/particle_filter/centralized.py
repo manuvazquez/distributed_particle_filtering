@@ -426,6 +426,8 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 		assert len(observations) == len(self._sensors)
 
+		# print('propagating\n {}'.format(self._state))
+
 		# every particle is updated (previous state is not stored...)
 		self._state = np.hstack(
 			[self._state_transition_kernel.next_state(self._state[:, i:i + 1]) for i in range(self._n_particles)])
@@ -455,27 +457,6 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 		# ...and (weighted) covariance
 		covariance = np.cov(self.samples, ddof=0, aweights=self.weights)
-
-		# # if the matrix is NOT singular (this happens when a single particle accumulates most of the weight)
-		# if np.linalg.cond(covariance) < 1/sys.float_info.epsilon:
-		#
-		# 	# the inverse of the covariance
-		# 	inv_covariance = np.linalg.inv(covariance)
-		#
-		# 	# Q and nu are updated
-		# 	self._Q, self._nu = inv_covariance, inv_covariance @ mean
-		#
-		# # the matrix is singular to computer precision
-		# else:
-		#
-		# 	import code
-		# 	code.interact(local=dict(globals(), **locals()))
-		#
-		# 	self._Q = np.zeros_like(covariance)
-		# 	self._nu = np.zeros_like(mean)
-		#
-		# # import code
-		# # code.interact(local=dict(globals(), **locals()))
 
 		# if the matrix is singular (this happens when a single particle accumulates most of the weight)
 		if np.linalg.cond(covariance) > 1 / sys.float_info.epsilon:

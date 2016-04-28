@@ -455,18 +455,44 @@ class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 class GaussianExchangeRecipe(ExchangeRecipe):
 
 	def __init__(
-			self, processing_elements_topology, n_particles_per_PE, ad_hoc_parameters, PRNG):
+			self, processing_elements_topology, n_particles_per_PE, ad_hoc_parameters, bottom_left_corner,
+			top_right_corner, PRNG):
 
 		super().__init__(processing_elements_topology)
 
 		self._n_particles_per_PE = n_particles_per_PE
 		self._ad_hoc_parameters = ad_hoc_parameters
+
+		self._bottom_left_corner = bottom_left_corner
+		self._top_right_corner = top_right_corner
+
 		self._PRNG = PRNG
 
-		self.n_iterations = 3
+		# if no number of iterations is provided through the parameters file...
+		if "n_iterations" not in ad_hoc_parameters:
+
+			# ...the initial estimate is assumed to be half the number of PEs
+			self.n_iterations = 5*self._n_PEs**2
+
+		else:
+
+			self.n_iterations = ad_hoc_parameters["n_iterations"]
+
+		self._edge_epsilon = 0.001
 
 		# so that the corresponding method is only called once
 		self._PEs_neighbors = processing_elements_topology.get_neighbours()
+
+	def truncate_samples(self, samples):
+
+		res = samples.copy()
+
+		res[0, res[0, :] < self._bottom_left_corner[0]] = self._bottom_left_corner[0] + self._edge_epsilon
+		res[0, res[0, :] > self._top_right_corner[0]] = self._top_right_corner[0] - self._edge_epsilon
+		res[1, res[1, :] < self._bottom_left_corner[1]] = self._bottom_left_corner[1] + self._edge_epsilon
+		res[1, res[1, :] > self._top_right_corner[1]] = self._top_right_corner[1] - self._edge_epsilon
+
+		return res
 
 	def perform_exchange(self, DPF):
 
@@ -479,7 +505,11 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 
 		# these are the indexes of the PEs that will wake up to exchange statistics with a neighbour (notice that a
 		# certain PE can show up several times)
-		i_waking_PEs = np.unravel_index(np.argsort(ticks_absolute_time, axis=None), (self._n_PEs, self.n_iterations))[0]
+		# [0] is because we only care about the index of the waking PE (and not the instant)
+		# [:self.n_iterations] is because we only consider the "self.n_iterations" earliest wakings
+		i_waking_PEs = np.unravel_index(
+			np.argsort(ticks_absolute_time, axis=None), (self._n_PEs, self.n_iterations)
+		)[0][:self.n_iterations]
 
 		for i_PE in i_waking_PEs:
 
@@ -501,7 +531,7 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 			# ...and another for the *global* mean
 			mean = covariance @ PE._nu
 
-			PE.samples = np.random.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T
+			PE.samples = self.truncate_samples(np.random.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T)
 
 	def messages(self):
 

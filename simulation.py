@@ -1129,6 +1129,7 @@ class MposteriorRevisited(Mposterior):
 
 		gaussian_exchange_recipe = smc.exchange_recipe.GaussianExchangeRecipe(
 			self._PEsTopology, self._n_particles_per_PE, self._parameters["Gaussian products"],
+			self._settings_room["bottom left corner"], self._settings_room["top right corner"],
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 		# ------------
