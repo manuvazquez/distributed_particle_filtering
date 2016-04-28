@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 
 import state
@@ -418,10 +419,10 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		self._Q = None
 		self._nu = None
 
-	def step(self, observations):
+		# small number that gets added to a covariance matrix if it is ill conditioned
+		self._epsilon = 1e-4
 
-		# TODO: this should be estimated!!
-		self._estimated_n_PEs = 2
+	def step(self, observations):
 
 		assert len(observations) == len(self._sensors)
 
@@ -439,7 +440,7 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		log_likelihoods_product = loglikelihoods.sum(axis=0)
 
 		# every likelihood is exponentiated by the estimate of the number of PEs
-		self._log_weights = log_likelihoods_product*self._estimated_n_PEs
+		self._log_weights = log_likelihoods_product*self.estimated_n_PEs
 
 		# the aggregated weight is kept up to date at all times
 		self.update_aggregated_weight()
@@ -455,11 +456,34 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# ...and (weighted) covariance
 		covariance = np.cov(self.samples, ddof=0, aweights=self.weights)
 
+		# # if the matrix is NOT singular (this happens when a single particle accumulates most of the weight)
+		# if np.linalg.cond(covariance) < 1/sys.float_info.epsilon:
+		#
+		# 	# the inverse of the covariance
+		# 	inv_covariance = np.linalg.inv(covariance)
+		#
+		# 	# Q and nu are updated
+		# 	self._Q, self._nu = inv_covariance, inv_covariance @ mean
+		#
+		# # the matrix is singular to computer precision
+		# else:
+		#
+		# 	import code
+		# 	code.interact(local=dict(globals(), **locals()))
+		#
+		# 	self._Q = np.zeros_like(covariance)
+		# 	self._nu = np.zeros_like(mean)
+		#
+		# # import code
+		# # code.interact(local=dict(globals(), **locals()))
+
+		# if the matrix is singular (this happens when a single particle accumulates most of the weight)
+		if np.linalg.cond(covariance) > 1 / sys.float_info.epsilon:
+
+			covariance += np.diag(np.full(state.n_elements, self._epsilon))
+
 		# the inverse of the covariance
 		inv_covariance = np.linalg.inv(covariance)
 
 		# Q and nu are updated
 		self._Q, self._nu = inv_covariance, inv_covariance @ mean
-
-		# import code
-		# code.interact(local=dict(globals(), **locals()))

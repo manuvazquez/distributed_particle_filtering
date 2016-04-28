@@ -350,7 +350,15 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		self.exchange_recipe = exchange_recipe
 		self._PRNG = PRNG
 
-		self._initial_size_estimate = ad_hoc_parameters["initial_size_estimate"]
+		# if no initial estimate is passed through the parameters file...
+		if "initial_size_estimate" not in ad_hoc_parameters:
+
+			# ...the initial estimate is assumed to be half the number of PEs
+			self._initial_size_estimate = self._n_PEs//2
+
+		else:
+
+			self._initial_size_estimate = ad_hoc_parameters["initial_size_estimate"]
 
 	def initialize(self):
 
@@ -361,9 +369,11 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 			PE.estimated_n_PEs = self._initial_size_estimate
 
+		self.exchange_recipe.size_estimation(self)
+
 	def step(self, observations):
 
-		self.exchange_recipe.size_estimation(self)
+		# self.exchange_recipe.size_estimation(self)
 
 		super().step(observations)
 

@@ -503,62 +503,86 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 
 			PE.samples = np.random.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T
 
-			# import code
-			# code.interact(local=dict(globals(), **locals()))
-
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-
 	def messages(self):
 
 		return 0.5
 
 	def size_estimation(self, DPF):
 
+		# for the sake of a shorter code...
 		alpha = self._ad_hoc_parameters["size_estimate_alpha"]
 
-		PEs_data = [{} for i in range(self._n_PEs)]
+		# different random walks have different associated data
+		PEs_data = [{} for _ in range(self._n_PEs)]
 
+		# id is the number of a PE, which is here used as "token" (identifier); it is a keyword inside the dictionary
 		for id, PE in enumerate(DPF.PEs):
 
 			# the probability of a starting value equal to 1
 			ro = 1 / PE.estimated_n_PEs
 
+			# draw a sample 0 or 1 according to the previous probability
 			starting_value = self._PRNG.choice(2, p=[1 - ro, ro])
+
+			# this is a metric used in the stopping rule
 			exponential_moving_average = 1
 
+			# if the starting value is 1
 			if starting_value:
 
 				print('PE #{} starting a random walk'.format(id))
 
+				# the current PE is the one starting the random walk
 				i_current_PE = id
+
+				# the value associated with the current PE AND this particular random walk identified by "id"
 				PEs_data[i_current_PE][id] = 1
 
+				# the stopping rule
 				while exponential_moving_average > self._ad_hoc_parameters["size_estimate_threshold"]:
 
+					# import code
+					# code.interact(local=dict(globals(), **locals()))
+
+					# the next PE is selected randomly among the neighbors of the current one
 					i_next = self._PRNG.choice(self._PEs_neighbors[i_current_PE])
 
+					# import code
+					# code.interact(local=dict(globals(), **locals()))
+
+					# this is needed to update exponential_moving_average
 					difference = PEs_data[i_current_PE].setdefault(id, 0) - PEs_data[i_next].setdefault(id, 0)
 
-					PEs_data[i_current_PE][id] = PEs_data[i_next][id] = (PEs_data[i_current_PE].setdefault(id, 0) +
-					                                                     PEs_data[i_next].setdefault(id, 0))/2
+					# the value for the current PE *and* the selected neighbor is updated
+					PEs_data[i_current_PE][id] = PEs_data[i_next][id] = (PEs_data[i_current_PE].setdefault(id, 0) + PEs_data[i_next].setdefault(id, 0))/2
 
+					# the metric for the stopping rule is updated
 					exponential_moving_average = (1-alpha)*exponential_moving_average + alpha*difference**2
 
-					print(exponential_moving_average)
+					# print(exponential_moving_average)
 
+					# the next PE becomes the current
 					i_current_PE = i_next
 
+					# print('exponential moving avergae = {}, i_current_PE = {}'.format(exponential_moving_average, i_current_PE))
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		# for every PE
 		for i_PE, PE in enumerate(DPF.PEs):
 
 			# if the corresponding dictionary is not empty...
 			if PEs_data[i_PE]:
 
-				PE.estimated_n_PEs = 1/(sum([x for x in PEs_data[i_PE].values()])/len(PEs_data[i_PE].values()))
+				# its estimate of the number of PEs is the inverse of the average of all the values (for different
+				# "tokens") that it has
+				PE.estimated_n_PEs = 1//(sum([x for x in PEs_data[i_PE].values()])/len(PEs_data[i_PE].values()))
 
-			print(PE.estimated_n_PEs)
+			# print(PE.estimated_n_PEs)
 
+		# print([PE.estimated_n_PEs for PE in DPF.PEs])
 		print('size_estimation: mean is {}'.format(np.array([PE.estimated_n_PEs for PE in DPF.PEs]).mean()))
 
-		import code
-		code.interact(local=dict(globals(), **locals()))
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
