@@ -106,9 +106,6 @@ class SimpleSimulation(Simulation):
 			# the value received is assumed to be a reference to an already open file
 			self._f = self._h5py_file
 
-		# this is the number of digits needed to express the frame number
-		self._width_n_frames = math.ceil(math.log10(parameters["number of frames"]))
-
 		# for the sake of convenience
 		sensors_settings = parameters["sensors"]
 
@@ -176,7 +173,7 @@ class SimpleSimulation(Simulation):
 		
 		# a reference to the "group" for the current frame (notice the prefix in the name given "self._h5py_prefix")...
 		self._h5_current_frame = self._f.create_group(
-			self._h5py_prefix + 'frames/{num:0{width}}'.format(num=self._i_current_frame, width=self._width_n_frames))
+			self._h5py_prefix + 'frames/{}'.format(self._i_current_frame))
 		
 		# ...where a new dataset is created for the "actual position" of the target...
 		self._h5_current_frame.create_dataset(

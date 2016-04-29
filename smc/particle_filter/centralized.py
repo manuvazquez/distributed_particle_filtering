@@ -422,6 +422,21 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# small number that gets added to a covariance matrix if it is ill conditioned
 		self._epsilon = 1e-4
 
+	# def normalize_weights(self):
+	#
+	# 	# if the aggregated weight is close to zero...
+	# 	if np.isclose(self._aggregated_weight, 0):
+	#
+	# 		# ...then normalization makes no sense and we just initialize the weights again
+	# 		self._log_weights.fill(-np.log(self._n_particles))
+	#
+	# 	else:
+	#
+	# 		self._log_weights -= np.log(self._aggregated_weight)
+	#
+	# 	# we forced this above
+	# 	self._aggregated_weight = 1.0
+
 	def step(self, observations):
 
 		assert len(observations) == len(self._sensors)
@@ -458,13 +473,31 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# ...and (weighted) covariance
 		covariance = np.cov(self.samples, ddof=0, aweights=self.weights)
 
-		# if the matrix is singular (this happens when a single particle accumulates most of the weight)
-		if np.linalg.cond(covariance) > 1 / sys.float_info.epsilon:
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
 
-			covariance += np.diag(np.full(state.n_elements, self._epsilon))
+		# if the matrix is singular (this happens when a single particle accumulates most of the weight)
+		if np.isnan(np.linalg.cond(covariance)) or  np.linalg.cond(covariance) > (1 / sys.float_info.epsilon):
+
+			# covariance += np.diag(np.full(state.n_elements, self._epsilon))
+			covariance += np.identity(state.n_elements)*self._epsilon
+
+		# we try...
+		try:
+
+			# ...to invert the covariance matrix
+			np.linalg.inv(covariance)
+
+		# it it's not possible (singular)
+		except np.linalg.linalg.LinAlgError:
+
+			import code
+			code.interact(local=dict(globals(), **locals()))
 
 		# the inverse of the covariance
 		inv_covariance = np.linalg.inv(covariance)
 
 		# Q and nu are updated
-		self._Q, self._nu = inv_covariance, inv_covariance @ mean
+		# >= python 3.5 / numpy 1.10
+		# self._Q, self._nu = inv_covariance, inv_covariance @ mean
+		self._Q, self._nu = inv_covariance, np.dot(inv_covariance, mean)

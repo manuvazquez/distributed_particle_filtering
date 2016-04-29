@@ -529,7 +529,9 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 			covariance = np.linalg.inv(PE._Q)
 
 			# ...and another for the *global* mean
-			mean = covariance @ PE._nu
+			# >= python 3.5 / numpy 1.10
+			# mean = covariance @ PE._nu
+			mean = np.dot(covariance, PE._nu)
 
 			PE.samples = self.truncate_samples(np.random.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T)
 
