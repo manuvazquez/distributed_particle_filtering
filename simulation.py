@@ -1129,6 +1129,10 @@ class MposteriorRevisited(Mposterior):
 			self._settings_room["bottom left corner"], self._settings_room["top right corner"],
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
+		gaussian_mixtures_exchange_recipe = smc.exchange_recipe.GaussianMixturesExchangeRecipe(
+			self._PEsTopology, self._n_particles_per_PE, self._parameters["Gaussian Mixtures"],
+			PRNG=self._PRNGs["topology pseudo random numbers generator"])
+
 		# ------------
 
 		# a distributed PF with DRNA
@@ -1182,7 +1186,25 @@ class MposteriorRevisited(Mposterior):
 		)
 
 		# the estimator is the mean
-		self._estimators.append(smc.estimator.Mean(self._PFs[-1]))
+		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
 
 		self._estimators_colors.append('magenta')
 		self._estimators_labels.append('Gaussian')
+
+		# ------------
+
+		# DPF via optimal fusion of Gaussian mixtures
+		self._PFs.append(
+			distributed.TargetTrackingGaussianMixtureParticleFilter(
+				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
+				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+				gaussian_mixtures_exchange_recipe, self._parameters["Gaussian Mixtures"],
+				PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
+			)
+		)
+
+		# the estimator is the mean
+		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
+
+		self._estimators_colors.append('brown')
+		self._estimators_labels.append('Gaussian Mixtures')

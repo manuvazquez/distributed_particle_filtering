@@ -97,6 +97,10 @@
 		"size_estimate_threshold": 1e-6
 	},
 
+	"Gaussian Mixtures": {
+		"number_of_components": 4
+	},
+
 	"network nodes": {
 		"fixed number of sensors per PE": {
 			"implementing class": "FixedNumberOfSensorsPerPE",

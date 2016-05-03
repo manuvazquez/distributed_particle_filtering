@@ -537,7 +537,7 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 
 	def messages(self):
 
-		return 0.5
+		return np.NaN
 
 	def size_estimation(self, DPF):
 
@@ -573,14 +573,8 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 				# the stopping rule
 				while exponential_moving_average > self._ad_hoc_parameters["size_estimate_threshold"]:
 
-					# import code
-					# code.interact(local=dict(globals(), **locals()))
-
 					# the next PE is selected randomly among the neighbors of the current one
 					i_next = self._PRNG.choice(self._PEs_neighbors[i_current_PE])
-
-					# import code
-					# code.interact(local=dict(globals(), **locals()))
 
 					# this is needed to update exponential_moving_average
 					difference = PEs_data[i_current_PE].setdefault(id, 0) - PEs_data[i_next].setdefault(id, 0)
@@ -591,15 +585,8 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 					# the metric for the stopping rule is updated
 					exponential_moving_average = (1-alpha)*exponential_moving_average + alpha*difference**2
 
-					# print(exponential_moving_average)
-
 					# the next PE becomes the current
 					i_current_PE = i_next
-
-					# print('exponential moving avergae = {}, i_current_PE = {}'.format(exponential_moving_average, i_current_PE))
-
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
 
 		# for every PE
 		for i_PE, PE in enumerate(DPF.PEs):
@@ -616,5 +603,107 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 		# print([PE.estimated_n_PEs for PE in DPF.PEs])
 		print('size_estimation: mean is {}'.format(np.array([PE.estimated_n_PEs for PE in DPF.PEs]).mean()))
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
+
+class GaussianMixturesExchangeRecipe(ExchangeRecipe):
+
+	def __init__(
+			self, processing_elements_topology, n_particles_per_PE, ad_hoc_parameters, PRNG):
+
+		super().__init__(processing_elements_topology)
+
+		self._n_particles_per_PE = n_particles_per_PE
+		self._ad_hoc_parameters = ad_hoc_parameters
+
+		self._PRNG = PRNG
+
+		self._C = ad_hoc_parameters["number_of_components"]
+
+	def messages(self):
+
+		return np.NaN
+
+	def perform_exchange(self, DPF):
+
+		pass
+
+	def learn_gaussian_mixture(self, samples, weights):
+		
+		# the dimensionality and number of samples
+		dimension, N = samples.shape
+
+		initial_mean = samples.mean(axis=1)
+		initial_cov = np.cov(samples)
+
+		# coefficients, means and covariances are initialized
+
+		# alphas_list = [0]*self._C
+		# means_list = [np.zeros(dimension) for _ in range(self._C)]
+		# covariances_list = [np.identity(dimension) for _ in range(self._C)]
+
+		alphas_list = np.random.rand(self._C)
+		means_list = [initial_mean for _ in range(self._C)]
+		covariances_list = [initial_cov for _ in range(self._C)]
+
+		new_alphas_list = np.random.rand(self._C)
+
+		p = np.empty((N, self._C))
+
+		has_converged = False
+
+		while not has_converged:
+
+			for i, sample in enumerate(samples.T):
+
+				for c, (alpha, mean, cov) in enumerate(zip(alphas_list, means_list, covariances_list)):
+
+					# import code
+					# code.interact(local=dict(globals(), **locals()))
+
+					# print(alpha)
+					# print(sample)
+					# print(mean)
+					# print(cov)
+
+					try:
+
+						p[i, c] = alpha * scipy.stats.multivariate_normal.pdf(sample, mean, cov)
+
+					except np.linalg.linalg.LinAlgError:
+
+						p[i, c] = 0
+
+				# normalization
+				if p[i, :].sum() != 0:
+					p[i, :] /= p[i, :].sum()
+				else:
+					p[i, :].fill(1 / self._C)
+
+			# import code
+			# code.interact(local=dict(globals(), **locals()))
+
+			for c in range(len(alphas_list)):
+				# import code
+				# code.interact(local=dict(globals(), **locals()))
+
+				new_alphas_list[c] = np.dot(p[:, c], weights)
+				means_list[c] = (p[:, c] * weights * samples).sum(axis=1) / new_alphas_list[c]
+
+				# import code
+				# code.interact(local=dict(globals(), **locals()))
+
+				covariances_list[c] = np.dot(p[:, c] * weights * (samples - means_list[c][:, np.newaxis]),
+				                             (samples - means_list[c][:, np.newaxis]).T) / new_alphas_list[c]
+
+			new_alphas_list /= new_alphas_list.sum()
+
+			print(new_alphas_list)
+
+			if np.linalg.norm(new_alphas_list - alphas_list) < 1e5:
+				has_converged = False
+
+			alphas_list = new_alphas_list
+
+			import code
+			code.interact(local=dict(globals(), **locals()))
+
+		return alphas_list, means_list, covariances_list

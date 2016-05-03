@@ -419,23 +419,8 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		self._Q = None
 		self._nu = None
 
-		# small number that gets added to a covariance matrix if it is ill conditioned
-		self._epsilon = 1e-4
-
-	# def normalize_weights(self):
-	#
-	# 	# if the aggregated weight is close to zero...
-	# 	if np.isclose(self._aggregated_weight, 0):
-	#
-	# 		# ...then normalization makes no sense and we just initialize the weights again
-	# 		self._log_weights.fill(-np.log(self._n_particles))
-	#
-	# 	else:
-	#
-	# 		self._log_weights -= np.log(self._aggregated_weight)
-	#
-	# 	# we forced this above
-	# 	self._aggregated_weight = 1.0
+		# value of the elements in the diagonal of a covariance matrix that became 0
+		self._default_variance = 10
 
 	def step(self, observations):
 
@@ -479,8 +464,11 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# if the matrix is singular (this happens when a single particle accumulates most of the weight)
 		if np.isnan(np.linalg.cond(covariance)) or  np.linalg.cond(covariance) > (1 / sys.float_info.epsilon):
 
-			# covariance += np.diag(np.full(state.n_elements, self._epsilon))
-			covariance += np.identity(state.n_elements)*self._epsilon
+			# the (weighted) covariance matrix being zero does NOT mean there is no uncertainty about the random vector.
+			# On the contrary, it *most likely* means that ALL of the likelihoods are really small, which results in a
+			# single (arbitrary, due to numeric precision) weight concentrating all the mass (corresponding to the
+			# biggest likelihood that may be 10^-12)
+			covariance += np.identity(state.n_elements)*self._default_variance
 
 		# we try...
 		try:
@@ -501,3 +489,23 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# >= python 3.5 / numpy 1.10
 		# self._Q, self._nu = inv_covariance, inv_covariance @ mean
 		self._Q, self._nu = inv_covariance, np.dot(inv_covariance, mean)
+
+# =========================================================================================================
+
+
+class TargetTrackingGaussianMixtureParticleFilter(TargetTrackingParticleFilter):
+
+	def __init__(
+			self, n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
+			aggregated_weight=1.0):
+
+		super().__init__(
+			n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
+			aggregated_weight)
+
+	# the same as in the parent class with no resampling
+	def avoid_weight_degeneracy(self):
+
+		self.normalize_weights()
+
+		print(self.weights)
