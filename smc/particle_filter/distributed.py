@@ -403,10 +403,6 @@ class TargetTrackingGaussianMixtureParticleFilter(TargetTrackingParticleFilter):
 
 		self._C = ad_hoc_parameters["number_of_components"]
 
-	# def initialize(self):
-	#
-	# 	super().initialize()
-
 	def step(self, observations):
 
 		super().step(observations)
@@ -415,4 +411,4 @@ class TargetTrackingGaussianMixtureParticleFilter(TargetTrackingParticleFilter):
 
 	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
 
-		return -10**6
+		return np.NaN

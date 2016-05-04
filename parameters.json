@@ -98,7 +98,9 @@
 	},
 
 	"Gaussian Mixtures": {
-		"number_of_components": 4
+		"number_of_components": 4,
+		"number_of_particles_for_fusion": 500,
+		"epsilon": 0.1666
 	},
 
 	"network nodes": {

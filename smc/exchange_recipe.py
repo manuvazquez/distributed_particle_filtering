@@ -1,7 +1,11 @@
 import collections
 import abc
+import colorama
 import numpy as np
 import scipy
+import sklearn.mixture
+import scipy.stats
+
 
 import state
 import mposterior
@@ -607,16 +611,21 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 
 	def __init__(
-			self, processing_elements_topology, n_particles_per_PE, ad_hoc_parameters, PRNG):
+			self, processing_elements_topology, n_particles_per_PE, ad_hoc_parameters, resampling_algorithm, PRNG):
 
 		super().__init__(processing_elements_topology)
 
 		self._n_particles_per_PE = n_particles_per_PE
 		self._ad_hoc_parameters = ad_hoc_parameters
+		self._resampling_algorithm = resampling_algorithm
 
 		self._PRNG = PRNG
 
 		self._C = ad_hoc_parameters["number_of_components"]
+		self._n_particles_for_fusion = ad_hoc_parameters["number_of_particles_for_fusion"]
+		self._epsilon = ad_hoc_parameters["epsilon"]
+
+		self._neighbors = self._PEs_topology.get_neighbours()
 
 	def messages(self):
 
@@ -624,86 +633,171 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 
 	def perform_exchange(self, DPF):
 
-		pass
+		gaussian_mixtures = [self.learn(PE.samples.T, PE.weights) for PE in DPF.PEs]
+		predictive_gaussian_mixtures = [self.learn(PE.samples.T, PE.previous_weights) for PE in DPF.PEs]
 
-	def learn_gaussian_mixture(self, samples, weights):
-		
-		# the dimensionality and number of samples
-		dimension, N = samples.shape
+		has_coverged = False
 
-		initial_mean = samples.mean(axis=1)
-		initial_cov = np.cov(samples)
+		while not has_coverged:
 
-		# coefficients, means and covariances are initialized
+			for i_PE in range(self._n_PEs):
 
-		# alphas_list = [0]*self._C
-		# means_list = [np.zeros(dimension) for _ in range(self._C)]
-		# covariances_list = [np.identity(dimension) for _ in range(self._C)]
+				neighbors_gms = [gaussian_mixtures[i] for i in self._neighbors[i_PE]]
 
-		alphas_list = np.random.rand(self._C)
-		means_list = [initial_mean for _ in range(self._C)]
-		covariances_list = [initial_cov for _ in range(self._C)]
+				gaussian_mixtures[i_PE] = self.fusion(gaussian_mixtures[i_PE], neighbors_gms)
 
-		new_alphas_list = np.random.rand(self._C)
+			has_coverged = True
 
-		p = np.empty((N, self._C))
+		for i_PE in range(self._n_PEs):
 
-		has_converged = False
+			recovered_gaussian_mixture = self.recovery(gaussian_mixtures[i_PE], predictive_gaussian_mixtures[i_PE])
 
-		while not has_converged:
+			DPF.PEs[i_PE].samples = recovered_gaussian_mixture.sample(self._n_particles_per_PE, self._PRNG).T
+			DPF.PEs[i_PE].weights = np.full(self._n_particles_per_PE, 1/self._n_particles_per_PE)
 
-			for i, sample in enumerate(samples.T):
+	# def learn(self, samples, weights):
+	#
+	# 	# the dimensionality and number of samples
+	# 	dimension, N = samples.shape
+	#
+	# 	initial_mean = samples.mean(axis=1)
+	# 	initial_cov = np.cov(samples)
+	#
+	# 	# coefficients, means and covariances are initialized
+	# 	alphas_list = np.random.rand(self._C)
+	# 	means_list = [initial_mean for _ in range(self._C)]
+	# 	covariances_list = [initial_cov for _ in range(self._C)]
+	#
+	# 	new_alphas_list = np.random.rand(self._C)
+	#
+	# 	p = np.empty((N, self._C))
+	#
+	# 	has_converged = False
+	#
+	# 	while not has_converged:
+	#
+	# 		for i, sample in enumerate(samples.T):
+	#
+	# 			for c, (alpha, mean, cov) in enumerate(zip(alphas_list, means_list, covariances_list)):
+	#
+	# 				try:
+	#
+	# 					p[i, c] = alpha * scipy.stats.multivariate_normal.pdf(sample, mean, cov)
+	#
+	# 				except np.linalg.linalg.LinAlgError:
+	#
+	# 					p[i, c] = 0
+	#
+	# 			# normalization
+	# 			if p[i, :].sum() != 0:
+	# 				p[i, :] /= p[i, :].sum()
+	# 			else:
+	# 				p[i, :].fill(1 / self._C)
+	#
+	# 		for c in range(len(alphas_list)):
+	#
+	# 			new_alphas_list[c] = np.dot(p[:, c], weights)
+	# 			means_list[c] = (p[:, c] * weights * samples).sum(axis=1) / new_alphas_list[c]
+	# 			covariances_list[c] = np.dot(
+	# 				p[:, c] * weights * (samples - means_list[c][:, np.newaxis]),
+	# 				(samples - means_list[c][:, np.newaxis]).T) / new_alphas_list[c]
+	#
+	# 		new_alphas_list /= new_alphas_list.sum()
+	#
+	# 		print(new_alphas_list)
+	#
+	# 		if np.linalg.norm(new_alphas_list - alphas_list) < 1e5:
+	#
+	# 			has_converged = False
+	#
+	# 		alphas_list = new_alphas_list
+	#
+	# 	return alphas_list, means_list, covariances_list
 
-				for c, (alpha, mean, cov) in enumerate(zip(alphas_list, means_list, covariances_list)):
+	def learn(self, samples, weights):
 
-					# import code
-					# code.interact(local=dict(globals(), **locals()))
+		i_resampled = self._resampling_algorithm.get_indexes(weights)
 
-					# print(alpha)
-					# print(sample)
-					# print(mean)
-					# print(cov)
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
 
-					try:
+		resulting_gm = sklearn.mixture.GMM(self._C)
+		resulting_gm.fit(samples[i_resampled, :])
 
-						p[i, c] = alpha * scipy.stats.multivariate_normal.pdf(sample, mean, cov)
+		return resulting_gm
 
-					except np.linalg.linalg.LinAlgError:
+	def fusion(self, gaussian_mixture, neighbors_gaussian_mixtures):
 
-						p[i, c] = 0
+		# gmm = sklearn.mixture.GMM(self._C, n_iter=1)
+		# gmm.means_ = gaussian_mixture[0]
+		# gmm.covars_ = gaussian_mixture[1]
+		# gmm.weights_ = gaussian_mixture[2]
 
-				# normalization
-				if p[i, :].sum() != 0:
-					p[i, :] /= p[i, :].sum()
-				else:
-					p[i, :].fill(1 / self._C)
+		N_k = len(neighbors_gaussian_mixtures)
 
-			# import code
-			# code.interact(local=dict(globals(), **locals()))
+		# gmm = sklearn.mixture.GMM(2, covariance_type='full', n_iter=1)
+		# gmm.means_ = np.array([[1,2],[-1,1]])
+		# gmm.covars_ = np.stack((np.identity(2),np.identity(2)))
+		# gmm.weights_ = np.array([0.25,0.75])
+		# gmm.sample(200)
+		# gmm.score(np.array([-4.82524974e-01,8.41069630e-01]).reshape(1,-1))
 
-			for c in range(len(alphas_list)):
-				# import code
-				# code.interact(local=dict(globals(), **locals()))
+		samples = gaussian_mixture.sample(self._n_particles_for_fusion, self._PRNG)
 
-				new_alphas_list[c] = np.dot(p[:, c], weights)
-				means_list[c] = (p[:, c] * weights * samples).sum(axis=1) / new_alphas_list[c]
+		# prob_main = np.exp(gmm.score(samples))
+		#
+		# for gm in neighbors_gaussian_mixtures:
+		#
+		# 	prob_neighbours = np.exp(gm.score(samples))
 
-				# import code
-				# code.interact(local=dict(globals(), **locals()))
+		# every column is a sample, every row a different GM
+		prob = np.vstack([np.exp(gm.score(samples)) for gm in [gaussian_mixture] + neighbors_gaussian_mixtures])
 
-				covariances_list[c] = np.dot(p[:, c] * weights * (samples - means_list[c][:, np.newaxis]),
-				                             (samples - means_list[c][:, np.newaxis]).T) / new_alphas_list[c]
+		# first GM is associated with the PE performing the fusion
+		prob[0, :] **= -self._epsilon*N_k
 
-			new_alphas_list /= new_alphas_list.sum()
+		# the rest of the PEs are the neighbors
+		prob[1:, :] **= self._epsilon
 
-			print(new_alphas_list)
+		weights = prob.prod(axis=0)
 
-			if np.linalg.norm(new_alphas_list - alphas_list) < 1e5:
-				has_converged = False
+		norm_constant = weights.sum()
 
-			alphas_list = new_alphas_list
+		if norm_constant!=0:
 
-			import code
-			code.interact(local=dict(globals(), **locals()))
+			weights /= weights.sum()
 
-		return alphas_list, means_list, covariances_list
+		else:
+
+			weights = np.full(self._n_particles_for_fusion, 1/self._n_particles_for_fusion)
+
+			print(colorama.Fore.RED + 'fusion: zeros add up to 0!!' + colorama.Style.RESET_ALL)
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		return self.learn(samples, weights)
+
+	def recovery(self, gaussian_mixture, previous_gaussian_mixture):
+
+		samples = previous_gaussian_mixture.sample(self._n_particles_for_fusion, self._PRNG)
+
+		prob = np.vstack([np.exp(gm.score(samples)) for gm in [gaussian_mixture, previous_gaussian_mixture]])
+
+		weights = (prob[0,:]/prob[1,:])**self._n_PEs
+
+		norm_constant = weights.sum()
+
+		if norm_constant != 0:
+
+			weights /= weights.sum()
+
+		else:
+
+			weights = np.full(self._n_particles_for_fusion, 1 / self._n_particles_for_fusion)
+
+			print(colorama.Fore.RED + 'recovery: zeros add up to 0!!' + colorama.Style.RESET_ALL)
+
+		return self.learn(samples, weights)
+
+

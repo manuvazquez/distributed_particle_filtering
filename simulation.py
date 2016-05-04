@@ -1130,7 +1130,7 @@ class MposteriorRevisited(Mposterior):
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 		gaussian_mixtures_exchange_recipe = smc.exchange_recipe.GaussianMixturesExchangeRecipe(
-			self._PEsTopology, self._n_particles_per_PE, self._parameters["Gaussian Mixtures"],
+			self._PEsTopology, self._n_particles_per_PE, self._parameters["Gaussian Mixtures"], self._resampling_algorithm,
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 		# ------------

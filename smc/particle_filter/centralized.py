@@ -508,4 +508,8 @@ class TargetTrackingGaussianMixtureParticleFilter(TargetTrackingParticleFilter):
 
 		self.normalize_weights()
 
-		print(self.weights)
+	def step(self, observations):
+
+		self.previous_weights = self.weights
+
+		super().step(observations)
