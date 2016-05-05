@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import colorama
 
 # a state vector has the structure:
 # 	[ pos_x ]
@@ -200,15 +201,24 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 		
 		# this may be updated in the while loop when bouncing off several walls
 		previous_pos = state[0:2].copy()
-		
+
 		# the new (unbounded) state as computed by the parent class
 		unbounded_state = super().next_state(state, PRNG)
 		
 		# the first two elements of the above state is the new (here tentative) position...
 		tentative_new_pos = unbounded_state[:2]
-		
+
 		# ...whereas the last ones are the new velocity
 		velocity = unbounded_state[2:]
+
+		# if the current position is already outside the bounds (due to sampling or whatever)...
+		if (not (previous_pos > self._corners[2]).all()) or (not (previous_pos < self._corners[0]).all()):
+
+			# ...anything goes
+
+			print(colorama.Fore.GREEN + 'passed position is already out of bounds' + colorama.Style.RESET_ALL)
+
+			return unbounded_state
 		
 		# the step "suggested" by the parent class is then given by the new tentative position and the starting 
 		step = tentative_new_pos - previous_pos

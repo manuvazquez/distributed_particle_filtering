@@ -1,7 +1,7 @@
 import abc
 import numpy as np
 import scipy.io
-import math
+import colorama
 import h5py
 
 import smc.particle_filter.centralized as centralized
@@ -716,7 +716,8 @@ class Mposterior(SimpleSimulation):
 
 			algorithms_messages.append(messages_during_estimation+messages_algorithm_operation)
 
-			print('{}: messages = {}'.format(label, algorithms_messages[-1]))
+			print(colorama.Fore.GREEN + '{}'.format(label) + colorama.Style.RESET_ALL +
+			      ': messages = {}'.format(algorithms_messages[-1]))
 
 		# the messages (per iteration) required by each algorithm
 		self._f.create_dataset(
@@ -1161,26 +1162,26 @@ class MposteriorRevisited(Mposterior):
 
 		# ------------
 
-		# DPF with M-posterior-based exchange within a certain depth
-		self._PFs.append(
-			distributed.TargetTrackingParticleFilterWithMposterior(
-				mposterior_within_radius_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
-				self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
-				self._PEsSensorsConnections,
-				self._MposteriorSettings['sharing period'],
-				pf_class=centralized.TargetTrackingParticleFilter)
-		)
-
-		self._estimators.append(smc.estimator.SinglePEMeansGeometricMedianWithinRadius(
-			self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_exchange_step_depth,
-			radius_lower_bound=self._mposterior_exchange_step_depth)
-		)
-
-		self._estimators_colors.append('khaki')
-		self._estimators_labels.append(
-			'M-posterior exch. {} - depth {} ({} hops, {} particle(s))'.format(
-				self._exchanged_particles, self._mposterior_exchange_step_depth, self._mposterior_exchange_step_depth,
-				self._mposterior_n_part_estimation))
+		# # DPF with M-posterior-based exchange within a certain depth
+		# self._PFs.append(
+		# 	distributed.TargetTrackingParticleFilterWithMposterior(
+		# 		mposterior_within_radius_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
+		# 		self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
+		# 		self._PEsSensorsConnections,
+		# 		self._MposteriorSettings['sharing period'],
+		# 		pf_class=centralized.TargetTrackingParticleFilter)
+		# )
+		#
+		# self._estimators.append(smc.estimator.SinglePEMeansGeometricMedianWithinRadius(
+		# 	self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_exchange_step_depth,
+		# 	radius_lower_bound=self._mposterior_exchange_step_depth)
+		# )
+		#
+		# self._estimators_colors.append('khaki')
+		# self._estimators_labels.append(
+		# 	'M-posterior exch. {} - depth {} ({} hops, {} particle(s))'.format(
+		# 		self._exchanged_particles, self._mposterior_exchange_step_depth, self._mposterior_exchange_step_depth,
+		# 		self._mposterior_n_part_estimation))
 
 		# ------------
 
@@ -1202,18 +1203,18 @@ class MposteriorRevisited(Mposterior):
 
 		# ------------
 
-		# # DPF via optimal fusion of Gaussian mixtures
-		# self._PFs.append(
-		# 	distributed.TargetTrackingGaussianMixtureParticleFilter(
-		# 		self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
-		# 		self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-		# 		gaussian_mixtures_exchange_recipe, self._parameters["Gaussian Mixtures"],
-		# 		PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
-		# 	)
-		# )
-		#
-		# # the estimator is the mean
-		# self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
-		#
-		# self._estimators_colors.append('brown')
-		# self._estimators_labels.append('Gaussian Mixtures')
+		# DPF via optimal fusion of Gaussian mixtures
+		self._PFs.append(
+			distributed.TargetTrackingGaussianMixtureParticleFilter(
+				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
+				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+				gaussian_mixtures_exchange_recipe, self._parameters["Gaussian Mixtures"],
+				PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
+			)
+		)
+
+		# the estimator is the mean
+		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
+
+		self._estimators_colors.append('brown')
+		self._estimators_labels.append('Gaussian Mixtures')

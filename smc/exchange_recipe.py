@@ -1,5 +1,6 @@
 import collections
 import abc
+import copy
 import colorama
 import numpy as np
 import scipy
@@ -475,7 +476,8 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 		# if no number of iterations is provided through the parameters file...
 		if "n_iterations" not in ad_hoc_parameters:
 
-			# ...the initial estimate is assumed to be half the number of PEs
+			# ...the initial estimate is assumed to be...
+			# TODO: this assumes the actual number of PEs is known to *every* PE
 			self.n_iterations = 5*self._n_PEs**2
 
 		else:
@@ -624,6 +626,8 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 		self._C = ad_hoc_parameters["number_of_components"]
 		self._n_particles_for_fusion = ad_hoc_parameters["number_of_particles_for_fusion"]
 		self._epsilon = ad_hoc_parameters["epsilon"]
+		self._convergence_threshold = ad_hoc_parameters["convergence_threshold"]
+		self._convergence_n_maximum_iterations = ad_hoc_parameters["convergence_n_maximum_iterations"]
 
 		self._neighbors = self._PEs_topology.get_neighbours()
 
@@ -636,17 +640,36 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 		gaussian_mixtures = [self.learn(PE.samples.T, PE.weights) for PE in DPF.PEs]
 		predictive_gaussian_mixtures = [self.learn(PE.samples.T, PE.previous_weights) for PE in DPF.PEs]
 
-		has_coverged = False
+		PE_has_converged = np.full(self._n_PEs, False, dtype=bool)
+		n_iterations_convergence = 0
 
-		while not has_coverged:
+		while n_iterations_convergence < self._convergence_n_maximum_iterations and not np.all(PE_has_converged):
+
+			print('seeking convergence #{}...'.format(n_iterations_convergence))
 
 			for i_PE in range(self._n_PEs):
 
 				neighbors_gms = [gaussian_mixtures[i] for i in self._neighbors[i_PE]]
 
+				gaussian_mixture_before_update = copy.deepcopy(gaussian_mixtures[i_PE])
+
 				gaussian_mixtures[i_PE] = self.fusion(gaussian_mixtures[i_PE], neighbors_gms)
 
-			has_coverged = True
+				means_frob = np.linalg.norm(gaussian_mixtures[i_PE].means_ - gaussian_mixture_before_update.means_)
+
+				# print('difference for PE {} = {}'.format(i_PE, means_frob))
+
+				PE_has_converged[i_PE] = means_frob < self._convergence_threshold
+
+			n_iterations_convergence += 1
+
+		if n_iterations_convergence < self._convergence_n_maximum_iterations:
+
+			print(colorama.Fore.GREEN + 'converged!!' + colorama.Style.RESET_ALL)
+
+		else:
+
+			print(colorama.Fore.RED + 'reached maximum number of iterations!!' + colorama.Style.RESET_ALL)
 
 		for i_PE in range(self._n_PEs):
 
@@ -659,7 +682,7 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 
 		i_resampled = self._resampling_algorithm.get_indexes(weights)
 
-		resulting_gm = sklearn.mixture.GMM(self._C)
+		resulting_gm = sklearn.mixture.GMM(self._C, covariance_type='full')
 		resulting_gm.fit(samples[i_resampled, :])
 
 		return resulting_gm
@@ -684,7 +707,7 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 
 		norm_constant = weights.sum()
 
-		if norm_constant!=0:
+		if norm_constant != 0:
 
 			weights /= weights.sum()
 
@@ -692,7 +715,7 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 
 			weights = np.full(self._n_particles_for_fusion, 1/self._n_particles_for_fusion)
 
-			print(colorama.Fore.RED + 'fusion: zeros add up to 0!!' + colorama.Style.RESET_ALL)
+			print(colorama.Fore.RED + 'fusion: weights add up to 0!!' + colorama.Style.RESET_ALL)
 
 		# import code
 		# code.interact(local=dict(globals(), **locals()))

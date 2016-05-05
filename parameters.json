@@ -108,7 +108,9 @@
 	"Gaussian Mixtures": {
 		"number_of_components": 4,
 		"number_of_particles_for_fusion": 500,
-		"epsilon": 0.1666
+		"epsilon": 0.1666,
+		"convergence_threshold": 2,
+		"convergence_n_maximum_iterations": 10
 	},
 
 	"network nodes": {
