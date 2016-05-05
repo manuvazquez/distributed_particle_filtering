@@ -10,6 +10,14 @@
 	"number of particles per PE": 200,
 
 	"simulations": {
+		"Mposterior revisited": {
+			"implementing class": "MposteriorRevisited",
+			"network": "randomly strewn sensors and PEs",
+			"exchanged particles": 3,
+			"sensors-PEs connector": "sensors connected to the closest PEs",
+			"index of reference PE": 0,
+			"file name prefix for the estimation error vs time plot": "errorVsTime"
+		},
 		"Mposterior": {
 			"implementing class": "Mposterior",
 			"network": "fixed number of sensors per PE",

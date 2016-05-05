@@ -1124,6 +1124,13 @@ class MposteriorRevisited(Mposterior):
 				PRNG=self._PRNGs["topology pseudo random numbers generator"]),
 			self._MposteriorSettings["number of iterations"])
 
+		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
+			smc.exchange_recipe.SameParticlesMposteriorWithinRadiusExchangeRecipe(
+					self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
+					self._MposteriorSettings['findWeiszfeldMedian parameters'], self._mposterior_exchange_step_depth,
+					PRNG=self._PRNGs["topology pseudo random numbers generator"]),
+			self._MposteriorSettings["number of iterations"])
+
 		gaussian_exchange_recipe = smc.exchange_recipe.GaussianExchangeRecipe(
 			self._PEsTopology, self._n_particles_per_PE, self._parameters["Gaussian products"],
 			self._settings_room["bottom left corner"], self._settings_room["top right corner"],
@@ -1154,57 +1161,59 @@ class MposteriorRevisited(Mposterior):
 
 		# ------------
 
-		# DPF with M-posterior-based exchange
+		# DPF with M-posterior-based exchange within a certain depth
 		self._PFs.append(
 			distributed.TargetTrackingParticleFilterWithMposterior(
-				mposterior_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
-				self._resampling_criterion,
-				self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+				mposterior_within_radius_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
+				self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
+				self._PEsSensorsConnections,
 				self._MposteriorSettings['sharing period'],
 				pf_class=centralized.TargetTrackingParticleFilter)
 		)
 
-		# an estimator computing the geometric median with 1 particle taken from each PE
-		self._estimators.append(smc.estimator.GeometricMedian(
-			self._PFs[-1], max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
-			tolerance=self._MposteriorSettings['findWeiszfeldMedian parameters']['tol']))
+		self._estimators.append(smc.estimator.SinglePEMeansGeometricMedianWithinRadius(
+			self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_exchange_step_depth,
+			radius_lower_bound=self._mposterior_exchange_step_depth)
+		)
 
-		self._estimators_colors.append('green')
-		self._estimators_labels.append('M-posterior exch. {} ({} particle(s) from each PE)'.format(
-			self._exchanged_particles, self._mposterior_n_part_estimation))
+		self._estimators_colors.append('khaki')
+		self._estimators_labels.append(
+			'M-posterior exch. {} - depth {} ({} hops, {} particle(s))'.format(
+				self._exchanged_particles, self._mposterior_exchange_step_depth, self._mposterior_exchange_step_depth,
+				self._mposterior_n_part_estimation))
 
 		# ------------
 
-		# asynchronous DPF via decentralized
-		self._PFs.append(
-			distributed.TargetTrackingGaussianParticleFilter(
-				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
-				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-				gaussian_exchange_recipe, self._parameters["Gaussian products"],
-				PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
-			)
-		)
-
-		# the estimator is the mean
-		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
-
-		self._estimators_colors.append('magenta')
-		self._estimators_labels.append('Gaussian')
+		# # asynchronous DPF via decentralized
+		# self._PFs.append(
+		# 	distributed.TargetTrackingGaussianParticleFilter(
+		# 		self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
+		# 		self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+		# 		gaussian_exchange_recipe, self._parameters["Gaussian products"],
+		# 		PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
+		# 	)
+		# )
+		#
+		# # the estimator is the mean
+		# self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
+		#
+		# self._estimators_colors.append('magenta')
+		# self._estimators_labels.append('Gaussian')
 
 		# ------------
 
-		# DPF via optimal fusion of Gaussian mixtures
-		self._PFs.append(
-			distributed.TargetTrackingGaussianMixtureParticleFilter(
-				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
-				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-				gaussian_mixtures_exchange_recipe, self._parameters["Gaussian Mixtures"],
-				PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
-			)
-		)
-
-		# the estimator is the mean
-		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
-
-		self._estimators_colors.append('brown')
-		self._estimators_labels.append('Gaussian Mixtures')
+		# # DPF via optimal fusion of Gaussian mixtures
+		# self._PFs.append(
+		# 	distributed.TargetTrackingGaussianMixtureParticleFilter(
+		# 		self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
+		# 		self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+		# 		gaussian_mixtures_exchange_recipe, self._parameters["Gaussian Mixtures"],
+		# 		PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
+		# 	)
+		# )
+		#
+		# # the estimator is the mean
+		# self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
+		#
+		# self._estimators_colors.append('brown')
+		# self._estimators_labels.append('Gaussian Mixtures')

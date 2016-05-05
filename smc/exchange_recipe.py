@@ -655,71 +655,9 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 			DPF.PEs[i_PE].samples = recovered_gaussian_mixture.sample(self._n_particles_per_PE, self._PRNG).T
 			DPF.PEs[i_PE].weights = np.full(self._n_particles_per_PE, 1/self._n_particles_per_PE)
 
-	# def learn(self, samples, weights):
-	#
-	# 	# the dimensionality and number of samples
-	# 	dimension, N = samples.shape
-	#
-	# 	initial_mean = samples.mean(axis=1)
-	# 	initial_cov = np.cov(samples)
-	#
-	# 	# coefficients, means and covariances are initialized
-	# 	alphas_list = np.random.rand(self._C)
-	# 	means_list = [initial_mean for _ in range(self._C)]
-	# 	covariances_list = [initial_cov for _ in range(self._C)]
-	#
-	# 	new_alphas_list = np.random.rand(self._C)
-	#
-	# 	p = np.empty((N, self._C))
-	#
-	# 	has_converged = False
-	#
-	# 	while not has_converged:
-	#
-	# 		for i, sample in enumerate(samples.T):
-	#
-	# 			for c, (alpha, mean, cov) in enumerate(zip(alphas_list, means_list, covariances_list)):
-	#
-	# 				try:
-	#
-	# 					p[i, c] = alpha * scipy.stats.multivariate_normal.pdf(sample, mean, cov)
-	#
-	# 				except np.linalg.linalg.LinAlgError:
-	#
-	# 					p[i, c] = 0
-	#
-	# 			# normalization
-	# 			if p[i, :].sum() != 0:
-	# 				p[i, :] /= p[i, :].sum()
-	# 			else:
-	# 				p[i, :].fill(1 / self._C)
-	#
-	# 		for c in range(len(alphas_list)):
-	#
-	# 			new_alphas_list[c] = np.dot(p[:, c], weights)
-	# 			means_list[c] = (p[:, c] * weights * samples).sum(axis=1) / new_alphas_list[c]
-	# 			covariances_list[c] = np.dot(
-	# 				p[:, c] * weights * (samples - means_list[c][:, np.newaxis]),
-	# 				(samples - means_list[c][:, np.newaxis]).T) / new_alphas_list[c]
-	#
-	# 		new_alphas_list /= new_alphas_list.sum()
-	#
-	# 		print(new_alphas_list)
-	#
-	# 		if np.linalg.norm(new_alphas_list - alphas_list) < 1e5:
-	#
-	# 			has_converged = False
-	#
-	# 		alphas_list = new_alphas_list
-	#
-	# 	return alphas_list, means_list, covariances_list
-
 	def learn(self, samples, weights):
 
 		i_resampled = self._resampling_algorithm.get_indexes(weights)
-
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
 
 		resulting_gm = sklearn.mixture.GMM(self._C)
 		resulting_gm.fit(samples[i_resampled, :])
@@ -728,27 +666,10 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 
 	def fusion(self, gaussian_mixture, neighbors_gaussian_mixtures):
 
-		# gmm = sklearn.mixture.GMM(self._C, n_iter=1)
-		# gmm.means_ = gaussian_mixture[0]
-		# gmm.covars_ = gaussian_mixture[1]
-		# gmm.weights_ = gaussian_mixture[2]
-
+		# number of neighbors
 		N_k = len(neighbors_gaussian_mixtures)
 
-		# gmm = sklearn.mixture.GMM(2, covariance_type='full', n_iter=1)
-		# gmm.means_ = np.array([[1,2],[-1,1]])
-		# gmm.covars_ = np.stack((np.identity(2),np.identity(2)))
-		# gmm.weights_ = np.array([0.25,0.75])
-		# gmm.sample(200)
-		# gmm.score(np.array([-4.82524974e-01,8.41069630e-01]).reshape(1,-1))
-
 		samples = gaussian_mixture.sample(self._n_particles_for_fusion, self._PRNG)
-
-		# prob_main = np.exp(gmm.score(samples))
-		#
-		# for gm in neighbors_gaussian_mixtures:
-		#
-		# 	prob_neighbours = np.exp(gm.score(samples))
 
 		# every column is a sample, every row a different GM
 		prob = np.vstack([np.exp(gm.score(samples)) for gm in [gaussian_mixture] + neighbors_gaussian_mixtures])
