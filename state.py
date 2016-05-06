@@ -204,7 +204,7 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 
 		# the new (unbounded) state as computed by the parent class
 		unbounded_state = super().next_state(state, PRNG)
-		
+
 		# the first two elements of the above state is the new (here tentative) position...
 		tentative_new_pos = unbounded_state[:2]
 

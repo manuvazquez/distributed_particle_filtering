@@ -420,17 +420,61 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		self._nu = None
 
 		# value of the elements in the diagonal of a covariance matrix that became 0
-		self._default_variance = 10
+		self._default_variance = 20
+
+		self._fake_random_state = self.FakeRandomState()
+
+	class FakeRandomState:
+
+		def __init__(self):
+			pass
+
+		def normal(self, mean, variance, size):
+			return np.zeros(size)
 
 	def step(self, observations):
 
 		assert len(observations) == len(self._sensors)
 
-		# print('propagating\n {}'.format(self._state))
+		# the particles are propagated with a *fake* RandomState that always returns 0's
+		predictions = np.hstack(
+			[self._state_transition_kernel.next_state(self._state[:, i:i + 1], self._fake_random_state)
+			 for i in range(self._n_particles)])
+
+		# [self._state_transition_kernel.next_state(s, self._fake_random_state) for s in self._state.T]
+		# np.apply_along_axis(self._state_transition_kernel.next_state,1,self._state,self._fake_random_state)
+
+		# for each sensor, we compute the likelihood of EVERY predicted particle (position)
+		predictions_likelihoods = np.array(
+			[sensor.likelihood(obs, state.to_position(predictions)) for sensor, obs in
+			 zip(self._sensors, observations)])
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		# + 1e-200 in order to avoid division by zero
+		predictions_likelihoods_product = predictions_likelihoods.prod(axis=0) + 1e-200
+
+		sampling_weights = predictions_likelihoods_product / predictions_likelihoods_product.sum()
+
+		# normalization_constant = predictions_likelihoods_product.sum()
+		#
+		# if normalization_constant != 0:
+		#
+		# 	sampling_weights = predictions_likelihoods_product/predictions_likelihoods_product.sum()
+		#
+		# else:
+		#
+		# 	sampling_weights = np.full(self._n_particles, 1/self._n_particles)
+
+		i_particles_resampled = self._resampling_algorithm.get_indexes(sampling_weights)
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
 
 		# every particle is updated (previous state is not stored...)
 		self._state = np.hstack(
-			[self._state_transition_kernel.next_state(self._state[:, i:i + 1]) for i in range(self._n_particles)])
+			[self._state_transition_kernel.next_state(self._state[:, i:i + 1]) for i in i_particles_resampled])
 
 		# TODO: this may cause a "divide by zero" warning when a likelihood is very small
 		# for each sensor, we compute the likelihood of EVERY particle (position)
@@ -442,7 +486,7 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		log_likelihoods_product = loglikelihoods.sum(axis=0)
 
 		# every likelihood is exponentiated by the estimate of the number of PEs
-		self._log_weights = log_likelihoods_product*self.estimated_n_PEs
+		self._log_weights = log_likelihoods_product*self.estimated_n_PEs - np.log(predictions_likelihoods_product[i_particles_resampled])
 
 		# the aggregated weight is kept up to date at all times
 		self.update_aggregated_weight()
@@ -467,23 +511,19 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 			# the (weighted) covariance matrix being zero does NOT mean there is no uncertainty about the random vector.
 			# On the contrary, it *most likely* means that ALL of the likelihoods are really small, which results in a
 			# single (arbitrary, due to numeric precision) weight concentrating all the mass (corresponding to the
-			# biggest likelihood that may be 10^-12)
+			# biggest likelihood that may be 10^-12...)
 			covariance += np.identity(state.n_elements)*self._default_variance
 
 		# we try...
 		try:
 
 			# ...to invert the covariance matrix
-			np.linalg.inv(covariance)
+			inv_covariance = np.linalg.inv(covariance)
 
-		# it it's not possible (singular)
+		# it it's not possible (singular)...
 		except np.linalg.linalg.LinAlgError:
 
-			import code
-			code.interact(local=dict(globals(), **locals()))
-
-		# the inverse of the covariance
-		inv_covariance = np.linalg.inv(covariance)
+			import pdb; pdb.set_trace()
 
 		# Q and nu are updated
 		# >= python 3.5 / numpy 1.10

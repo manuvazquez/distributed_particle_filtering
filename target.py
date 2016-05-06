@@ -1,6 +1,7 @@
 import state
 import numpy as np
 
+
 class Target:
 	
 	def __init__(self, prior, transition_kernel, tx_power=15, pseudo_random_numbers_generator=None):

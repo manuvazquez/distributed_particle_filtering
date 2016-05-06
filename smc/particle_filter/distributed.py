@@ -365,19 +365,31 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		super().initialize()
 
 		# every PE is assigned a "token" (identifier)
-		for i, PE in enumerate(self._PEs):
+		for PE in self._PEs:
 
 			PE.estimated_n_PEs = self._initial_size_estimate
 
+		# the size is estimated only once at the beginning
 		self.exchange_recipe.size_estimation(self)
 
 	def step(self, observations):
 
-		# self.exchange_recipe.size_estimation(self)
-
 		super().step(observations)
 
+		# Q = np.stack([PE._Q for PE in self.PEs], axis=2).mean(axis=2)
+		# nu = np.stack([PE._nu for PE in self.PEs], axis=0).mean(axis=0)
+		#
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
 		self.exchange_recipe.perform_exchange(self)
+
+		# self._PEs[20]._Q
+		# self._PEs[20]._nu
+		#
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
 
 	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
 

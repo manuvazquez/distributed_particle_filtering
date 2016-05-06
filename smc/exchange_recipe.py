@@ -604,6 +604,9 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 				# "tokens") that it has
 				PE.estimated_n_PEs = 1//(sum([x for x in PEs_data[i_PE].values()])/len(PEs_data[i_PE].values()))
 
+				# # TODO: cheating!!
+				# PE.estimated_n_PEs = self.n_processing_elements
+
 			# print(PE.estimated_n_PEs)
 
 		# print([PE.estimated_n_PEs for PE in DPF.PEs])

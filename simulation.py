@@ -1143,22 +1143,22 @@ class MposteriorRevisited(Mposterior):
 
 		# ------------
 
-		# a distributed PF with DRNA
-		self._PFs.append(
-			distributed.TargetTrackingParticleFilterWithDRNA(
-				self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
-				self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
-				self._prior, self._transition_kernel, self._sensors,
-				self._everySensorWithEveryPEConnector.getConnections(self._nPEs),
-				pf_class=centralized.EmbeddedTargetTrackingParticleFilter
-			)
-		)
-
-		# the estimator is the mean
-		self._estimators.append(smc.estimator.WeightedMean(self._PFs[-1]))
-
-		self._estimators_colors.append('black')
-		self._estimators_labels.append('DRNA exch. {}'.format(self._exchanged_particles))
+		# # a distributed PF with DRNA
+		# self._PFs.append(
+		# 	distributed.TargetTrackingParticleFilterWithDRNA(
+		# 		self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
+		# 		self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
+		# 		self._prior, self._transition_kernel, self._sensors,
+		# 		self._everySensorWithEveryPEConnector.getConnections(self._nPEs),
+		# 		pf_class=centralized.EmbeddedTargetTrackingParticleFilter
+		# 	)
+		# )
+		#
+		# # the estimator is the mean
+		# self._estimators.append(smc.estimator.WeightedMean(self._PFs[-1]))
+		#
+		# self._estimators_colors.append('black')
+		# self._estimators_labels.append('DRNA exch. {}'.format(self._exchanged_particles))
 
 		# ------------
 
@@ -1185,30 +1185,12 @@ class MposteriorRevisited(Mposterior):
 
 		# ------------
 
-		# # asynchronous DPF via decentralized
-		# self._PFs.append(
-		# 	distributed.TargetTrackingGaussianParticleFilter(
-		# 		self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
-		# 		self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-		# 		gaussian_exchange_recipe, self._parameters["Gaussian products"],
-		# 		PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
-		# 	)
-		# )
-		#
-		# # the estimator is the mean
-		# self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
-		#
-		# self._estimators_colors.append('magenta')
-		# self._estimators_labels.append('Gaussian')
-
-		# ------------
-
-		# DPF via optimal fusion of Gaussian mixtures
+		# asynchronous DPF via decentralized
 		self._PFs.append(
-			distributed.TargetTrackingGaussianMixtureParticleFilter(
+			distributed.TargetTrackingGaussianParticleFilter(
 				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
 				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-				gaussian_mixtures_exchange_recipe, self._parameters["Gaussian Mixtures"],
+				gaussian_exchange_recipe, self._parameters["Gaussian products"],
 				PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
 			)
 		)
@@ -1216,5 +1198,23 @@ class MposteriorRevisited(Mposterior):
 		# the estimator is the mean
 		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
 
-		self._estimators_colors.append('brown')
-		self._estimators_labels.append('Gaussian Mixtures')
+		self._estimators_colors.append('magenta')
+		self._estimators_labels.append('Gaussian')
+
+		# ------------
+
+		# # DPF via optimal fusion of Gaussian mixtures
+		# self._PFs.append(
+		# 	distributed.TargetTrackingGaussianMixtureParticleFilter(
+		# 		self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
+		# 		self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+		# 		gaussian_mixtures_exchange_recipe, self._parameters["Gaussian Mixtures"],
+		# 		PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
+		# 	)
+		# )
+		#
+		# # the estimator is the mean
+		# self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
+		#
+		# self._estimators_colors.append('brown')
+		# self._estimators_labels.append('Gaussian Mixtures')
