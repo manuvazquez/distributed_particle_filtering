@@ -37,7 +37,7 @@ class Network:
 			i_min = np.argmin(distances)
 			
 			# ...is used to pick the next position in the "ordered" array
-			ordered[:,i] = positions[i_min, :]
+			ordered[:, i] = positions[i_min, :]
 			
 			# we make sure this PE is not going to be selected again
 			positions_copy[i_min, 0] = np.Inf
@@ -65,10 +65,10 @@ class Network:
 
 	def equispaced_positions(self, n):
 		
-		# a vector representing the diagonal of the rectangle, from which we compute...
+		# a vector representing the diagonal of the rectangle...
 		diagonal = self._top_right_corner - self._bottom_left_corner
 		
-		# ...the area
+		# ...from which we compute the area
 		area = diagonal.prod()
 		
 		# if the positions are equispaced, each one should "cover" an area equal to
@@ -171,3 +171,14 @@ class RandomlyStrewnSensorsAndPEs(Network):
 		
 		self._sensors_positions = self.random_positions(n_sensors, nSamples).T
 		self._PEs_positions = self.order_positions(self.random_positions(n_PEs, nSamples))
+
+
+class IntegratedPEsAndSensors(Network):
+
+	def __init__(self, bottom_left_corner, top_right_corner, n_PEs, n_sensors, nSamples):
+
+		assert n_PEs == n_sensors
+
+		super().__init__(bottom_left_corner, top_right_corner, n_PEs, n_PEs)
+
+		self._PEs_positions = self._sensors_positions = self.random_positions(n_sensors, nSamples).T

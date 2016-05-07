@@ -304,7 +304,7 @@ class Convergence(SimpleSimulation):
 		self._distributedPFsForTopologies = [distributed.TargetTrackingParticleFilterWithDRNA(
 			self._settings_DRNA["exchange period"], e, self._n_particles_per_PE, self._settings_DRNA["normalization period"],
 			resampling_algorithm, resampling_criterion, prior, transition_kernel, self._sensors,
-			PEs_sensors_requirements.getConnections(e.n_processing_elements)) for e in exchange_recipes]
+			PEs_sensors_requirements.get_connections(e.n_processing_elements)) for e in exchange_recipes]
 
 		# ------------------------------------------ metrics initialization --------------------------------------------
 
@@ -521,10 +521,14 @@ class Convergence(SimpleSimulation):
 
 class MultipleMposterior(Simulation):
 	
-	def __init__(self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, pseudo_random_numbers_generators):
+	def __init__(
+			self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			pseudo_random_numbers_generators):
 		
 		# let the super class do its thing...
-		super().__init__(parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, pseudo_random_numbers_generators)
+		super().__init__(
+			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			pseudo_random_numbers_generators)
 		
 		# HDF5 output file
 		self._f = h5py.File('res_' + self._output_file + '.hdf5', 'w')
@@ -539,8 +543,8 @@ class MultipleMposterior(Simulation):
 		for (nPEs, nSensors) in self._simulation_parameters["nPEs-nSensors pairs"]:
 			
 			self._simulations.append(Mposterior(
-				parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file, pseudo_random_numbers_generators,
-				self._f, '{} PEs,{} sensors/'.format(nPEs, nSensors), nPEs, nSensors))
+				parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+				pseudo_random_numbers_generators, self._f, '{} PEs,{} sensors/'.format(nPEs, nSensors), nPEs, nSensors))
 
 	def process_frame(self, target_position, target_velocity):
 		
@@ -620,7 +624,7 @@ class Mposterior(SimpleSimulation):
 		
 		# ...are used to build a connector, from which the links between PEs and sensors are obtained
 		self._PEsSensorsConnections = getattr(sensors_PEs_connector, settings_sensors_PEs_connector['implementing class'])(
-			self._sensorsPositions, self._PEsPositions, settings_sensors_PEs_connector['parameters']).getConnections(self._nPEs)
+			self._sensorsPositions, self._PEsPositions, settings_sensors_PEs_connector['parameters']).get_connections(self._nPEs)
 
 		# network topology, which describes the connection among PEs, as well as the exact particles exchanged/shared
 		self._PEsTopology = getattr(PEs_topology, self._settings_topologies['implementing class'])(
@@ -826,7 +830,7 @@ class Mposterior(SimpleSimulation):
 				self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
 				self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
 				self._prior, self._transition_kernel, self._sensors,
-				self._everySensorWithEveryPEConnector.getConnections(self._nPEs),
+				self._everySensorWithEveryPEConnector.get_connections(self._nPEs),
 				pf_class=centralized.EmbeddedTargetTrackingParticleFilter
 			)
 		)
@@ -1149,7 +1153,7 @@ class MposteriorRevisited(Mposterior):
 		# 		self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
 		# 		self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
 		# 		self._prior, self._transition_kernel, self._sensors,
-		# 		self._everySensorWithEveryPEConnector.getConnections(self._nPEs),
+		# 		self._everySensorWithEveryPEConnector.get_connections(self._nPEs),
 		# 		pf_class=centralized.EmbeddedTargetTrackingParticleFilter
 		# 	)
 		# )

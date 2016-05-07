@@ -621,7 +621,6 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 		super().__init__(processing_elements_topology)
 
 		self._n_particles_per_PE = n_particles_per_PE
-		self._ad_hoc_parameters = ad_hoc_parameters
 		self._resampling_algorithm = resampling_algorithm
 
 		self._PRNG = PRNG
@@ -642,6 +641,9 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 
 		gaussian_mixtures = [self.learn(PE.samples.T, PE.weights) for PE in DPF.PEs]
 		predictive_gaussian_mixtures = [self.learn(PE.samples.T, PE.previous_weights) for PE in DPF.PEs]
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
 
 		PE_has_converged = np.full(self._n_PEs, False, dtype=bool)
 		n_iterations_convergence = 0
@@ -665,6 +667,13 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 				PE_has_converged[i_PE] = means_frob < self._convergence_threshold
 
 			n_iterations_convergence += 1
+
+			# means = [g.means_ for g in gaussian_mixtures]
+			# covars = [g.covars_ for g in gaussian_mixtures]
+			# weights = [g.weights_ for g in gaussian_mixtures]
+			#
+			# import code
+			# code.interact(local=dict(globals(), **locals()))
 
 		if n_iterations_convergence < self._convergence_n_maximum_iterations:
 
@@ -706,19 +715,9 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 		# the rest of the PEs are the neighbors
 		prob[1:, :] **= self._epsilon
 
-		weights = prob.prod(axis=0)
+		weights = prob.prod(axis=0) + 1e-200
 
-		norm_constant = weights.sum()
-
-		if norm_constant != 0:
-
-			weights /= weights.sum()
-
-		else:
-
-			weights = np.full(self._n_particles_for_fusion, 1/self._n_particles_for_fusion)
-
-			print(colorama.Fore.RED + 'fusion: weights add up to 0!!' + colorama.Style.RESET_ALL)
+		weights /= weights.sum()
 
 		# import code
 		# code.interact(local=dict(globals(), **locals()))
@@ -731,19 +730,9 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 
 		prob = np.vstack([np.exp(gm.score(samples)) for gm in [gaussian_mixture, previous_gaussian_mixture]])
 
-		weights = (prob[0,:]/prob[1,:])**self._n_PEs
+		weights = (prob[0, :]/prob[1, :])**self._n_PEs + 1e-200
 
-		norm_constant = weights.sum()
-
-		if norm_constant != 0:
-
-			weights /= weights.sum()
-
-		else:
-
-			weights = np.full(self._n_particles_for_fusion, 1 / self._n_particles_for_fusion)
-
-			print(colorama.Fore.RED + 'recovery: zeros add up to 0!!' + colorama.Style.RESET_ALL)
+		weights /= weights.sum()
 
 		return self.learn(samples, weights)
 

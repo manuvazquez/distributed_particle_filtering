@@ -3,122 +3,126 @@ import numpy as np
 
 import networkx
 
+
 class SensorsPEsConnector(metaclass=abc.ABCMeta):
 	
-	def __init__(self,sensorsPositions,PEsPositions=None,parameters=None):
+	def __init__(self, sensors_positions, PEs_positions=None, parameters=None):
 		
-		self._sensorsPositions = sensorsPositions
-		self._PEsPositions = PEsPositions
+		self._sensorsPositions = sensors_positions
+		self._PEsPositions = PEs_positions
 		self._parameters = parameters
 		
 		self._nSensors = self._sensorsPositions.shape[1]
 	
 	@abc.abstractmethod
-	def getConnections(self,nPEs):
+	def get_connections(self, n_PEs):
 		
 		return
 
+
 class EverySensorWithEveryPEConnector(SensorsPEsConnector):
 	
-	def getConnections(self,nPEs):
+	def get_connections(self, n_PEs):
 		
-		return [list(range(self._nSensors))]*nPEs
+		return [list(range(self._nSensors))] * n_PEs
+
 
 class SensorOrientedConnector(SensorsPEsConnector):
 	
-	def getConnections(self,nPEs):
+	def get_connections(self, n_PEs):
 
 		# each sensor is associated with "nPEsPerSensor" PEs
-		sensorsDegrees = [self._parameters['number of PEs per sensor']]*self._nSensors
+		sensors_degrees = [self._parameters['number of PEs per sensor']] * self._nSensors
 		
-		# how many (at least) sensors should be connected to every PE (notice that the expresion between parenthesis is the overall number of connections)
-		nSensorsPerPE = (self._parameters['number of PEs per sensor']*self._nSensors) // nPEs
+		# how many (at least) sensors should be connected to every PE
+		# (the expression between parenthesis is the overall number of connections)
+		n_sensors_per_PE = (self._parameters['number of PEs per sensor']*self._nSensors) // n_PEs
 		
 		# each PE should be connected to the the number of sensors specified in the corresponding position of this list
-		PEsDegrees = [nSensorsPerPE]*nPEs
+		PEs_degrees = [n_sensors_per_PE] * n_PEs
 		
 		# if some connections remain, in order to satisfy that each sensor is connected to the given number of PEs...
-		for iPE in range(self._parameters['number of PEs per sensor']*self._nSensors % nPEs):
+		for iPE in range(self._parameters['number of PEs per sensor']*self._nSensors % n_PEs):
 			
 			# ...the "first" PEs get the extra needed connections
-			PEsDegrees[iPE] +=  1
+			PEs_degrees[iPE] +=  1
 	
 		# a bipartite graph with one set of nodes given by the sensors and other by the PEs
-		graph = networkx.bipartite_havel_hakimi_graph(sensorsDegrees,PEsDegrees)
+		graph = networkx.bipartite_havel_hakimi_graph(sensors_degrees, PEs_degrees)
 		
 		# we only "look" at the nodes from "self._n_sensors" onwards, since the previous ones correspond to the sensors
-		return [sorted(graph.neighbors(iPE+self._nSensors)) for iPE in range(nPEs)]
+		return [sorted(graph.neighbors(iPE+self._nSensors)) for iPE in range(n_PEs)]
+
 
 class ProximityBasedConnector(SensorsPEsConnector):
 	
-	def __init__(self,sensorsPositions,PEsPositions,parameters=None):
+	def __init__(self, sensors_positions, PEs_positions, parameters=None):
 		
-		super().__init__(sensorsPositions,PEsPositions,parameters)
+		super().__init__(sensors_positions, PEs_positions, parameters)
 		
-	def getConnections(self,nPEs):
+	def get_connections(self, n_PEs):
 		
 		# the distance from each PE (whose position has been computed above) to each sensor [<PE>,<sensor>]
-		distances = np.sqrt((np.subtract(self._PEsPositions[:,:,np.newaxis],self._sensorsPositions[:,np.newaxis,:])**2).sum(axis=0))
+		distances = np.sqrt(
+			(np.subtract(self._PEsPositions[:, :, np.newaxis], self._sensorsPositions[:, np.newaxis, :])**2).sum(axis=0))
 		
 		# for each sensor, the index of the PE which is closest to it
-		iClosestPEtoSensors = distances.argmin(axis=0)
+		i_closest_PE_to_sensors = distances.argmin(axis=0)
 		
-		return [list(np.where(iClosestPEtoSensors==iPE)[0]) for iPE in range(nPEs)]
+		return [list(np.where(i_closest_PE_to_sensors == iPE)[0]) for iPE in range(n_PEs)]
+
 
 class ConstrainedProximityBasedConnector(ProximityBasedConnector):
 	
-	def getConnections(self,nPEs):
+	def get_connections(self, n_PEs):
 		
-		# a list with the sensors associated with each PE withouth the fixed number of sensors constraint
-		unconstrainedPEsSensors = super().getConnections(nPEs)
+		# a list with the sensors associated with each PE without the fixed number of sensors constraint
+		unconstrained_PEs_sensors = super().get_connections(n_PEs)
 		
-		lengths = [len(s) for s in unconstrainedPEsSensors]
+		lengths = [len(s) for s in unconstrained_PEs_sensors]
 		
 		# the indexes of the PEs ordered by descending number of associated sensors
-		iDescendingLength = np.argsort(lengths)[::-1]
+		i_PEs_decreasing_n_sensors = np.argsort(lengths)[::-1]
 		
 		# number of sensors that SHOULD be assigned to each PE
-		nSensorsPerPE = self._sensorsPositions.shape[1]//self._PEsPositions.shape[1]
+		n_sensors_per_PE = self._sensorsPositions.shape[1]//self._PEsPositions.shape[1]
 		
-		for i in range(nPEs-1):
+		for i in range(n_PEs-1):
 			
 			# the index of the PE to be processed
-			iCurrentPE = iDescendingLength[i]
+			i_current_PE = i_PEs_decreasing_n_sensors[i]
 			
-			# number of sensor that should dettach from this PE
-			nSensorsToDrop =  lengths[iCurrentPE] - nSensorsPerPE
+			# number of sensor that should detach from this PE
+			n_sensors_to_drop = lengths[i_current_PE] - n_sensors_per_PE
 			
-			if nSensorsToDrop==0:
+			if n_sensors_to_drop == 0:
 				
 				continue
 			
-			elif nSensorsToDrop>0:
+			elif n_sensors_to_drop > 0:
 			
 				# the positions of the sensors associated with the current PE
-				sensorsPositions = self._sensorsPositions[:,unconstrainedPEsSensors[iCurrentPE]]
+				sensors_positions = self._sensorsPositions[:, unconstrained_PEs_sensors[i_current_PE]]
 				
 				# the positions of subsequente (not processed yet) PEs
-				remainingPEsPositions = self._PEsPositions[:,iDescendingLength[i+1:]]
+				remaining_PEs_positions = self._PEsPositions[:, i_PEs_decreasing_n_sensors[i+1:]]
 				
 				# the (i,j) element is the distance from the i-th sensor to the j-th remaining PE
-				distances = np.sqrt(((sensorsPositions[:,:,np.newaxis] - remainingPEsPositions[:,np.newaxis,:])**2).sum(axis=0))
+				distances = np.sqrt(((sensors_positions[:, :, np.newaxis] - remaining_PEs_positions[:, np.newaxis, :])**2).sum(axis=0))
 				
-				for _ in range(nSensorsToDrop):
+				for _ in range(n_sensors_to_drop):
 					
 					# the index of the sensor that is sent away and that of the PE that is going to attach to
-					iLocalSensor,iHostingPE = np.unravel_index(distances.argmin(),distances.shape)
+					i_local_sensor, i_hosting_PE = np.unravel_index(distances.argmin(),distances.shape)
 			
-					unconstrainedPEsSensors[iDescendingLength[i+1+iHostingPE]].append(unconstrainedPEsSensors[iCurrentPE][iLocalSensor])
-					del unconstrainedPEsSensors[iCurrentPE][iLocalSensor]
+					unconstrained_PEs_sensors[i_PEs_decreasing_n_sensors[i+1+i_hosting_PE]].append(unconstrained_PEs_sensors[i_current_PE][i_local_sensor])
+					del unconstrained_PEs_sensors[i_current_PE][i_local_sensor]
 					
-					lengths[iCurrentPE] -= 1
-					lengths[iDescendingLength[i+1+iHostingPE]] += 1
+					lengths[i_current_PE] -= 1
+					lengths[i_PEs_decreasing_n_sensors[i+1+i_hosting_PE]] += 1
 			
 			else:
 
-				#import code
-				#code.interact(local=dict(globals(), **locals()))
-				
 				raise Exception('not implemented!!')
 		
-		return unconstrainedPEsSensors
+		return unconstrained_PEs_sensors

@@ -457,16 +457,6 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 		sampling_weights = predictions_likelihoods_product / predictions_likelihoods_product.sum()
 
-		# normalization_constant = predictions_likelihoods_product.sum()
-		#
-		# if normalization_constant != 0:
-		#
-		# 	sampling_weights = predictions_likelihoods_product/predictions_likelihoods_product.sum()
-		#
-		# else:
-		#
-		# 	sampling_weights = np.full(self._n_particles, 1/self._n_particles)
-
 		i_particles_resampled = self._resampling_algorithm.get_indexes(sampling_weights)
 
 		# import code
@@ -483,10 +473,10 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 			 zip(self._sensors, observations)]))
 
 		# for each particle, we compute the product of the likelihoods for all the sensors
-		log_likelihoods_product = loglikelihoods.sum(axis=0)
+		loglikelihoods_product = loglikelihoods.sum(axis=0)
 
 		# every likelihood is exponentiated by the estimate of the number of PEs
-		self._log_weights = log_likelihoods_product*self.estimated_n_PEs - np.log(predictions_likelihoods_product[i_particles_resampled])
+		self._log_weights = loglikelihoods_product*self.estimated_n_PEs - np.log(predictions_likelihoods_product[i_particles_resampled])
 
 		# the aggregated weight is kept up to date at all times
 		self.update_aggregated_weight()

@@ -390,7 +390,6 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# import code
 		# code.interact(local=dict(globals(), **locals()))
 
-
 	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
 
 		return np.NaN

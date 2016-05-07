@@ -131,6 +131,12 @@
 			"parameters": {
 				"nSamples": 10000
 			}
+		},
+		"integrated PEs and sensors": {
+			"implementing class": "IntegratedPEsAndSensors",
+			"parameters": {
+				"nSamples": 10000
+			}
 		}
 	},
 
