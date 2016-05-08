@@ -13,6 +13,8 @@ import socket
 import pickle
 import argparse
 
+import region
+
 # keys used to identify the different pseudo random numbers generators
 # (they must coincide with those in the parameters file...)
 PRNGsKeys = ['Sensors and Monte Carlo pseudo random numbers generator',
@@ -201,9 +203,12 @@ signal.signal(signal.SIGINT, sigint_handler)
 
 # ----------------------------------------------- dynamic model --------------------------------------------------------
 
-# a object that represents the prior distribution is instantiated...
+# an object representing the bounded region
+room = region.Rectangle(settings_room["bottom left corner"], settings_room["top right corner"])
+
+# an object representing the prior distribution is instantiated...
 prior = state.UniformBoundedPositionGaussianVelocityPrior(
-	settings_room["bottom left corner"], settings_room["top right corner"],
+	room,
 	velocity_variance=parameters["prior distribution"]["velocity variance"],
 	PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
@@ -212,7 +217,7 @@ settings_transition_kernel = settings_state_transition[settings_state_transition
 
 # ...is instantiated here
 transitionKernel = getattr(state, settings_transition_kernel['implementing class'])(
-	settings_room["bottom left corner"], settings_room["top right corner"],
+	room,
 	velocity_variance=settings_state_transition["velocity variance"],
 	noise_variance=settings_state_transition["position variance"], step_duration=settings_state_transition['time step size'],
 	PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"], **settings_transition_kernel['parameters'])
