@@ -145,27 +145,8 @@ class UnboundedTransitionKernel(TransitionKernel):
 		
 		# the pseudo random numbers generator
 		self._PRNG = PRNG
-		
+
 	def next_state(self, state, PRNG=None):
-		
-		# if for this particular call, no pseudo random numbers generator is received...
-		if PRNG is None:
-			# ...the corresponding class attribute is used
-			PRNG = self._PRNG
-		
-		# not actually needed...but for the sake of clarity...
-		velocity = state[2:4]
-
-		# the velocity changes BEFORE moving...
-		velocity += PRNG.normal(0, math.sqrt(self._velocity_variance / 2), (2, 1))
-		
-		# step to be taken is obtained from the velocity and a noise component
-		step = velocity*self._step_duration + PRNG.normal(0, math.sqrt(self._noise_variance / 2), (2, 1))
-		
-		return np.vstack((state[0:2] + step, velocity))
-
-
-	def next_state_vectorized(self, state, PRNG=None):
 
 		# if for this particular call, no pseudo random numbers generator is received...
 		if PRNG is None:
@@ -178,13 +159,6 @@ class UnboundedTransitionKernel(TransitionKernel):
 
 		# step to be taken is obtained from the velocity and a noise component
 		step = velocity * self._step_duration + PRNG.normal(0, math.sqrt(self._noise_variance / 2), (2, n))
-
-		res = np.empty_like(state)
-
-		# for i in range(n):
-		#
-		# 	res[2:,i] = state[2:,i] + PRNG.normal(0, math.sqrt(self._velocity_variance / 2), (2, 1))
-		# 	res[:2, i] = res[:2, i] + res[2:,i] * self._step_duration + PRNG.normal(0, math.sqrt(self._noise_variance / 2), (2, 1))
 
 		return np.vstack((to_position(state) + step, velocity))
 
@@ -200,13 +174,13 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 		self._iVector = np.array([[1.0], [0.0]])
 		self._jVector = np.array([[0.0], [1.0]])
 
-	def next_state_vectorized(self, state, PRNG=None):
+	def next_state(self, state, PRNG=None):
 
 		# this may be updated in the while loop when bouncing off several walls
 		previous_pos = to_position(state).copy()
 
 		# the new (unbounded) state as computed by the parent class
-		unbounded_state = super().next_state_vectorized(state, PRNG)
+		unbounded_state = super().next_state(state, PRNG)
 
 		# the first two elements of the above state is the new (here tentative) position...
 		tentative_new_pos = to_position(unbounded_state)
@@ -283,111 +257,6 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 			# note that this only needs to be done in the last iteration of the while loop, but since the velocity
 			# is not used within the "else" part, it's not a problem
 			velocity[:, i_invalid] = step / np.linalg.norm(step) * np.linalg.norm(velocity[:, i_invalid])
-
-			import code
-			code.interact(local=dict(globals(), **locals()))
-
-		return np.vstack((tentative_new_pos, velocity))
-
-	def next_state(self, state, PRNG=None):
-
-		# self.next_state_vectorized(state, PRNG)
-		# self.next_state_vectorized(np.vstack((self._PRNG.uniform(-30, 30, 20), self._PRNG.uniform(-15, 15, 20),self._PRNG.uniform(-30, 30, 20), self._PRNG.uniform(-15, 15, 20))), PRNG)
-		
-		# this may be updated in the while loop when bouncing off several walls
-		previous_pos = state[0:2].copy()
-
-		# the new (unbounded) state as computed by the parent class
-		unbounded_state = super().next_state(state, PRNG)
-
-		# the first two elements of the above state is the new (here tentative) position...
-		tentative_new_pos = unbounded_state[:2]
-
-		# ...whereas the last ones are the new velocity
-		velocity = unbounded_state[2:]
-
-		# if the current position is already outside the bounds (due to sampling or whatever)...
-		if not self._room.belong(to_position(state)):
-
-			# ...anything goes
-
-			print(colorama.Fore.GREEN + 'passed position is already out of bounds' + colorama.Style.RESET_ALL)
-
-			return unbounded_state
-		
-		# the step "suggested" by the parent class is then given by the new tentative position and the starting 
-		step = tentative_new_pos - previous_pos
-		
-		# to be used in the loop...
-		angles_with_corners = np.empty(4)
-		
-		while True:
-			
-			if self._room.belong(tentative_new_pos):
-
-				# the new position is OK
-				break
-			
-			else:
-
-				print('fixing')
-				
-				for i, corner in enumerate(self._room.tr_tl_bl_br_corners.T):
-					
-					# a vector joining the previous position and the corresponding corner
-					position_to_corner = corner.reshape(2, -1) - previous_pos
-					
-					# the angle between the above vector and a horizontal line
-					angles_with_corners[i] = math.acos(position_to_corner[0]/np.linalg.norm(position_to_corner))
-				
-				# we account for the fact that the angle between two vectors computed by means of the dot product is
-				# always between 0 and pi (the shortest)
-				angles_with_corners[2:] = 2*math.pi - angles_with_corners[2:]
-				
-				# angle between the step to be taken and the horizontal line
-				angle = math.acos(step[0]/np.linalg.norm(step))
-				
-				if step[1] <= 0:
-					# we account for the fact that the angle between two vectors computed by means of the dot product
-					# (the shortest) is always between 0 and pi
-					angle = 2*math.pi - angle
-				
-				# up
-				if angles_with_corners[0] <= angle < angles_with_corners[1]:
-					normal = -self._jVector
-					scale_factor = (self._room.tr_corner[1] - previous_pos[1]) / step[1]
-				# left
-				elif angles_with_corners[1] <= angle < angles_with_corners[2]:
-					normal = self._iVector
-					scale_factor = (self._room.bl_corner[0] - previous_pos[0]) / step[0]
-				# down
-				elif angles_with_corners[2] <= angle < angles_with_corners[3]:
-					normal = self._jVector
-					scale_factor = (self._room.bl_corner[1] - previous_pos[1]) / step[1]
-				# right
-				else:
-					normal = -self._iVector
-					scale_factor = (self._room.tr_corner[0] - previous_pos[0]) / step[0]
-
-				# the components of the "step" vector before...
-				step_before_bounce = scale_factor*step
-				
-				# ...and after reaching the wall
-				step_after_bounce = (1.0-scale_factor)*step
-				
-				# in case we need to bounce again, we update the previous position...
-				previous_pos = previous_pos + step_before_bounce
-
-				# ...and the step, this one by computing the reflected ray using a formula involving the normal of the
-				# reflecting surface...
-				step = step_after_bounce - 2*normal*np.dot(normal.T, step_after_bounce)
-
-				tentative_new_pos = previous_pos + step
-				
-				# the direction of the velocity is updated according to the reflection that occurred in the trajectory
-				# note that this only needs to be done in the last iteration of the while loop, but since the velocity
-				# is not used within the "else" part, it's not a problem
-				velocity = step/np.linalg.norm(step)*np.linalg.norm(velocity)
 
 		return np.vstack((tentative_new_pos, velocity))
 

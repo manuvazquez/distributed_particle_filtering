@@ -48,8 +48,7 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		assert len(observations) == len(self._sensors)
 
 		# every particle is updated (previous state is not stored...)
-		self._state = np.hstack(
-			[self._state_transition_kernel.next_state(self._state[:, i:i + 1]) for i in range(self._n_particles)])
+		self._state = self._state_transition_kernel.next_state(self._state)
 
 		# TODO: this may cause a "divide by zero" warning when a likelihood is very small
 		# for each sensor, we compute the likelihood of EVERY particle (position)
@@ -319,8 +318,7 @@ class TargetTrackingParticleFilterWithConsensusCapabilities(TargetTrackingPartic
 		assert len(observations) == len(self._sensors)
 
 		# every particle is updated (previous state is not stored...)
-		self._state = np.hstack(
-			[self._state_transition_kernel.next_state(self._state[:, i:i + 1]) for i in range(self._n_particles)])
+		self._state = self._state_transition_kernel.next_state(self._state)
 
 		self.polynomial_approximation(observations)
 
@@ -437,12 +435,7 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		assert len(observations) == len(self._sensors)
 
 		# the particles are propagated with a *fake* RandomState that always returns 0's
-		predictions = np.hstack(
-			[self._state_transition_kernel.next_state(self._state[:, i:i + 1], self._fake_random_state)
-			 for i in range(self._n_particles)])
-
-		# [self._state_transition_kernel.next_state(s, self._fake_random_state) for s in self._state.T]
-		# np.apply_along_axis(self._state_transition_kernel.next_state,1,self._state,self._fake_random_state)
+		predictions = self._state_transition_kernel.next_state(self._state)
 
 		# for each sensor, we compute the likelihood of EVERY predicted particle (position)
 		predictions_likelihoods = np.array(
@@ -463,8 +456,7 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# code.interact(local=dict(globals(), **locals()))
 
 		# every particle is updated (previous state is not stored...)
-		self._state = np.hstack(
-			[self._state_transition_kernel.next_state(self._state[:, i:i + 1]) for i in i_particles_resampled])
+		self._state = self._state_transition_kernel.next_state(self._state[:, i_particles_resampled])
 
 		# TODO: this may cause a "divide by zero" warning when a likelihood is very small
 		# for each sensor, we compute the likelihood of EVERY particle (position)
