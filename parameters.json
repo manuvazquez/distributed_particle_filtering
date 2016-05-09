@@ -216,8 +216,25 @@
 	},
 
 	"prior distribution": {
-		"velocity variance": 0.05
+		"type": "bounded uniform position and Gaussian velocity",
+		"bounded uniform position and Gaussian velocity": {
+			"implementing class": "UniformBoundedPositionGaussianVelocityPrior",
+			"parameters": {
+					"velocity_mean": 0,
+					"velocity_variance": 0.05
+			}
+		},
+		"Gaussian position and velocity": {
+			"implementing class": "GaussianPositionAndVelocity",
+			"parameters": {
+					"position_mean": [0,0],
+					"position_variance": 0.01,
+					"velocity_mean": 0,
+					"velocity_variance": 0.05
+			}
+		}
 	},
+
 	"state transition": {
 		"velocity variance": 0.01,
 		"position variance": 0.01,

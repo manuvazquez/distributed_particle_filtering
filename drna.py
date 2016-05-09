@@ -56,6 +56,9 @@ n_time_instants = parameters["number of time instants"]
 # room dimensions
 settings_room = parameters["room"]
 
+# state prior parameters
+settings_prior_distribution = parameters["prior distribution"]
+
 # state transition kernel parameters
 settings_state_transition = parameters["state transition"]
 
@@ -206,16 +209,17 @@ signal.signal(signal.SIGINT, sigint_handler)
 # an object representing the bounded region
 room = region.Rectangle(settings_room["bottom left corner"], settings_room["top right corner"])
 
-# an object representing the prior distribution is instantiated...
-prior = state.UniformBoundedPositionGaussianVelocityPrior(
-	room,
-	velocity_variance=parameters["prior distribution"]["velocity variance"],
-	PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
+# the settings for the prior distribution are retrieved...
+settings_state_prior = settings_prior_distribution[settings_prior_distribution['type']]
 
-# ...and a different one for the transition kernel belonging to class...
+# and the corresponding object is instantiated...
+prior = getattr(state, settings_state_prior['implementing class'])(
+	room, **settings_state_prior['parameters'], PRNG=PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
+
+# the settings for the state transition kernel...
 settings_transition_kernel = settings_state_transition[settings_state_transition['type']]
 
-# ...is instantiated here
+# ...are used to instantiate the requested object
 transitionKernel = getattr(state, settings_transition_kernel['implementing class'])(
 	room,
 	velocity_variance=settings_state_transition["velocity variance"],

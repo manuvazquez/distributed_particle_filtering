@@ -1,6 +1,5 @@
 import math
 import numpy as np
-import colorama
 
 # a state vector has the structure:
 # 	[ pos_x ]
@@ -79,26 +78,24 @@ def build_state(position, velocity):
 
 
 class Prior:
-	
-	def sample(self):
-		
-		pass
 
-
-class UniformBoundedPositionGaussianVelocityPrior(Prior):
-	
-	def __init__(
-			self, room, velocity_mean=0, velocity_variance=0.25, PRNG=np.random.RandomState()):
+	def __init__(self, room, velocity_mean=0, velocity_variance=0.25, PRNG=np.random.RandomState()):
 
 		self._room = room
+		self._PRNG = PRNG
 
 		self._velocity_mean = velocity_mean
 		self._velocity_variance = velocity_variance
-		
-		self._PRNG = PRNG
+
+	def sample(self, n_samples=1, PRNG=None):
+
+		return None
+
+
+class UniformBoundedPositionGaussianVelocityPrior(Prior):
 		
 	def sample(self, n_samples=1, PRNG=None):
-		
+
 		# if for this particular call, no pseudo random numbers generator is received...
 		if PRNG is None:
 
@@ -113,6 +110,31 @@ class UniformBoundedPositionGaussianVelocityPrior(Prior):
 		# velocity
 		velocity = PRNG.normal(self._velocity_mean, math.sqrt(self._velocity_variance / 2), (2, n_samples))
 		
+		return np.vstack((position, velocity))
+
+
+class GaussianPositionAndVelocity(Prior):
+
+	def __init__(
+			self, room, position_mean, position_variance, velocity_mean=0, velocity_variance=0.25,
+			PRNG=np.random.RandomState()):
+
+		super().__init__(room, velocity_mean, velocity_variance, PRNG)
+
+		self._position_mean = position_mean
+		self._position_variance = position_variance
+
+	def sample(self, n_samples=1, PRNG=None):
+
+		# if for this particular call, no pseudo random numbers generator is received...
+		if PRNG is None:
+
+			# ...the corresponding class attribute is used
+			PRNG = self._PRNG
+
+		position = np.random.multivariate_normal(self._position_mean, self._position_variance*np.identity(2), n_samples).T
+		velocity = PRNG.normal(self._velocity_mean, np.sqrt(self._velocity_variance / 2), (2, n_samples))
+
 		return np.vstack((position, velocity))
 
 
