@@ -360,6 +360,8 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 			self._initial_size_estimate = ad_hoc_parameters["initial_size_estimate"]
 
+		# self._n_particles_per_PE = n_particles_per_PE
+
 	def initialize(self):
 
 		super().initialize()
@@ -378,7 +380,7 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 		# Q = np.stack([PE._Q for PE in self.PEs], axis=2).mean(axis=2)
 		# nu = np.stack([PE._nu for PE in self.PEs], axis=0).mean(axis=0)
-		#
+
 		# import code
 		# code.interact(local=dict(globals(), **locals()))
 
@@ -389,6 +391,18 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		#
 		# import code
 		# code.interact(local=dict(globals(), **locals()))
+		# np.array([PE.samples.mean(axis=1) for PE in self._PEs])
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		# for PE in self._PEs:
+		#
+		# 	covariance = np.linalg.inv(Q)
+		#
+		# 	mean = np.dot(covariance, nu)
+		#
+		# 	PE.samples = self.exchange_recipe.truncate_samples(np.random.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T)
 
 	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
 

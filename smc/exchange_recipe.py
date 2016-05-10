@@ -460,17 +460,14 @@ class LikelihoodConsensusExchangeRecipe(ExchangeRecipe):
 class GaussianExchangeRecipe(ExchangeRecipe):
 
 	def __init__(
-			self, processing_elements_topology, n_particles_per_PE, ad_hoc_parameters, bottom_left_corner,
-			top_right_corner, PRNG):
+			self, processing_elements_topology, n_particles_per_PE, ad_hoc_parameters, room, PRNG):
 
 		super().__init__(processing_elements_topology)
 
 		self._n_particles_per_PE = n_particles_per_PE
 		self._ad_hoc_parameters = ad_hoc_parameters
 
-		self._bottom_left_corner = bottom_left_corner
-		self._top_right_corner = top_right_corner
-
+		self._room = room
 		self._PRNG = PRNG
 
 		# if no number of iterations is provided through the parameters file...
@@ -488,17 +485,6 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 
 		# so that the corresponding method is only called once
 		self._PEs_neighbors = processing_elements_topology.get_neighbours()
-
-	def truncate_samples(self, samples):
-
-		res = samples.copy()
-
-		res[0, res[0, :] < self._bottom_left_corner[0]] = self._bottom_left_corner[0] + self._edge_epsilon
-		res[0, res[0, :] > self._top_right_corner[0]] = self._top_right_corner[0] - self._edge_epsilon
-		res[1, res[1, :] < self._bottom_left_corner[1]] = self._bottom_left_corner[1] + self._edge_epsilon
-		res[1, res[1, :] > self._top_right_corner[1]] = self._top_right_corner[1] - self._edge_epsilon
-
-		return res
 
 	def perform_exchange(self, DPF):
 
@@ -539,7 +525,10 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 			# mean = covariance @ PE._nu
 			mean = np.dot(covariance, PE._nu)
 
-			PE.samples = self.truncate_samples(np.random.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T)
+			# PE.samples = self.truncate_samples(np.random.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T)
+
+			PE.samples = np.random.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T
+			self._room.bind(PE.samples)
 
 	def messages(self):
 
@@ -694,7 +683,7 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 
 		i_resampled = self._resampling_algorithm.get_indexes(weights)
 
-		resulting_gm = sklearn.mixture.GMM(self._C, covariance_type='full')
+		resulting_gm = sklearn.mixture.GMM(self._C, covariance_type='full', random_state=self._PRNG)
 		resulting_gm.fit(samples[i_resampled, :])
 
 		return resulting_gm

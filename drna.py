@@ -248,7 +248,7 @@ mobile = target.Target(prior, transitionKernel, pseudo_random_numbers_generator=
 simulation_class = getattr(simulation, settings_simulation[parameters['simulation type']]['implementing class'])
 
 # ...is used to instantiate the latter
-sim = simulation_class(parameters, resampling_algorithm, resampling_criterion, prior, transitionKernel, output_file, PRNGs)
+sim = simulation_class(parameters, room, resampling_algorithm, resampling_criterion, prior, transitionKernel, output_file, PRNGs)
 
 # if this is a re-run of a previous simulation
 if command_arguments.reproduce_filename:

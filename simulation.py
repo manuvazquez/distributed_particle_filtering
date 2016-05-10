@@ -21,10 +21,11 @@ class Simulation(metaclass=abc.ABCMeta):
 	
 	@abc.abstractmethod
 	def __init__(
-			self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators):
 
 		self._parameters = parameters
+		self._room = room
 		
 		# these parameters are kept for later use
 		self._resampling_algorithm = resampling_algorithm
@@ -83,11 +84,11 @@ class Simulation(metaclass=abc.ABCMeta):
 class SimpleSimulation(Simulation):
 	
 	def __init__(
-			self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements=None, n_sensors=None):
 		
 		super().__init__(
-			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators)
 
 		# for saving the data in HDF5
@@ -273,12 +274,12 @@ class Convergence(SimpleSimulation):
 		return actual_position, estimated_position
 
 	def __init__(
-			self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators, h5py_file=None, h5py_prefix=''):
 
 		# let the super class do its thing...
 		super().__init__(
-			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators, h5py_file, h5py_prefix)
 
 		topologies = [getattr(PEs_topology, t['implementing class'])(
@@ -522,12 +523,12 @@ class Convergence(SimpleSimulation):
 class MultipleMposterior(Simulation):
 	
 	def __init__(
-			self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators):
 		
 		# let the super class do its thing...
 		super().__init__(
-			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators)
 		
 		# HDF5 output file
@@ -589,12 +590,12 @@ class Mposterior(SimpleSimulation):
 	# TODO: a method of the object is called from within "__init__" (allowed in python...but weird)
 	
 	def __init__(
-			self, parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators, h5py_file=None, h5py_prefix='', n_processing_elements=None, n_sensors=None):
 		
 		# let the super class do its thing...
 		super().__init__(
-			parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements, n_sensors)
 		
 		self._MposteriorSettings = parameters['Mposterior']
@@ -1137,8 +1138,7 @@ class MposteriorRevisited(Mposterior):
 			self._MposteriorSettings["number of iterations"])
 
 		gaussian_exchange_recipe = smc.exchange_recipe.GaussianExchangeRecipe(
-			self._PEsTopology, self._n_particles_per_PE, self._parameters["Gaussian products"],
-			self._settings_room["bottom left corner"], self._settings_room["top right corner"],
+			self._PEsTopology, self._n_particles_per_PE, self._parameters["Gaussian products"], self._room,
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 		gaussian_mixtures_exchange_recipe = smc.exchange_recipe.GaussianMixturesExchangeRecipe(
@@ -1147,22 +1147,22 @@ class MposteriorRevisited(Mposterior):
 
 		# ------------
 
-		# # a distributed PF with DRNA
-		# self._PFs.append(
-		# 	distributed.TargetTrackingParticleFilterWithDRNA(
-		# 		self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
-		# 		self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
-		# 		self._prior, self._transition_kernel, self._sensors,
-		# 		self._everySensorWithEveryPEConnector.get_connections(self._nPEs),
-		# 		pf_class=centralized.EmbeddedTargetTrackingParticleFilter
-		# 	)
-		# )
-		#
-		# # the estimator is the mean
-		# self._estimators.append(smc.estimator.WeightedMean(self._PFs[-1]))
-		#
-		# self._estimators_colors.append('black')
-		# self._estimators_labels.append('DRNA exch. {}'.format(self._exchanged_particles))
+		# a distributed PF with DRNA
+		self._PFs.append(
+			distributed.TargetTrackingParticleFilterWithDRNA(
+				self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
+				self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
+				self._prior, self._transition_kernel, self._sensors,
+				self._everySensorWithEveryPEConnector.get_connections(self._nPEs),
+				pf_class=centralized.EmbeddedTargetTrackingParticleFilter
+			)
+		)
+
+		# the estimator is the mean
+		self._estimators.append(smc.estimator.WeightedMean(self._PFs[-1]))
+
+		self._estimators_colors.append('black')
+		self._estimators_labels.append('DRNA exch. {}'.format(self._exchanged_particles))
 
 		# ------------
 
