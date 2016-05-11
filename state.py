@@ -11,6 +11,9 @@ import numpy as np
 n_elements = 4
 n_elements_position = 2
 
+i_position = range(2)
+i_velocity = range(2, 4)
+
 
 def to_position(state):
 	"""It extracts the position elements out of the state vector.
@@ -299,20 +302,18 @@ class OnEdgeResetTransitionKernel(UnboundedTransitionKernel):
 		# the new (unbounded) state as computed by the parent class
 		unbounded_state = super().next_state(state, PRNG)
 		
-		# the first two elements of the above state is the new (here tentative) position...
-		tentative_new_pos = unbounded_state[:2]
-		
-		# if the tentative position is within the bounds of the rectangle...
-		if self._room.belong(tentative_new_pos):
-			
-			# it's already ok
-			return unbounded_state
-		
+		# indexes of the samples whose position is already bounded
+		invalid = ~self._room.belong(to_position(unbounded_state))
+
 		# if for this particular call, no pseudo random numbers generator is received...
 		if PRNG is None:
 			# ...the corresponding class attribute is used
 			PRNG = self._PRNG
+
+		# new positions that "fall" outside the bounded region are replaced with old positions...
+		unbounded_state[np.ix_(i_position, invalid)] = state[np.ix_(i_position, invalid)]
+
+		# ...and their corresponding velocities are reset
+		unbounded_state[np.ix_(i_velocity, invalid)] = PRNG.normal(0, np.sqrt(self._reset_velocity_variance / 2), (2, invalid.sum()))
 		
-		velocity = PRNG.normal(0, math.sqrt(self._reset_velocity_variance / 2), (2, 1))
-		
-		return np.vstack((state[0:2], velocity))
+		return unbounded_state

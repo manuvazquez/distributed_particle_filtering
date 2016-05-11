@@ -136,14 +136,12 @@ if command_arguments.reproduce_filename:
 # if this is NOT a rerun of a previous simulation...
 else:
 
-	for question_within_parameters_file, key in zip([
-		"load sensors and Monte Carlo pseudo random numbers generator?",
-		"load trajectory pseudo random numbers generator?",
-		"load topology pseudo random numbers generator?"],
-			PRNGsKeys):
+	for key in PRNGsKeys:
 
-		# if loading the corresponding previous pseudo random numbers generator is requested...
-		if parameters[question_within_parameters_file]:
+		question_within_parameters_file = 'load ' + key[0][0].lower() + key[1:] + '?'
+
+		# if the corresponding key is in the parameters file and is set to true...
+		if (question_within_parameters_file in parameters) and parameters[question_within_parameters_file]:
 
 			print('loading "{}"...'.format(key))
 
@@ -152,14 +150,24 @@ else:
 				# the previously "pickled" RandomState object is loaded
 				PRNGs[key] = pickle.load(f)
 
-		# otherwise, if a random seed is requested...
+		# otherwise, a random seed is needed...
 		else:
+
+			# if a file name is specified in the parameters file (not likely if the question is not present...)
+			if key in parameters:
+
+				filename = parameters[key]
+
+			else:
+
+				# the first word in the key followed by the usual prefix
+				filename = key.split()[0] + '.RandomState'
 
 			# a new pseudo random numbers generator object is created...
 			PRNGs[key] = np.random.RandomState()
 
 			# ...and saved
-			with open(parameters[key], mode='wb') as f:
+			with open(filename, mode='wb') as f:
 
 				# the above created PRNG object is saved pickled into a file
 				pickle.dump(PRNGs[key], f)

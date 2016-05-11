@@ -525,11 +525,12 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 			# mean = covariance @ PE._nu
 			mean = np.dot(covariance, PE._nu)
 
-			# PE.samples = self.truncate_samples(np.random.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T)
+			# in case the covariance matrix is not positive semidefinite
+			try:
+				PE.samples = self._PRNG.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T
+			except ValueError:
+				PE.samples = np.tile(mean[:,np.newaxis],(1,self._n_particles_per_PE))
 
-			# PE.samples = np.random.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T
-			scipy.stats.multivariate_normal(
-				mean, covariance, allow_singular=True).rvs(size=self._n_particles_per_PE, random_state=self._PRNG)
 			self._room.bind(PE.samples)
 
 	def messages(self):
