@@ -132,7 +132,7 @@ class GaussianPositionAndVelocity(Prior):
 			# ...the corresponding class attribute is used
 			PRNG = self._PRNG
 
-		position = np.random.multivariate_normal(self._position_mean, self._position_variance*np.identity(2), n_samples).T
+		position = PRNG.multivariate_normal(self._position_mean, self._position_variance*np.identity(2), n_samples).T
 		velocity = PRNG.normal(self._velocity_mean, np.sqrt(self._velocity_variance / 2), (2, n_samples))
 
 		return np.vstack((position, velocity))

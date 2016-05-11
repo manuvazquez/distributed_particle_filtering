@@ -527,7 +527,9 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 
 			# PE.samples = self.truncate_samples(np.random.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T)
 
-			PE.samples = np.random.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T
+			# PE.samples = np.random.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T
+			scipy.stats.multivariate_normal(
+				mean, covariance, allow_singular=True).rvs(size=self._n_particles_per_PE, random_state=self._PRNG)
 			self._room.bind(PE.samples)
 
 	def messages(self):
