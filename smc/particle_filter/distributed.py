@@ -12,8 +12,7 @@ class TargetTrackingParticleFilter(ParticleFilter, metaclass=abc.ABCMeta):
 
 	def __init__(
 			self, n_PEs, n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
-			sensors, each_PE_required_sensors, pf_class=centralized.TargetTrackingParticleFilter,
-			pf_initial_aggregated_weight=1.0):
+			sensors, each_PE_required_sensors, pf_initial_aggregated_weight=1.0):
 
 		super().__init__(n_PEs * n_particles_per_PE, resampling_algorithm, resampling_criterion)
 
@@ -25,12 +24,6 @@ class TargetTrackingParticleFilter(ParticleFilter, metaclass=abc.ABCMeta):
 
 		# a list of lists, the first one containing the indices of the sensors "seen" by the first PE...and so on
 		self._each_PE_required_sensors = each_PE_required_sensors
-
-		# the particle filters are built (each one associated with a different set of sensors)
-		self._PEs = [pf_class(
-			n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
-			[sensors[iSensor] for iSensor in connections], aggregated_weight=pf_initial_aggregated_weight
-		) for connections in each_PE_required_sensors]
 
 	@property
 	def n_PEs(self):
@@ -114,12 +107,11 @@ class LikelihoodConsensusTargetTrackingParticleFilter(TargetTrackingParticleFilt
 	def __init__(
 			self, exchange_recipe, n_PEs, n_particles_per_PE, resampling_algorithm,
 			resampling_criterion, prior, state_transition_kernel, sensors, each_PE_required_sensors,
-			polynomial_degree, pf_class=centralized.TargetTrackingParticleFilterWithConsensusCapabilities):
+			polynomial_degree):
 
 		super().__init__(
 			n_PEs, n_particles_per_PE, resampling_algorithm, resampling_criterion, prior,
-			state_transition_kernel, sensors, each_PE_required_sensors,
-			pf_class=pf_class)
+			state_transition_kernel, sensors, each_PE_required_sensors)
 
 		# the exchange recipe is kept
 		self.exchange_recipe = exchange_recipe
@@ -162,6 +154,12 @@ class LikelihoodConsensusTargetTrackingParticleFilter(TargetTrackingParticleFilt
 		N_c = scipy.misc.comb(2*self._R_p + self._M, 2*self._R_p, exact=True)
 
 		assert(N_c == len(self._r_d_tuples))
+
+		# the particle filters are built (each one associated with a different set of sensors)
+		self._PEs = [centralized.TargetTrackingParticleFilterWithConsensusCapabilities(
+			n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
+			[sensors[iSensor] for iSensor in connections]
+		) for connections in each_PE_required_sensors]
 
 	def initialize(self):
 
@@ -209,12 +207,11 @@ class TargetTrackingParticleFilterWithDRNA(TargetTrackingParticleFilter):
 	def __init__(
 			self, exchange_period, exchange_recipe, n_particles_per_PE, normalization_period,
 			resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
-			each_PE_required_sensors, pf_class=centralized.EmbeddedTargetTrackingParticleFilter):
+			each_PE_required_sensors):
 
 		super().__init__(
 			exchange_recipe.n_processing_elements, n_particles_per_PE, resampling_algorithm,
 			resampling_criterion, prior, state_transition_kernel, sensors, each_PE_required_sensors,
-			pf_class=pf_class,
 			pf_initial_aggregated_weight=1.0 / exchange_recipe.n_processing_elements)
 
 		# a exchange of particles among PEs will happen every...
@@ -227,6 +224,12 @@ class TargetTrackingParticleFilterWithDRNA(TargetTrackingParticleFilter):
 		self._normalization_period = normalization_period
 
 		self._estimator = smc.estimator.WeightedMean(self)
+
+		# the particle filters are built (each one associated with a different set of sensors)
+		self._PEs = [centralized.EmbeddedTargetTrackingParticleFilter(
+			n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
+			[sensors[iSensor] for iSensor in connections], aggregated_weight=1.0 / exchange_recipe.n_processing_elements
+		) for connections in each_PE_required_sensors]
 
 	def step(self, observations):
 
@@ -302,16 +305,20 @@ class TargetTrackingParticleFilterWithMposterior(TargetTrackingParticleFilter):
 
 	def __init__(
 			self, exchange_recipe, n_particles_per_PE, resampling_algorithm, resampling_criterion,
-			prior, state_transition_kernel, sensors, each_PE_required_sensors, sharing_period,
-			pf_class=centralized.TargetTrackingParticleFilter):
+			prior, state_transition_kernel, sensors, each_PE_required_sensors, sharing_period):
 
 		super().__init__(
 			exchange_recipe.n_processing_elements, n_particles_per_PE, resampling_algorithm,
-			resampling_criterion, prior, state_transition_kernel, sensors, each_PE_required_sensors,
-			pf_class=pf_class)
+			resampling_criterion, prior, state_transition_kernel, sensors, each_PE_required_sensors)
 
 		self._sharing_period = sharing_period
 		self.exchange_recipe = exchange_recipe
+
+		# the particle filters are built (each one associated with a different set of sensors)
+		self._PEs = [centralized.TargetTrackingParticleFilter(
+			n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
+			[sensors[iSensor] for iSensor in connections]
+		) for connections in each_PE_required_sensors]
 
 	def step(self, observations):
 
@@ -339,13 +346,11 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 	def __init__(
 			self, n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
-			sensors, each_PE_required_sensors, exchange_recipe, ad_hoc_parameters, PRNG,
-			pf_class=centralized.TargetTrackingGaussianParticleFilter):
+			sensors, each_PE_required_sensors, exchange_recipe, ad_hoc_parameters, PRNG):
 
 		super().__init__(
 			exchange_recipe.n_processing_elements, n_particles_per_PE, resampling_algorithm,
-			resampling_criterion, prior, state_transition_kernel, sensors, each_PE_required_sensors,
-			pf_class=pf_class)
+			resampling_criterion, prior, state_transition_kernel, sensors, each_PE_required_sensors)
 
 		self.exchange_recipe = exchange_recipe
 		self._PRNG = PRNG
@@ -359,6 +364,12 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		else:
 
 			self._initial_size_estimate = ad_hoc_parameters["initial_size_estimate"]
+
+		# the particle filters are built (each one associated with a different set of sensors)
+		self._PEs = [centralized.TargetTrackingGaussianParticleFilter(
+			n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
+			[sensors[iSensor] for iSensor in connections]
+		) for connections in each_PE_required_sensors]
 
 		# self._n_particles_per_PE = n_particles_per_PE
 
@@ -415,18 +426,22 @@ class TargetTrackingGaussianMixtureParticleFilter(TargetTrackingParticleFilter):
 
 	def __init__(
 			self, n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
-			sensors, each_PE_required_sensors, exchange_recipe, ad_hoc_parameters, PRNG,
-			pf_class=centralized.TargetTrackingGaussianMixtureParticleFilter):
+			sensors, each_PE_required_sensors, exchange_recipe, ad_hoc_parameters, PRNG):
 
 		super().__init__(
 			exchange_recipe.n_processing_elements, n_particles_per_PE, resampling_algorithm,
-			resampling_criterion, prior, state_transition_kernel, sensors, each_PE_required_sensors,
-			pf_class=pf_class)
+			resampling_criterion, prior, state_transition_kernel, sensors, each_PE_required_sensors)
 
 		self.exchange_recipe = exchange_recipe
 		self._PRNG = PRNG
 
 		self._C = ad_hoc_parameters["number_of_components"]
+
+		# the particle filters are built (each one associated with a different set of sensors)
+		self._PEs = [centralized.TargetTrackingGaussianMixtureParticleFilter(
+			n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
+			[sensors[iSensor] for iSensor in connections]
+		) for connections in each_PE_required_sensors]
 
 	def step(self, observations):
 

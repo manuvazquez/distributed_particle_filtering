@@ -780,8 +780,7 @@ class Mposterior(SimpleSimulation):
 				distributed.LikelihoodConsensusTargetTrackingParticleFilter(
 					likelihood_consensus_exchange_recipe, self._nPEs, self._n_particles_per_PE, self._resampling_algorithm,
 					self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
-					self._PEsSensorsConnections, self._LCDPFsettings['degree of the polynomial approximation'],
-					pf_class=centralized.TargetTrackingParticleFilterWithConsensusCapabilities
+					self._PEsSensorsConnections, self._LCDPFsettings['degree of the polynomial approximation']
 					)
 			)
 
@@ -831,8 +830,7 @@ class Mposterior(SimpleSimulation):
 				self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
 				self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
 				self._prior, self._transition_kernel, self._sensors,
-				self._everySensorWithEveryPEConnector.get_connections(self._nPEs),
-				pf_class=centralized.EmbeddedTargetTrackingParticleFilter
+				self._everySensorWithEveryPEConnector.get_connections(self._nPEs)
 			)
 		)
 		
@@ -849,8 +847,7 @@ class Mposterior(SimpleSimulation):
 			distributed.TargetTrackingParticleFilterWithMposterior(
 				mposterior_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion,
 				self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-				self._MposteriorSettings['sharing period'],
-				pf_class=centralized.TargetTrackingParticleFilter)
+				self._MposteriorSettings['sharing period'])
 		)
 		
 		# an estimator computing the geometric median with 1 particle taken from each PE
@@ -893,8 +890,7 @@ class Mposterior(SimpleSimulation):
 			distributed.TargetTrackingParticleFilterWithMposterior(
 				mposterior_within_radius_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
 				self._resampling_criterion, self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-				self._MposteriorSettings['sharing period'],
-				pf_class=centralized.TargetTrackingParticleFilter)
+				self._MposteriorSettings['sharing period'])
 		)
 
 		# an estimator computing the geometric median with 1 particle taken from each PE
@@ -1153,8 +1149,7 @@ class MposteriorRevisited(Mposterior):
 				self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
 				self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
 				self._prior, self._transition_kernel, self._sensors,
-				self._everySensorWithEveryPEConnector.get_connections(self._nPEs),
-				pf_class=centralized.EmbeddedTargetTrackingParticleFilter
+				self._everySensorWithEveryPEConnector.get_connections(self._nPEs)
 			)
 		)
 
@@ -1172,8 +1167,7 @@ class MposteriorRevisited(Mposterior):
 		# 		mposterior_within_radius_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
 		# 		self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
 		# 		self._PEsSensorsConnections,
-		# 		self._MposteriorSettings['sharing period'],
-		# 		pf_class=centralized.TargetTrackingParticleFilter)
+		# 		self._MposteriorSettings['sharing period'])
 		# )
 		#
 		# self._estimators.append(smc.estimator.SinglePEMeansGeometricMedianWithinRadius(
