@@ -2,6 +2,7 @@ import numpy as np
 import scipy.misc
 import itertools
 import abc
+import copy
 
 import smc.estimator
 from .particle_filter import ParticleFilter
@@ -94,10 +95,9 @@ class TargetTrackingParticleFilter(ParticleFilter, metaclass=abc.ABCMeta):
 
 		return n_messages
 
-	@abc.abstractmethod
 	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
 
-		pass
+		return np.NaN
 
 # =========================================================================================================
 
@@ -359,16 +359,16 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		if "initial_size_estimate" not in ad_hoc_parameters:
 
 			# ...the initial estimate is assumed to be half the number of PEs
-			self._initial_size_estimate = self._n_PEs//2
+			initial_size_estimate = self._n_PEs//2
 
 		else:
 
-			self._initial_size_estimate = ad_hoc_parameters["initial_size_estimate"]
+			initial_size_estimate = ad_hoc_parameters["initial_size_estimate"]
 
 		# the particle filters are built (each one associated with a different set of sensors)
 		self._PEs = [centralized.TargetTrackingGaussianParticleFilter(
 			n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
-			[sensors[iSensor] for iSensor in connections]
+			[sensors[iSensor] for iSensor in connections], initial_size_estimate
 		) for connections in each_PE_required_sensors]
 
 		# self._n_particles_per_PE = n_particles_per_PE
@@ -376,11 +376,6 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 	def initialize(self):
 
 		super().initialize()
-
-		# every PE is assigned a "token" (identifier)
-		for PE in self._PEs:
-
-			PE.estimated_n_PEs = self._initial_size_estimate
 
 		# the size is estimated only once at the beginning
 		self.exchange_recipe.size_estimation(self)
@@ -452,3 +447,81 @@ class TargetTrackingGaussianMixtureParticleFilter(TargetTrackingParticleFilter):
 	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
 
 		return np.NaN
+
+# =========================================================================================================
+
+
+class TargetTrackingSetMembershipConstrainedParticleFilter(TargetTrackingParticleFilter):
+
+	def __init__(
+			self, n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
+			sensors, each_PE_required_sensors, exchange_recipe, ad_hoc_parameters, RS_PRNG):
+
+		super().__init__(
+			exchange_recipe.n_processing_elements, n_particles_per_PE, resampling_algorithm,
+			resampling_criterion, prior, state_transition_kernel, sensors, each_PE_required_sensors)
+
+		self.exchange_recipe = exchange_recipe
+
+		L = ad_hoc_parameters['over-sampling factor']
+		alpha = ad_hoc_parameters['alpha_k']
+		beta = ad_hoc_parameters['beta_k']
+		# self._n_iterations_global_set = ad_hoc_parameters["iterations for global set determination"]
+
+		# the particle filters are built (each one associated with a different set of sensors)
+		self._PEs = [centralized.TargetTrackingSetMembershipConstrainedParticleFilter(
+			n_particles_per_PE, copy.deepcopy(resampling_algorithm), resampling_criterion, copy.deepcopy(prior),
+			copy.deepcopy(state_transition_kernel), [sensors[iSensor] for iSensor in connections], L, alpha, beta,
+			copy.deepcopy(RS_PRNG)
+		) for connections in each_PE_required_sensors]
+
+	def step(self, observations):
+
+		# neither particles nor weights are modified yet
+		super().step(observations)
+
+		# min = np.min([PE.bounding_box_min for PE in self._PEs], axis=0)
+		# max = np.max([PE.bounding_box_max for PE in self._PEs], axis=0)
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		self.exchange_recipe.global_set_determination(self)
+
+		for PE in self._PEs:
+
+			PE.post_bounding_box_step()
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+# =========================================================================================================
+
+
+class TargetTrackingSelectiveGossipParticleFilter(TargetTrackingParticleFilter):
+
+	def __init__(
+			self, n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
+			sensors, each_PE_required_sensors, exchange_recipe, ad_hoc_parameters):
+
+		super().__init__(
+			exchange_recipe.n_processing_elements, n_particles_per_PE, resampling_algorithm,
+			resampling_criterion, prior, state_transition_kernel, sensors, each_PE_required_sensors)
+
+		self.exchange_recipe = exchange_recipe
+
+		# the particle filters are built (each one associated with a different set of sensors)
+		self._PEs = [centralized.TargetTrackingSelectiveGossipParticleFilter(
+			n_particles_per_PE, copy.deepcopy(resampling_algorithm), resampling_criterion, copy.deepcopy(prior),
+			copy.deepcopy(state_transition_kernel), [sensors[iSensor] for iSensor in connections], self._n_PEs
+		) for connections in each_PE_required_sensors]
+
+	def step(self, observations):
+
+		# neither particles nor weights are modified yet
+		super().step(observations)
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		self.exchange_recipe.selective_gossip(self)

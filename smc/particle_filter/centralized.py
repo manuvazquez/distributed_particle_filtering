@@ -1,5 +1,6 @@
 import sys
 import numpy as np
+import scipy.stats
 
 import state
 from smc.particle_filter.particle_filter import ParticleFilter
@@ -407,11 +408,13 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 	def __init__(
 			self, n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
-			aggregated_weight=1.0):
+			initial_size_estimate, aggregated_weight=1.0):
 
 		super().__init__(
 			n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
 			aggregated_weight)
+
+		self.estimated_n_PEs = initial_size_estimate
 
 		# they will be set later
 		self._Q = None
@@ -525,6 +528,8 @@ class TargetTrackingGaussianMixtureParticleFilter(TargetTrackingParticleFilter):
 			n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
 			aggregated_weight)
 
+		self.previous_weights = None
+
 	# the same as in the parent class with no resampling
 	def avoid_weight_degeneracy(self):
 
@@ -535,3 +540,131 @@ class TargetTrackingGaussianMixtureParticleFilter(TargetTrackingParticleFilter):
 		self.previous_weights = self.weights
 
 		super().step(observations)
+
+# =========================================================================================================
+
+
+class TargetTrackingSetMembershipConstrainedParticleFilter(TargetTrackingParticleFilter):
+
+	def __init__(
+			self, n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors, L,
+			alpha, beta, RS_PRNG, aggregated_weight=1.0):
+
+		super().__init__(
+			n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
+			aggregated_weight)
+
+		self._L = L
+		self._alpha = alpha
+		self._beta = beta
+		self._RS_PRNG = RS_PRNG
+
+		self.bounding_box_min = None
+		self.bounding_box_max = None
+
+		self._alpha_beta_ratio = self._beta/self._alpha
+
+	def belongs(self, samples):
+
+		return np.logical_and(
+			(samples.T > self.bounding_box_min).all(axis=1),
+			(samples.T < self.bounding_box_max).all(axis=1)
+		)
+
+	def step(self, observations):
+
+		# *over* resampling
+		i_oversampled_particles = self._resampling_algorithm.get_indexes(self.weights, self.n_particles*self._L)
+
+		# (over) resampled particles are updated
+		oversampled_particles = self._state_transition_kernel.next_state(self._state[:, i_oversampled_particles])
+
+		# for each sensor, we compute the likelihood of EVERY particle (position)
+		likelihoods = np.prod([sensor.likelihood(obs, state.to_position(oversampled_particles))
+		                       for sensor, obs in zip(self._sensors, observations)], axis=0)
+
+		# in order to avoid dividing by zero
+		likelihoods += 1e-200
+
+		# normalization
+		weights = likelihoods/likelihoods.sum()
+
+		# indexes of the particles...
+		i_sampled_particles = self._resampling_algorithm.get_indexes(weights, self.n_particles)
+
+		# ...that determine the bounding box
+		particles_bounding_box = oversampled_particles[:, i_sampled_particles]
+
+		self.bounding_box_min = particles_bounding_box.min(axis=1)
+		self.bounding_box_max = particles_bounding_box.max(axis=1)
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+	def post_bounding_box_step(self):
+
+		# resampling of the particles from the previous time instant (with a ndomState object that should be
+		# synchronized across different PEs
+		i_sampled_particles = self._resampling_algorithm.get_indexes(self.weights)
+
+		# ...the resulting particles
+		sampled_particles = self._state_transition_kernel.next_state(self._state[:, i_sampled_particles])
+
+		while True:
+
+			# the particle belongs to the global set?
+			belong = self.belongs(sampled_particles)
+
+			# True with probability "self._alpha_beta_ratio"
+			accept_anyway = scipy.stats.bernoulli.rvs(
+				self._alpha_beta_ratio, size=self.n_particles, random_state=self._RS_PRNG).astype(np.bool)
+
+			# in both cases, the particles are fine
+			are_fine = np.logical_or(belong, accept_anyway)
+
+			# in both cases, we accept the particles
+			if np.all(are_fine):
+
+				break
+
+			else:
+
+				sampled_particles[:, belong]
+
+				import code
+				code.interact(local=dict(globals(), **locals()))
+
+				break
+
+# =========================================================================================================
+
+
+class TargetTrackingSelectiveGossipParticleFilter(TargetTrackingParticleFilter):
+
+	def __init__(
+			self, n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
+			n_PEs):
+
+		super().__init__(n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors)
+
+		self._n_PEs = n_PEs
+
+		# initialized/used later
+		self.gamma = None
+
+	def step(self, observations):
+
+		# every particle is propagated
+		auxiliar_state = self._state_transition_kernel.next_state(self._state)
+
+		# for each sensor, we compute the likelihood of EVERY particle (position)
+		loglikelihoods = np.log(np.array(
+			[sensor.likelihood(obs, state.to_position(auxiliar_state)) for sensor, obs in zip(self._sensors, observations)]))
+
+		# for each particle, we compute the product of the likelihoods for all the sensors
+		loglikelihoods_product = loglikelihoods.sum(axis=0)
+
+		self.gamma = self._n_PEs*loglikelihoods_product
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))

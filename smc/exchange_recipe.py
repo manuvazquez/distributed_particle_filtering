@@ -29,15 +29,31 @@ class ExchangeRecipe(metaclass=abc.ABCMeta):
 		# for the sake of convenience, we keep the number of PEs...
 		self._n_PEs = processing_elements_topology.n_processing_elements
 
+	def randomized_wakeup(self, n, PRNG):
+
+		# time elapsed between ticks of the PEs' clocks (each row is the tick of the corresponding PE)
+		time_elapsed_between_ticks = PRNG.exponential(size=(self._n_PEs, n))
+
+		# waking times for every PE (as many as the number of iterations so that, in principle, any PE can *always* be
+		# the chosen one)
+		ticks_absolute_time = time_elapsed_between_ticks.cumsum(axis=1)
+
+		# these are the indexes of the PEs that will wake up to exchange statistics with a neighbour (notice that a
+		# certain PE can show up several times)
+		# REMARK I: [0] is because we only care about the index of the waking PE (and not the instant)
+		# REMARK II: [:self.n_iterations] is because we only consider the "self.n_iterations" earliest wakings
+		i_waking_PEs = np.unravel_index(np.argsort(ticks_absolute_time, axis=None), (self._n_PEs, n))[0][:n]
+
+		return i_waking_PEs
+
 	@abc.abstractmethod
 	def perform_exchange(self, DPF):
 
 		pass
 
-	@abc.abstractmethod
 	def messages(self):
 
-		return
+		return np.NaN
 
 	@property
 	def n_processing_elements(self):
@@ -488,20 +504,8 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 
 	def perform_exchange(self, DPF):
 
-		# time elapsed between ticks of the PEs' clocks (each row is the tick of the corresponding PE)
-		time_elapsed_between_ticks = self._PRNG.exponential(size=(self._n_PEs, self.n_iterations))
-
-		# waking times for every PE (for every PE, as many as the number of iterations so that, in principle, it may
-		# always be the selected PE
-		ticks_absolute_time = time_elapsed_between_ticks.cumsum(axis=1)
-
-		# these are the indexes of the PEs that will wake up to exchange statistics with a neighbour (notice that a
-		# certain PE can show up several times)
-		# [0] is because we only care about the index of the waking PE (and not the instant)
-		# [:self.n_iterations] is because we only consider the "self.n_iterations" earliest wakings
-		i_waking_PEs = np.unravel_index(
-			np.argsort(ticks_absolute_time, axis=None), (self._n_PEs, self.n_iterations)
-		)[0][:self.n_iterations]
+		# indexes of the PEs that will wake up during this exchange
+		i_waking_PEs = self.randomized_wakeup(self.n_iterations, self._PRNG)
 
 		for i_PE in i_waking_PEs:
 
@@ -729,3 +733,119 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 		return self.learn(samples, weights)
 
 
+class SetMembershipConstrainedExchangeRecipe(ExchangeRecipe):
+
+	def __init__(self, processing_elements_topology, ad_hoc_parameters, resampling_algorithm, PRNG):
+
+		super().__init__(processing_elements_topology)
+
+		self._PRNG = PRNG
+
+		self._n_iterations_global_set_determination = ad_hoc_parameters["iterations for global set determination"]
+
+		# a list of lists in which each element yields the neighbors of a PE
+		self._neighborhoods = processing_elements_topology.get_neighbours()
+
+	def global_set_determination(self, DPF):
+
+		for _ in range(self._n_iterations_global_set_determination):
+
+			for PE, neighbours in zip(DPF.PEs, self._neighborhoods):
+
+				PE.bounding_box_min = np.min(
+					[PE.bounding_box_min] + [DPF.PEs[i_neighbor].bounding_box_min for i_neighbor in neighbours], axis=0
+				)
+
+				PE.bounding_box_max = np.max(
+					[PE.bounding_box_max] + [DPF.PEs[i_neighbor].bounding_box_max for i_neighbor in neighbours], axis=0
+				)
+
+	def perform_exchange(self, DPF):
+
+		pass
+
+
+class SelectiveGossipExchangeRecipe(ExchangeRecipe):
+
+	def __init__(self, processing_elements_topology, ad_hoc_parameters, PRNG):
+
+		super().__init__(processing_elements_topology)
+
+		self._PRNG = PRNG
+
+		self._n_iterations_selective_gossip = ad_hoc_parameters["iterations for selective gossip"]
+		self._n_components_selective_gossip = ad_hoc_parameters["number of significant components for selective gossip"]
+		self._n_iterations_max_gossip = ad_hoc_parameters["iterations for max gossip"]
+
+		# a list of lists in which each element yields the neighbors of a PE
+		self._neighborhoods = processing_elements_topology.get_neighbours()
+
+	def perform_exchange(self, DPF):
+
+		pass
+
+	def selective_gossip(self, DPF):
+
+		# the quantity to be averaged is initialized
+		# REMARK: every row is a different PE, every column a value
+		gammas = np.array([PE.gamma for PE in DPF.PEs])
+
+		# for every PE, a list with the indexes of the significant values *according to this PE*
+		significant_indexes = [[]] * self._n_PEs
+
+		# indexes of the nodes to be wakened during this gossip operation
+		i_nodes_to_be_wakened = self.randomized_wakeup(self._n_iterations_selective_gossip, self._PRNG)
+
+		for i in i_nodes_to_be_wakened:
+
+			# index of the selected neighbor
+			i_neigh = self._PRNG.choice(self._neighborhoods[i])
+
+			# for the sake of convenience
+			i_involved_PEs = [i, i_neigh]
+
+			# print('now gossipoing:\n{}'.format(i_involved_PEs))
+
+			# for the PE and its neighbor, the largest "self._n_components_selective_gossip" gammas
+			i_largest = np.argsort(gammas[i_involved_PEs, :],axis=1)[:, -self._n_components_selective_gossip:]
+
+			# the union of the (indexes for the) significant components of the PE and its neighbor
+			i_significant = list(set(i_largest[0,:]) | set(i_largest[1,:]))
+
+			# the list with the significant values for every node is updated
+			significant_indexes[i] = significant_indexes[i_involved_PEs[1]] = i_significant
+
+			# the significant components are updated in *both* PEs to the mean
+			gammas[np.ix_(i_involved_PEs, i_significant)] = gammas[np.ix_(i_involved_PEs, i_significant)].mean(axis=0)
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		# MAX Gossip
+
+		# indexes of the nodes to be wakened during this gossip operation
+		i_nodes_to_be_wakened = self.randomized_wakeup(self._n_iterations_max_gossip, self._PRNG)
+
+		for i in i_nodes_to_be_wakened:
+
+			# index of the selected neighbor
+			i_neigh = self._PRNG.choice(self._neighborhoods[i])
+
+			# for the sake of convenience
+			i_involved_PEs = [i, i_neigh]
+
+			# every PE obtains the maximum for the values *it* considers significant
+			gammas[i, significant_indexes[i]] = gammas[np.ix_(i_involved_PEs, significant_indexes[i])].max(axis=0)
+			gammas[i_neigh, significant_indexes[i_neigh]] = gammas[np.ix_(i_involved_PEs, significant_indexes[i_neigh])].max(axis=0)
+
+			# import code
+			# code.interact(local=dict(globals(), **locals()))
+
+		# the results of the consensus for every PE are stored within the latter
+		for PE, gamma, indexes in zip(DPF.PEs, gammas, significant_indexes):
+
+			PE.gamma_postgossip = gamma[indexes]
+			PE.significant_indexes = indexes
+
+		import code
+		code.interact(local=dict(globals(), **locals()))
