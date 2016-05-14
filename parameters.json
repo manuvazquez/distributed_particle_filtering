@@ -113,6 +113,19 @@
 		"convergence_n_maximum_iterations": 10
 	},
 
+	"Set-Membership constrained": {
+		"over-sampling factor": 10,
+		"iterations for global set determination": 20,
+		"beta_k": 0.001,
+		"alpha_k": 1
+	},
+
+	"Selective Gossip": {
+		"iterations for selective gossip": 20,
+		"number of significant components for selective gossip": 3,
+		"iterations for max gossip": 20
+	},
+
 	"network nodes": {
 		"fixed number of sensors per PE": {
 			"implementing class": "FixedNumberOfSensorsPerPE",

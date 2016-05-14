@@ -121,56 +121,46 @@ class LikelihoodConsensusTargetTrackingParticleFilter(TargetTrackingParticleFilt
 		# -------------------
 
 		# the size of the state
-		self._M = 2
+		M = 2
 
 		# the chosen degree for the polynomial approximation
-		self._R_p = polynomial_degree
+		R_p = polynomial_degree
 
 		# a list of tuples, each one representing a combination of possible exponents for a monomial
-		self._r_a_tuples = list(itertools.filterfalse(
-			lambda x: sum(x) > self._R_p, itertools.product(range(self._R_p+1), repeat=self._M)))
+		r_a_tuples = list(itertools.filterfalse(
+			lambda x: sum(x) > R_p, itertools.product(range(R_p+1), repeat=M)))
 
 		# each row contains the exponents for a monomial
-		self._r_a = np.array(self._r_a_tuples)
+		r_a = np.array(r_a_tuples)
 
 		# theoretical number of monomials in the approximation
-		R_a = scipy.misc.comb(self._R_p + self._M, self._R_p, exact=True)
+		R_a = scipy.misc.comb(R_p + M, R_p, exact=True)
 
-		assert(R_a == len(self._r_a_tuples))
+		assert(R_a == len(r_a_tuples))
 
 		# exponents for computing d
 		self._r_d_tuples = list(itertools.filterfalse(
-			lambda x: sum(x) > (2*self._R_p), itertools.product(range(2*self._R_p+1), repeat=self._M)))
-		self._r_d = np.array(self._r_d_tuples)
+			lambda x: sum(x) > (2*R_p), itertools.product(range(2*R_p+1), repeat=M)))
+		r_d = np.array(self._r_d_tuples)
 
 		# we generate the *two* vectors of exponents (r' and r'' in the paper) jointly,
 		# and then drop those combinations that don't satisfy the required constraints
-		self._rs_gamma = [list(itertools.filterfalse(
+		rs_gamma = [list(itertools.filterfalse(
 			lambda x:
-			not np.allclose((np.array(x)[:self._M] + x[self._M:]), r) or sum(x[:self._M]) > self._R_p or sum(x[self._M:]) > self._R_p,
-			itertools.product(range(self._R_p+1), repeat=2*self._M))) for r in self._r_d]
+			not np.allclose((np.array(x)[:M] + x[M:]), r) or sum(x[:M]) > R_p or sum(x[M:]) > R_p,
+			itertools.product(range(R_p+1), repeat=2*M))) for r in r_d]
 
 		# theoretically, this is the number of beta components that should result
-		N_c = scipy.misc.comb(2*self._R_p + self._M, 2*self._R_p, exact=True)
+		N_c = scipy.misc.comb(2*R_p + M, 2*R_p, exact=True)
 
 		assert(N_c == len(self._r_d_tuples))
 
 		# the particle filters are built (each one associated with a different set of sensors)
 		self._PEs = [centralized.TargetTrackingParticleFilterWithConsensusCapabilities(
 			n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
-			[sensors[iSensor] for iSensor in connections]
+			[sensors[iSensor] for iSensor in connections], M, R_p, r_a_tuples, r_a, self._r_d_tuples, r_d, rs_gamma
 		) for connections in each_PE_required_sensors]
-
-	def initialize(self):
-
-		super().initialize()
-
-		# the constant values required by every PE to carry out the polynomial approximation are passed to each PE
-		for PE in self._PEs:
-
-			PE.set_polynomial_approximation_constants(
-				self._M, self._R_p, self._r_a_tuples, self._r_a, self._r_d_tuples, self._r_d, self._rs_gamma)
-
+		
 	def step(self, observations):
 
 		# each PE initializes its local state

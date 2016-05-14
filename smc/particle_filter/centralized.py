@@ -57,10 +57,10 @@ class TargetTrackingParticleFilter(ParticleFilter):
 			[sensor.likelihood(obs, state.to_position(self._state)) for sensor, obs in zip(self._sensors, observations)]))
 
 		# for each particle, we compute the product of the likelihoods for all the sensors
-		log_likelihoods_product = loglikelihoods.sum(axis=0)
+		loglikelihoods_product = loglikelihoods.sum(axis=0)
 
 		# the weights are updated
-		self._log_weights += log_likelihoods_product
+		self._log_weights += loglikelihoods_product
 
 		# the aggregated weight is kept up to date at all times
 		self.update_aggregated_weight()
@@ -257,11 +257,9 @@ class TargetTrackingParticleFilterWithConsensusCapabilities(TargetTrackingPartic
 
 	def __init__(
 			self, n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
-			aggregated_weight=1.0):
+			M, R_p, r_a_tuples, r_a, r_d_tuples, r_d, rs_gamma):
 
-		super().__init__(
-			n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
-			aggregated_weight)
+		super().__init__(n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors)
 
 		# the noise covariance matrix is built from the individual variances of each sensor
 		self._noiseCovariance = np.diag([s.noiseVar for s in sensors])
@@ -269,7 +267,7 @@ class TargetTrackingParticleFilterWithConsensusCapabilities(TargetTrackingPartic
 		# the position of every sensor
 		self._sensorsPositions = np.hstack([s.position for s in sensors])
 
-	def set_polynomial_approximation_constants(self, M, R_p, r_a_tuples, r_a, r_d_tuples, r_d, rs_gamma):
+		# M, R_p, r_a_tuples, r_a, r_d_tuples, r_d, rs_gamma
 
 		self._M = M
 		self._R_p = R_p
