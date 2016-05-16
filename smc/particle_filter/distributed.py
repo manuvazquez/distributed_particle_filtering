@@ -508,10 +508,35 @@ class TargetTrackingSelectiveGossipParticleFilter(TargetTrackingParticleFilter):
 
 	def step(self, observations):
 
-		# neither particles nor weights are modified yet
+		# this simply calls the step method within every PE (neither particles nor weights are modified yet)
 		super().step(observations)
+
+		# selective gossip followed by max gossip *for the first-stage weights*
+		self.exchange_recipe.selective_and_max_gossip(self)
+
+		for PE, sensors_connections in zip(self._PEs, self._each_PE_required_sensors):
+
+			PE.actual_sampling_step(observations[sensors_connections])
+
+		# np.array([PE.samples for PE in self._PEs])
 
 		# import code
 		# code.interact(local=dict(globals(), **locals()))
+		#
+		# print(np.all(self._PEs[0].samples == self._PEs[1].samples))
+		# print(np.all(self._PEs[10].samples == self._PEs[21].samples))
+		# print(np.all(self._PEs[5].samples == self._PEs[9].samples))
 
-		self.exchange_recipe.selective_gossip(self)
+		# selective gossip followed by max gossip *for the local likelihoods*
+		self.exchange_recipe.selective_and_max_gossip(self)
+
+		for PE in self._PEs:
+
+			PE.weights_update_step()
+
+		# print(np.all(self._PEs[0].samples == self._PEs[1].samples))
+		# print(np.all(self._PEs[10].samples == self._PEs[21].samples))
+		# print(np.all(self._PEs[5].samples == self._PEs[9].samples))
+		#
+		# import code
+		# code.interact(local=dict(globals(), **locals()))

@@ -647,22 +647,61 @@ class TargetTrackingSelectiveGossipParticleFilter(TargetTrackingParticleFilter):
 
 		self._n_PEs = n_PEs
 
-		# initialized/used later
+		# for later use
 		self.gamma = None
+		self.ro = None
 
 	def step(self, observations):
 
-		# every particle is propagated
+		# every particle is propagated for computing the first-stage weights
 		auxiliar_state = self._state_transition_kernel.next_state(self._state)
 
 		# for each sensor, we compute the likelihood of EVERY particle (position)
 		loglikelihoods = np.log(np.array(
 			[sensor.likelihood(obs, state.to_position(auxiliar_state)) for sensor, obs in zip(self._sensors, observations)]))
 
-		# for each particle, we compute the product of the likelihoods for all the sensors
-		loglikelihoods_product = loglikelihoods.sum(axis=0)
+		# for each particle we store the product of the likelihoods for all the sensors multiplied by the number of PEs
+		self.gamma = self._n_PEs*loglikelihoods.sum(axis=0)
 
-		self.gamma = self._n_PEs*loglikelihoods_product
+	def actual_sampling_step(self, observations):
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
+		ro = np.exp(self.gamma_postgossip)
+
+		# the significant samples according to the consensus algorithm...
+		significant_samples = self._state[:, self.i_significant]
+
+		# ...and their corresponding weights, which are at the same time updated using the first-stage weights
+		updated_significant_weights = self.weights[self.i_significant]*ro
+
+		# in order to avoid numerical problems...
+		updated_significant_weights += 1e-200
+
+		# ...when normalizing
+		updated_significant_weights /= updated_significant_weights.sum()
+
+		# resampling of the particles from the previous step according to the first-stage weights
+		i_resampled = self._resampling_algorithm.get_indexes(updated_significant_weights, self.n_particles)
+		resampled = significant_samples[:, i_resampled]
+		self.ro = ro[i_resampled]
+
+		self._state = self._state_transition_kernel.next_state(resampled)
+
+		# for each sensor, we compute the likelihood of EVERY particle (position)
+		loglikelihoods = np.log(np.array(
+			[sensor.likelihood(obs, state.to_position(self._state)) for sensor, obs in zip(self._sensors, observations)]))
+
+		# for each particle we store the product of the likelihoods for all the sensors multiplied by the number of PEs
+		self.gamma = self._n_PEs*loglikelihoods.sum(axis=0)
+
+	def weights_update_step(self):
+
+		state = self._state[:, self.i_significant]
+		weights = np.exp(self.gamma_postgossip)/self.ro[self.i_significant]
+
+		weights /= weights.sum()
+
+		# we resample from the set of *significant* particles
+		i_resampling = self._resampling_algorithm.get_indexes(weights, self.n_particles)
+
+		self._state = state[:, i_resampling]
+		self.weights = np.full(self.n_particles, 1/self.n_particles)

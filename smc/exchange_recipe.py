@@ -46,7 +46,6 @@ class ExchangeRecipe(metaclass=abc.ABCMeta):
 
 		return i_waking_PEs
 
-	@abc.abstractmethod
 	def perform_exchange(self, DPF):
 
 		pass
@@ -652,15 +651,15 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 
 				neighbors_gms = [gaussian_mixtures[i] for i in self._neighbors[i_PE]]
 
-				gaussian_mixture_before_update = copy.deepcopy(gaussian_mixtures[i_PE])
+				# gaussian_mixture_before_update = copy.deepcopy(gaussian_mixtures[i_PE])
 
 				gaussian_mixtures[i_PE] = self.fusion(gaussian_mixtures[i_PE], neighbors_gms)
 
-				means_frob = np.linalg.norm(gaussian_mixtures[i_PE].means_ - gaussian_mixture_before_update.means_)
+				# means_frob = np.linalg.norm(gaussian_mixtures[i_PE].means_ - gaussian_mixture_before_update.means_)
 
 				# print('difference for PE {} = {}'.format(i_PE, means_frob))
 
-				PE_has_converged[i_PE] = means_frob < self._convergence_threshold
+				# PE_has_converged[i_PE] = means_frob < self._convergence_threshold
 
 			n_iterations_convergence += 1
 
@@ -690,10 +689,26 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 
 		i_resampled = self._resampling_algorithm.get_indexes(weights)
 
-		resulting_gm = sklearn.mixture.GMM(self._C, covariance_type='full', random_state=self._PRNG)
-		resulting_gm.fit(samples[i_resampled, :])
+		smallest_bic = np.infty
+		best_model = None
+		# n_components_best_model = None
 
-		return resulting_gm
+		for n_components in range(1, self._C + 1):
+
+			resulting_gm = sklearn.mixture.GMM(n_components, covariance_type='full', random_state=self._PRNG)
+			resulting_gm.fit(samples[i_resampled, :])
+
+			bic = resulting_gm.bic(samples[i_resampled, :])
+
+			if bic < smallest_bic:
+
+				smallest_bic = bic
+				best_model = resulting_gm
+				# n_components_best_model = n_components
+
+		# print('best number of components = {}'.format(n_components_best_model))
+
+		return best_model
 
 	def fusion(self, gaussian_mixture, neighbors_gaussian_mixtures):
 
@@ -780,18 +795,16 @@ class SelectiveGossipExchangeRecipe(ExchangeRecipe):
 		# a list of lists in which each element yields the neighbors of a PE
 		self._neighborhoods = processing_elements_topology.get_neighbours()
 
-	def perform_exchange(self, DPF):
+	def selective_and_max_gossip(self, DPF):
 
-		pass
+		# ------------------- selective Gossip ---------------------
 
-	def selective_gossip(self, DPF):
-
-		# the quantity to be averaged is initialized
+		# the gamma's obtained by every PE are collected in an array
 		# REMARK: every row is a different PE, every column a value
 		gammas = np.array([PE.gamma for PE in DPF.PEs])
 
-		# for every PE, a list with the indexes of the significant values *according to this PE*
-		significant_indexes = [[]] * self._n_PEs
+		# for every PE, a list with the indexes of the significant values *according to that PE*
+		PEs_i_significant = [[]] * self._n_PEs
 
 		# indexes of the nodes to be wakened during this gossip operation
 		i_nodes_to_be_wakened = self.randomized_wakeup(self._n_iterations_selective_gossip, self._PRNG)
@@ -804,24 +817,22 @@ class SelectiveGossipExchangeRecipe(ExchangeRecipe):
 			# for the sake of convenience
 			i_involved_PEs = [i, i_neigh]
 
-			# print('now gossipoing:\n{}'.format(i_involved_PEs))
+			# for the PE and its neighbor, the indexes of the largest "self._n_components_selective_gossip" gamma's
+			i_largest = np.argsort(gammas[i_involved_PEs, :], axis=1)[:, -self._n_components_selective_gossip:]
 
-			# for the PE and its neighbor, the largest "self._n_components_selective_gossip" gammas
-			i_largest = np.argsort(gammas[i_involved_PEs, :],axis=1)[:, -self._n_components_selective_gossip:]
-
-			# the union of the (indexes for the) significant components of the PE and its neighbor
-			i_significant = list(set(i_largest[0,:]) | set(i_largest[1,:]))
+			# the union of the indexes for the significant components of the PE and its neighbor
+			i_significant = list(set(i_largest[0, :]) | set(i_largest[1, :]))
 
 			# the list with the significant values for every node is updated
-			significant_indexes[i] = significant_indexes[i_involved_PEs[1]] = i_significant
+			PEs_i_significant[i] = PEs_i_significant[i_neigh] = i_significant
+
+			# in order to select the components of "gammas" that must be updated
+			array_range = np.ix_(i_involved_PEs, i_significant)
 
 			# the significant components are updated in *both* PEs to the mean
-			gammas[np.ix_(i_involved_PEs, i_significant)] = gammas[np.ix_(i_involved_PEs, i_significant)].mean(axis=0)
+			gammas[array_range] = gammas[array_range].mean(axis=0)
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-
-		# MAX Gossip
+		# ---------------------- MAX Gossip ------------------------
 
 		# indexes of the nodes to be wakened during this gossip operation
 		i_nodes_to_be_wakened = self.randomized_wakeup(self._n_iterations_max_gossip, self._PRNG)
@@ -835,17 +846,13 @@ class SelectiveGossipExchangeRecipe(ExchangeRecipe):
 			i_involved_PEs = [i, i_neigh]
 
 			# every PE obtains the maximum for the values *it* considers significant
-			gammas[i, significant_indexes[i]] = gammas[np.ix_(i_involved_PEs, significant_indexes[i])].max(axis=0)
-			gammas[i_neigh, significant_indexes[i_neigh]] = gammas[np.ix_(i_involved_PEs, significant_indexes[i_neigh])].max(axis=0)
+			# REMARK: this assumes the neighbor sends the information about those values *even if they are not its
+			# significant values*
+			gammas[i, PEs_i_significant[i]] = gammas[np.ix_(i_involved_PEs, PEs_i_significant[i])].max(axis=0)
+			gammas[i_neigh, PEs_i_significant[i_neigh]] = gammas[np.ix_(i_involved_PEs, PEs_i_significant[i_neigh])].max(axis=0)
 
-			# import code
-			# code.interact(local=dict(globals(), **locals()))
-
-		# the results of the consensus for every PE are stored within the latter
-		for PE, gamma, indexes in zip(DPF.PEs, gammas, significant_indexes):
+		# the results of the consensus for every PE are stored within it for later access
+		for PE, gamma, indexes in zip(DPF.PEs, gammas, PEs_i_significant):
 
 			PE.gamma_postgossip = gamma[indexes]
-			PE.significant_indexes = indexes
-
-		import code
-		code.interact(local=dict(globals(), **locals()))
+			PE.i_significant = indexes

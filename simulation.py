@@ -1208,21 +1208,21 @@ class MposteriorRevisited(Mposterior):
 
 		# ------------
 
-		# # DPF via optimal fusion of Gaussian mixtures
-		# self._PFs.append(
-		# 	distributed.TargetTrackingGaussianMixtureParticleFilter(
-		# 		self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
-		# 		self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-		# 		gaussian_mixtures_exchange_recipe, self._parameters["Gaussian Mixtures"],
-		# 		PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
-		# 	)
-		# )
-		#
-		# # the estimator is the mean
-		# self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
-		#
-		# self._estimators_colors.append('brown')
-		# self._estimators_labels.append('Gaussian Mixtures')
+		# DPF via optimal fusion of Gaussian mixtures
+		self._PFs.append(
+			distributed.TargetTrackingGaussianMixtureParticleFilter(
+				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
+				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+				gaussian_mixtures_exchange_recipe, self._parameters["Gaussian Mixtures"],
+				PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
+			)
+		)
+
+		# the estimator is the mean
+		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
+
+		self._estimators_colors.append('brown')
+		self._estimators_labels.append('Gaussian Mixtures')
 
 		# ------------
 
