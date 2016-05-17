@@ -196,6 +196,13 @@
 			"parameters": {
 				"ranges of vision for right, up, left and down": [[-45, 45], [45, 135], [135, -135], [-135, -45]]
 			}
+		},
+		"Random geometric graph": {
+			"implementing class": "RandomGeometricGraph",
+			"number of PEs": 9,
+			"parameters": {
+				"factor": 7.5
+			}
 		}
 	},
 

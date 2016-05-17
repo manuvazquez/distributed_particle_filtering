@@ -1,15 +1,17 @@
 import numpy as np
 import math
+import scipy.spatial
 import networkx as nx
 import operator
 
 
 class Topology:
 	
-	def __init__(self, n_processing_elements, topology_specific_parameters):
+	def __init__(self, n_processing_elements, topology_specific_parameters, PEs_positions=None):
 		
 		self._n_processing_elements = n_processing_elements
 		self._topology_specific_parameters = topology_specific_parameters
+		self._PEs_positions = PEs_positions
 
 	@property
 	def n_processing_elements(self):
@@ -81,9 +83,9 @@ class Topology:
 
 class Customized(Topology):
 	
-	def __init__(self, n_processing_elements, topology_specific_parameters):
+	def __init__(self, n_processing_elements, topology_specific_parameters, PEs_positions=None):
 		
-		super().__init__(n_processing_elements, topology_specific_parameters)
+		super().__init__(n_processing_elements, topology_specific_parameters, PEs_positions)
 		
 		# each element in the list is another list specifying the neighbours of the corresponding PE
 		self._neighbours = self._topology_specific_parameters["neighbourhoods"]
@@ -91,9 +93,9 @@ class Customized(Topology):
 
 class Ring(Topology):
 	
-	def __init__(self, n_processing_elements, topology_specific_parameters):
+	def __init__(self, n_processing_elements, topology_specific_parameters, PEs_positions=None):
 		
-		super().__init__(n_processing_elements, topology_specific_parameters)
+		super().__init__(n_processing_elements, topology_specific_parameters, PEs_positions)
 		
 		self._neighbours = [
 			[(i-1) % n_processing_elements, (i+1) % n_processing_elements] for i in range(n_processing_elements)]
@@ -101,9 +103,9 @@ class Ring(Topology):
 
 class Mesh(Topology):
 	
-	def __init__(self, n_processing_elements, topology_specific_parameters):
+	def __init__(self, n_processing_elements, topology_specific_parameters, PEs_positions=None):
 		
-		super().__init__(n_processing_elements, topology_specific_parameters)
+		super().__init__(n_processing_elements, topology_specific_parameters, PEs_positions)
 		
 		potential_neighbours_relative_position = self._topology_specific_parameters["neighbours"]
 		n_rows, n_cols = self._topology_specific_parameters["geometry"]
@@ -151,9 +153,9 @@ class Mesh(Topology):
 
 class ConstantDegreeSimpleGraph(Topology):
 	
-	def __init__(self, n_processing_elements, topology_specific_parameters):
+	def __init__(self, n_processing_elements, topology_specific_parameters, PEs_positions=None):
 		
-		super().__init__(n_processing_elements, topology_specific_parameters)
+		super().__init__(n_processing_elements, topology_specific_parameters, PEs_positions)
 		
 		n_neighbours = math.ceil(
 			topology_specific_parameters['number of neighbours as a percentage of the number of PEs']*n_processing_elements)
@@ -166,29 +168,26 @@ class ConstantDegreeSimpleGraph(Topology):
 
 class FullyConnected(Topology):
 	
-	def __init__(self, n_processing_elements, topology_specific_parameters):
+	def __init__(self, n_processing_elements, topology_specific_parameters, PEs_positions=None):
 		
-		super().__init__(n_processing_elements, topology_specific_parameters)
+		super().__init__(n_processing_elements, topology_specific_parameters, PEs_positions)
 		
 		self._neighbours = [[j for j in range(n_processing_elements) if j != i] for i in range(n_processing_elements)]
 
 
 class LOSbased(Topology):
 	
-	def __init__(self, n_processing_elements, topology_specific_parameters):
+	def __init__(self, n_processing_elements, topology_specific_parameters, PEs_positions=None):
 		
-		super().__init__(n_processing_elements, topology_specific_parameters)
-		
-		# for the sake of clarity...
-		processing_elements_positions = topology_specific_parameters['PEs positions']
+		super().__init__(n_processing_elements, topology_specific_parameters, PEs_positions)
 		
 		# a list of sets, each one meant to store the neighbours of the corresponding PE
-		res = [set() for _ in range(processing_elements_positions.shape[1])]
+		res = [set() for _ in range(PEs_positions.shape[1])]
 		
-		for iPE in range(processing_elements_positions.shape[1]):
+		for iPE in range(PEs_positions.shape[1]):
 			
 			# the difference vectors between the position of the current PE and the positions of ALL the PEs,...
-			diff = processing_elements_positions - processing_elements_positions[:, iPE:iPE+1]
+			diff = PEs_positions - PEs_positions[:, iPE:iPE+1]
 			
 			# ... which allow to compute the angles
 			angles = np.degrees(np.arctan2(diff[1, :], diff[0, :]))
@@ -217,3 +216,22 @@ class LOSbased(Topology):
 					res[i_neighbour].add(iPE)
 					
 		self._neighbours = [list(s) for s in res]
+
+
+class RandomGeometricGraph(Topology):
+
+	def __init__(self, n_processing_elements, topology_specific_parameters, PEs_positions=None):
+
+		super().__init__(n_processing_elements, topology_specific_parameters, PEs_positions)
+
+		# distances between every pair of positions
+		distances = scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(PEs_positions.T,'euclidean'))
+
+		# the distance between an element and itself is set to infinity
+		np.fill_diagonal(distances, np.inf)
+
+		# the connectivity radius
+		radius = np.sqrt(2*np.log(n_processing_elements)/n_processing_elements)*topology_specific_parameters["factor"]
+
+		# for every row (PE), we obtain the indexes of the elements (distances) that are below the radius
+		self._neighbours = [list(np.where(row)[0]) for row in (distances < radius)]

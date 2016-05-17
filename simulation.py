@@ -616,20 +616,13 @@ class Mposterior(SimpleSimulation):
 		settings_sensors_PEs_connector = parameters['sensors-PEs connectors'][
 			self._simulation_parameters['sensors-PEs connector']]
 		
-		# the positions of the PEs are added as a parameters...
-		# technically they are "derived" parameters since they are completely determined by:
-		# 	- the corners of the room
-		# 	- the positions of the sensors which, in turn, also depend on the corners of the room and the number of sensors
-		# 	- the number of PEs
-		self._settings_topologies['parameters']['PEs positions'] = self._PEsPositions
-		
 		# ...are used to build a connector, from which the links between PEs and sensors are obtained
 		self._PEsSensorsConnections = getattr(sensors_PEs_connector, settings_sensors_PEs_connector['implementing class'])(
 			self._sensorsPositions, self._PEsPositions, settings_sensors_PEs_connector['parameters']).get_connections(self._nPEs)
 
 		# network topology, which describes the connection among PEs, as well as the exact particles exchanged/shared
 		self._PEsTopology = getattr(PEs_topology, self._settings_topologies['implementing class'])(
-			self._nPEs, self._settings_topologies['parameters'])
+			self._nPEs, self._settings_topologies['parameters'], PEs_positions=self._PEsPositions)
 
 		# the maximum number of hops between any pair of PEs
 		max_hops_number = self._PEsTopology.distances_between_processing_elements.max()
