@@ -546,19 +546,21 @@ class TargetTrackingSetMembershipConstrainedParticleFilter(TargetTrackingParticl
 
 	def __init__(
 			self, n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors, L,
-			alpha, beta, RS_PRNG, aggregated_weight=1.0):
+			alpha, beta, n_repeats_rejection_sampling, RS_PRNG):
 
 		super().__init__(
-			n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
-			aggregated_weight)
+			n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors)
 
 		self._L = L
 		self._alpha = alpha
 		self._beta = beta
+		self._n_repeats_rejection_sampling = n_repeats_rejection_sampling
 		self._RS_PRNG = RS_PRNG
 
 		self.bounding_box_min = None
 		self.bounding_box_max = None
+		self.loglikelihoods = None
+		self.norm_constants = None
 
 		self._alpha_beta_ratio = self._beta/self._alpha
 
@@ -571,10 +573,10 @@ class TargetTrackingSetMembershipConstrainedParticleFilter(TargetTrackingParticl
 
 	def step(self, observations):
 
-		# *over* resampling
+		# oversampling (of the previous probability measure)
 		i_oversampled_particles = self._resampling_algorithm.get_indexes(self.weights, self.n_particles*self._L)
 
-		# (over) resampled particles are updated
+		# oversampled particles are updated
 		oversampled_particles = self._state_transition_kernel.next_state(self._state[:, i_oversampled_particles])
 
 		# for each sensor, we compute the likelihood of EVERY particle (position)
@@ -596,43 +598,91 @@ class TargetTrackingSetMembershipConstrainedParticleFilter(TargetTrackingParticl
 		self.bounding_box_min = particles_bounding_box.min(axis=1)
 		self.bounding_box_max = particles_bounding_box.max(axis=1)
 
+	def rejection_sampling(self, samples):
+
+		print('min/max')
+		print(self.bounding_box_min)
+		print(self.bounding_box_max)
+
+		# in order to avoid loops, each particle is replicated as many times as
+		n_replicas = self._n_repeats_rejection_sampling
+
+		# all the replicas of all the particles are propagated
+		n_fold_propagated_samples = self._state_transition_kernel.next_state(np.repeat(samples, n_replicas, axis=1))
+
+		# are particles within bounds?
+		within_bounds = self.belongs(n_fold_propagated_samples).reshape(-1, n_replicas)
+
+		# there is a small chance they will be accepted anyway
+		accept_anyway = scipy.stats.bernoulli.rvs(
+			self._alpha_beta_ratio, size=(self.n_particles, n_replicas), random_state=self._RS_PRNG).astype(np.bool)
+
+		# the index for the first valid replica of each particle
+		i_first_valid = [np.where(sample_fold)[0][0] for sample_fold in (within_bounds | accept_anyway)]
+
+		# we need to choose the right particle from the manifold of replicas
+		i_valid = np.array(i_first_valid) + n_replicas*np.arange(self.n_particles)
+
+		propagated_particles = n_fold_propagated_samples[:, i_valid]
+
+		# a rough way of computing the normalization constant for every particle
+		# ===========================
+
+		# for every particle, (an approximation of) the probability of drawing a sample within the region
+		prob_within = within_bounds.sum(axis=1)/n_replicas
+
+		# for every particle, (an approximation of) the probability of drawing a sample outside the region, and accepting
+		# it anyway
+		# prob_outside_but_accepted = (~within_bounds & accept_anyway).sum(axis=1)/n_replicas
+
+		# another (not exactly equivalent) way; this should be better because the above probability will usually be high,
+		# and hence easier to estimate
+		prob_outside_but_accepted = (1-prob_within)*self._beta
+
+		# the (approximation of the) normalization constant is the sum of the two of them
+		norm_constants = self._alpha*prob_within + prob_outside_but_accepted
+
 		# import code
 		# code.interact(local=dict(globals(), **locals()))
 
-	def post_bounding_box_step(self):
+		return propagated_particles, norm_constants
 
-		# resampling of the particles from the previous time instant (with a ndomState object that should be
+	def actual_sampling_step(self, observations):
+
+		# resampling of the particles from the previous time instant (with a RandomState object that should be
 		# synchronized across different PEs
 		i_sampled_particles = self._resampling_algorithm.get_indexes(self.weights)
 
 		# ...the resulting particles
-		sampled_particles = self._state_transition_kernel.next_state(self._state[:, i_sampled_particles])
+		self._state, self.norm_constants = self.rejection_sampling(self._state[:, i_sampled_particles])
 
-		while True:
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
 
-			# the particle belongs to the global set?
-			belong = self.belongs(sampled_particles)
+		likelihoods = np.prod([sensor.likelihood(obs, state.to_position(self._state))
+		                       for sensor, obs in zip(self._sensors, observations)], axis=0)
 
-			# True with probability "self._alpha_beta_ratio"
-			accept_anyway = scipy.stats.bernoulli.rvs(
-				self._alpha_beta_ratio, size=self.n_particles, random_state=self._RS_PRNG).astype(np.bool)
+		# in order to avoid numerical precision problems
+		likelihoods += 1e-200
 
-			# in both cases, the particles are fine
-			are_fine = np.logical_or(belong, accept_anyway)
+		self.loglikelihoods = np.log(likelihoods)
 
-			# in both cases, we accept the particles
-			if np.all(are_fine):
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
 
-				break
+	def weight_update_step(self):
 
-			else:
+		belongs =self.belongs(self._state)
 
-				sampled_particles[:, belong]
+		tentative_term = np.log(self._alpha * belongs.astype(float) + self._beta * (~belongs).astype(float))
 
-				import code
-				code.interact(local=dict(globals(), **locals()))
+		self.log_weights = self.loglikelihoods + np.log(self.norm_constants) - tentative_term
+		self.update_aggregated_weight()
+		self.normalize_weights()
 
-				break
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
 
 # =========================================================================================================
 

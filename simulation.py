@@ -1201,31 +1201,13 @@ class MposteriorRevisited(Mposterior):
 
 		# ------------
 
-		# DPF via optimal fusion of Gaussian mixtures
-		self._PFs.append(
-			distributed.TargetTrackingGaussianMixtureParticleFilter(
-				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
-				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-				gaussian_mixtures_exchange_recipe, self._parameters["Gaussian Mixtures"],
-				PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
-			)
-		)
-
-		# the estimator is the mean
-		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
-
-		self._estimators_colors.append('brown')
-		self._estimators_labels.append('Gaussian Mixtures')
-
-		# ------------
-
-		# # Set-membership Constrained DPF
+		# # DPF via optimal fusion of Gaussian mixtures
 		# self._PFs.append(
-		# 	distributed.TargetTrackingSetMembershipConstrainedParticleFilter(
+		# 	distributed.TargetTrackingGaussianMixtureParticleFilter(
 		# 		self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
 		# 		self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-		# 		setmembership_constrained_exchange_recipe, self._parameters["Set-Membership constrained"],
-		# 		self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
+		# 		gaussian_mixtures_exchange_recipe, self._parameters["Gaussian Mixtures"],
+		# 		PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
 		# 	)
 		# )
 		#
@@ -1233,16 +1215,17 @@ class MposteriorRevisited(Mposterior):
 		# self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
 		#
 		# self._estimators_colors.append('brown')
-		# self._estimators_labels.append('Set-Membership constrained')
+		# self._estimators_labels.append('Gaussian Mixtures')
 
 		# ------------
 
-		# Selective gossip
+		# Set-membership Constrained DPF
 		self._PFs.append(
-			distributed.TargetTrackingSelectiveGossipParticleFilter(
+			distributed.TargetTrackingSetMembershipConstrainedParticleFilter(
 				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
 				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-				selective_gossip_exchange_recipe, self._parameters["Selective Gossip"]
+				setmembership_constrained_exchange_recipe, self._parameters["Set-Membership constrained"],
+				self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
 			)
 		)
 
@@ -1250,4 +1233,21 @@ class MposteriorRevisited(Mposterior):
 		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
 
 		self._estimators_colors.append('brown')
-		self._estimators_labels.append('Selective gossip')
+		self._estimators_labels.append('Set-Membership constrained')
+
+		# ------------
+
+		# # Selective gossip
+		# self._PFs.append(
+		# 	distributed.TargetTrackingSelectiveGossipParticleFilter(
+		# 		self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
+		# 		self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+		# 		selective_gossip_exchange_recipe, self._parameters["Selective Gossip"]
+		# 	)
+		# )
+		#
+		# # the estimator is the mean
+		# self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
+		#
+		# self._estimators_colors.append('brown')
+		# self._estimators_labels.append('Selective gossip')

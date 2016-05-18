@@ -757,27 +757,76 @@ class SetMembershipConstrainedExchangeRecipe(ExchangeRecipe):
 		self._PRNG = PRNG
 
 		self._n_iterations_global_set_determination = ad_hoc_parameters["iterations for global set determination"]
+		self._n_iterations_likelihood_consensus = ad_hoc_parameters["iterations for likelihood consensus"]
+		self._n_iterations_max_min_likelihood_consensus =  ad_hoc_parameters["iterations for likelihood max/min consensus"]
+		self._mu = ad_hoc_parameters["mu for likelihood consensus"]
 
 		# a list of lists in which each element yields the neighbors of a PE
 		self._neighborhoods = processing_elements_topology.get_neighbours()
 
 	def global_set_determination(self, DPF):
 
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		# Max gossip
 		for _ in range(self._n_iterations_global_set_determination):
 
 			for PE, neighbours in zip(DPF.PEs, self._neighborhoods):
 
-				PE.bounding_box_min = np.min(
+				PE.bounding_box_min = np.max(
 					[PE.bounding_box_min] + [DPF.PEs[i_neighbor].bounding_box_min for i_neighbor in neighbours], axis=0
 				)
 
-				PE.bounding_box_max = np.max(
+				PE.bounding_box_max = np.min(
 					[PE.bounding_box_max] + [DPF.PEs[i_neighbor].bounding_box_max for i_neighbor in neighbours], axis=0
 				)
 
-	def perform_exchange(self, DPF):
+	def consensus_on_likelihood(self, DPF):
 
-		pass
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		# np.array([PE.loglikelihoods for PE in DPF.PEs]).sum(axis=0)
+
+		# every row a PE, every column a particle
+		loglikelihoods = np.array([PE.loglikelihoods for PE in DPF.PEs])
+
+		for _ in range(self._n_iterations_likelihood_consensus):
+
+			loglikelihoods_copy = loglikelihoods.copy()
+
+			for i_PE, (PE, neighbours) in enumerate(zip(DPF.PEs, self._neighborhoods)):
+
+				# import code
+				# code.interact(local=dict(globals(), **locals()))
+
+				loglikelihoods[i_PE, :] += self._mu*(loglikelihoods_copy[neighbours, :] - loglikelihoods[i_PE, :]).sum(axis=0)
+
+		# initialization (every row a PE, every column a particle)
+		max_loglikelihoods = loglikelihoods.copy()
+		min_loglikelihoods = loglikelihoods.copy()
+
+		for _ in range(self._n_iterations_max_min_likelihood_consensus):
+
+			max_loglikelihoods_copy = max_loglikelihoods.copy()
+			min_loglikelihoods_copy = min_loglikelihoods.copy()
+
+			for i_PE, (PE, neighbours) in enumerate(zip(DPF.PEs, self._neighborhoods)):
+
+				max_loglikelihoods[i_PE, :] = np.vstack((max_loglikelihoods_copy[neighbours, :], max_loglikelihoods[i_PE, :])).max(axis=0)
+				min_loglikelihoods[i_PE, :] = np.vstack((min_loglikelihoods_copy[neighbours, :], min_loglikelihoods[i_PE, :])).min(axis=0)
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		sum_loglikelihoods_estimate = (max_loglikelihoods +  min_loglikelihoods)/2 * self._n_PEs
+
+		for PE, estimate in zip(DPF.PEs, sum_loglikelihoods_estimate):
+
+			PE.loglikelihoods = estimate
+
+
 
 
 class SelectiveGossipExchangeRecipe(ExchangeRecipe):

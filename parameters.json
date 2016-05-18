@@ -116,8 +116,12 @@
 	"Set-Membership constrained": {
 		"over-sampling factor": 10,
 		"iterations for global set determination": 20,
+		"iterations for likelihood consensus": 10,
+		"iterations for likelihood max/min consensus": 10,
+		"mu for likelihood consensus": 0.1,
 		"beta_k": 0.001,
-		"alpha_k": 1
+		"alpha_k": 1,
+		"rejection sampling number of repetitions": 20000
 	},
 
 	"Selective Gossip": {

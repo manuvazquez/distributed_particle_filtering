@@ -456,18 +456,18 @@ class TargetTrackingSetMembershipConstrainedParticleFilter(TargetTrackingParticl
 		L = ad_hoc_parameters['over-sampling factor']
 		alpha = ad_hoc_parameters['alpha_k']
 		beta = ad_hoc_parameters['beta_k']
-		# self._n_iterations_global_set = ad_hoc_parameters["iterations for global set determination"]
+		n_repeats_rejection_sampling = ad_hoc_parameters["rejection sampling number of repetitions"]
 
 		# the particle filters are built (each one associated with a different set of sensors)
 		self._PEs = [centralized.TargetTrackingSetMembershipConstrainedParticleFilter(
 			n_particles_per_PE, copy.deepcopy(resampling_algorithm), resampling_criterion, copy.deepcopy(prior),
 			copy.deepcopy(state_transition_kernel), [sensors[iSensor] for iSensor in connections], L, alpha, beta,
-			copy.deepcopy(RS_PRNG)
+			n_repeats_rejection_sampling, copy.deepcopy(RS_PRNG)
 		) for connections in each_PE_required_sensors]
 
 	def step(self, observations):
 
-		# neither particles nor weights are modified yet
+		# neither the particles nor the weights of any PE are modified here
 		super().step(observations)
 
 		# min = np.min([PE.bounding_box_min for PE in self._PEs], axis=0)
@@ -478,9 +478,15 @@ class TargetTrackingSetMembershipConstrainedParticleFilter(TargetTrackingParticl
 
 		self.exchange_recipe.global_set_determination(self)
 
+		for PE, sensors_connections in zip(self._PEs, self._each_PE_required_sensors):
+
+			PE.actual_sampling_step(observations[sensors_connections])
+
+		self.exchange_recipe.consensus_on_likelihood(self)
+
 		for PE in self._PEs:
 
-			PE.post_bounding_box_step()
+			PE.weight_update_step()
 
 		# import code
 		# code.interact(local=dict(globals(), **locals()))
