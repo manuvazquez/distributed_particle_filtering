@@ -95,9 +95,17 @@ class TargetTrackingParticleFilter(ParticleFilter, metaclass=abc.ABCMeta):
 
 		return n_messages
 
-	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
+	def messages(self, processing_elements_topology, each_processing_element_connected_sensors, assert_zero_obs=True):
 
-		return np.NaN
+		messages_observations_propagation = self.messages_observations_propagation(
+			processing_elements_topology, each_processing_element_connected_sensors)
+
+		# make sure no message is transmitted to disseminate the observations
+		if assert_zero_obs:
+
+			assert messages_observations_propagation == 0
+
+		return messages_observations_propagation + self.exchange_recipe.messages()
 
 # =========================================================================================================
 
@@ -177,17 +185,6 @@ class LikelihoodConsensusTargetTrackingParticleFilter(TargetTrackingParticleFilt
 			# only the appropriate observations are passed to this PE. Note that it is assumed that the order in which
 			# the observations are passed is the same as that of the sensors when building the PF
 			PE.step(observations[sensors_connections])
-
-	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
-
-		messages_observations_propagation = super().messages_observations_propagation(
-			processing_elements_topology, each_processing_element_connected_sensors)
-
-		# in LC-based DPF, observations are not transmitted between PEs
-		assert messages_observations_propagation == 0
-
-		return messages_observations_propagation + self.exchange_recipe.messages()
-
 
 # =========================================================================================================
 
@@ -283,7 +280,7 @@ class TargetTrackingParticleFilterWithDRNA(TargetTrackingParticleFilter):
 
 	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
 
-		messages_observations_propagation = super().messages_observations_propagation(
+		messages_observations_propagation = self.messages_observations_propagation(
 			processing_elements_topology, each_processing_element_connected_sensors)
 
 		return messages_observations_propagation + self.exchange_recipe.messages()/self._exchange_period
@@ -345,15 +342,26 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		self.exchange_recipe = exchange_recipe
 		self._PRNG = PRNG
 
-		# if no initial estimate is passed through the parameters file...
-		if "initial_size_estimate" not in ad_hoc_parameters:
+		if ad_hoc_parameters["assume_known_number_PEs"]:
 
-			# ...the initial estimate is assumed to be half the number of PEs
-			initial_size_estimate = self._n_PEs//2
+			initial_size_estimate = self._n_PEs
+
+			# no need to estimate it...
+			self._estimate_size = False
 
 		else:
 
-			initial_size_estimate = ad_hoc_parameters["initial_size_estimate"]
+			self._estimate_size = True
+
+			# if no initial estimate is passed through the parameters file...
+			if "initial_size_estimate" not in ad_hoc_parameters:
+
+				# ...the initial estimate is assumed to be half the number of PEs
+				initial_size_estimate = self._n_PEs//2
+
+			else:
+
+				initial_size_estimate = ad_hoc_parameters["initial_size_estimate"]
 
 		# the particle filters are built (each one associated with a different set of sensors)
 		self._PEs = [centralized.TargetTrackingGaussianParticleFilter(
@@ -361,48 +369,20 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 			[sensors[iSensor] for iSensor in connections], initial_size_estimate
 		) for connections in each_PE_required_sensors]
 
-		# self._n_particles_per_PE = n_particles_per_PE
-
 	def initialize(self):
 
 		super().initialize()
 
-		# the size is estimated only once at the beginning
-		self.exchange_recipe.size_estimation(self)
+		if self._estimate_size:
+
+			# the size is estimated only once at the beginning
+			self.exchange_recipe.size_estimation(self)
 
 	def step(self, observations):
 
 		super().step(observations)
 
-		# Q = np.stack([PE._Q for PE in self.PEs], axis=2).mean(axis=2)
-		# nu = np.stack([PE._nu for PE in self.PEs], axis=0).mean(axis=0)
-
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-
 		self.exchange_recipe.perform_exchange(self)
-
-		# self._PEs[20]._Q
-		# self._PEs[20]._nu
-		#
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-		# np.array([PE.samples.mean(axis=1) for PE in self._PEs])
-
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-
-		# for PE in self._PEs:
-		#
-		# 	covariance = np.linalg.inv(Q)
-		#
-		# 	mean = np.dot(covariance, nu)
-		#
-		# 	PE.samples = self.exchange_recipe.truncate_samples(np.random.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T)
-
-	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
-
-		return np.NaN
 
 # =========================================================================================================
 
@@ -538,3 +518,7 @@ class TargetTrackingSelectiveGossipParticleFilter(TargetTrackingParticleFilter):
 		#
 		# import code
 		# code.interact(local=dict(globals(), **locals()))
+
+		def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
+
+			return np.NaN

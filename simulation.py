@@ -666,9 +666,12 @@ class Mposterior(SimpleSimulation):
 		self._estimators_colors = []
 		self._estimators_labels = []
 
-		# ...and algorithms are added
+		# ================================== ...and algorithms are added =============================
+
 		self.add_algorithms()
-		
+
+		# ============================================================================================
+
 		# the position estimates
 		self._estimated_pos = np.empty((2, self._n_time_instants, parameters["number of frames"], len(self._estimators)))
 		
@@ -701,7 +704,7 @@ class Mposterior(SimpleSimulation):
 		self._f.create_dataset(
 			self._h5py_prefix + 'sensors/positions', shape=self._sensorsPositions.shape, data=self._sensorsPositions)
 
-		# a list with the messages required by each estimator at a single time instant
+		# a list with the messages required by every algorithm at a single time instant
 		algorithms_messages = []
 
 		for estimator, label in zip(self._estimators, self._estimators_labels):
@@ -1135,7 +1138,7 @@ class MposteriorRevisited(Mposterior):
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 		setmembership_constrained_exchange_recipe = smc.exchange_recipe.SetMembershipConstrainedExchangeRecipe(
-			self._PEsTopology, self._parameters["Set-Membership constrained"], self._resampling_algorithm,
+			self._PEsTopology, self._parameters["Set-Membership constrained"], self._n_particles_per_PE,
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 		selective_gossip_exchange_recipe = smc.exchange_recipe.SelectiveGossipExchangeRecipe(
@@ -1143,21 +1146,21 @@ class MposteriorRevisited(Mposterior):
 
 		# ------------
 
-		# a distributed PF with DRNA
-		self._PFs.append(
-			distributed.TargetTrackingParticleFilterWithDRNA(
-				self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
-				self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
-				self._prior, self._transition_kernel, self._sensors,
-				self._everySensorWithEveryPEConnector.get_connections(self._nPEs)
-			)
-		)
-
-		# the estimator is the mean
-		self._estimators.append(smc.estimator.WeightedMean(self._PFs[-1]))
-
-		self._estimators_colors.append('black')
-		self._estimators_labels.append('DRNA exch. {}'.format(self._exchanged_particles))
+		# # a distributed PF with DRNA
+		# self._PFs.append(
+		# 	distributed.TargetTrackingParticleFilterWithDRNA(
+		# 		self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
+		# 		self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
+		# 		self._prior, self._transition_kernel, self._sensors,
+		# 		self._everySensorWithEveryPEConnector.get_connections(self._nPEs)
+		# 	)
+		# )
+		#
+		# # the estimator is the mean
+		# self._estimators.append(smc.estimator.WeightedMean(self._PFs[-1]))
+		#
+		# self._estimators_colors.append('black')
+		# self._estimators_labels.append('DRNA exch. {}'.format(self._exchanged_particles))
 
 		# ------------
 
@@ -1183,21 +1186,21 @@ class MposteriorRevisited(Mposterior):
 
 		# ------------
 
-		# # asynchronous DPF via decentralized
-		# self._PFs.append(
-		# 	distributed.TargetTrackingGaussianParticleFilter(
-		# 		self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
-		# 		self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-		# 		gaussian_exchange_recipe, self._parameters["Gaussian products"],
-		# 		PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
-		# 	)
-		# )
-		#
-		# # the estimator is the mean
-		# self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
-		#
-		# self._estimators_colors.append('magenta')
-		# self._estimators_labels.append('Gaussian')
+		# asynchronous DPF via decentralized
+		self._PFs.append(
+			distributed.TargetTrackingGaussianParticleFilter(
+				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
+				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+				gaussian_exchange_recipe, self._parameters["Gaussian products"],
+				PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
+			)
+		)
+
+		# the estimator is the mean
+		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
+
+		self._estimators_colors.append('magenta')
+		self._estimators_labels.append('Gaussian')
 
 		# ------------
 
@@ -1237,17 +1240,17 @@ class MposteriorRevisited(Mposterior):
 
 		# ------------
 
-		# # Selective gossip
-		# self._PFs.append(
-		# 	distributed.TargetTrackingSelectiveGossipParticleFilter(
-		# 		self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
-		# 		self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-		# 		selective_gossip_exchange_recipe, self._parameters["Selective Gossip"]
-		# 	)
-		# )
-		#
-		# # the estimator is the mean
-		# self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
-		#
-		# self._estimators_colors.append('brown')
-		# self._estimators_labels.append('Selective gossip')
+		# Selective gossip
+		self._PFs.append(
+			distributed.TargetTrackingSelectiveGossipParticleFilter(
+				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
+				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+				selective_gossip_exchange_recipe, self._parameters["Selective Gossip"]
+			)
+		)
+
+		# the estimator is the mean
+		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
+
+		self._estimators_colors.append('brown')
+		self._estimators_labels.append('Selective gossip')

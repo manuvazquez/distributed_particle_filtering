@@ -102,7 +102,8 @@
 	"Gaussian products": {
 		"initial_size_estimate": 1,
 		"size_estimate_alpha": 0.95,
-		"size_estimate_threshold": 1e-6
+		"size_estimate_threshold": 1e-6,
+		"assume_known_number_PEs": true
 	},
 
 	"Gaussian Mixtures": {

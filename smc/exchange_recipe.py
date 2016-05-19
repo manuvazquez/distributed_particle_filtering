@@ -1,12 +1,10 @@
 import collections
 import abc
-import copy
 import colorama
 import numpy as np
 import scipy
 import sklearn.mixture
 import scipy.stats
-
 
 import state
 import mposterior
@@ -536,7 +534,14 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 
 	def messages(self):
 
-		return np.NaN
+		# accumulator
+		res = 0
+
+		# "nu" is state.n_elements x 1, "Q" is state.n_elements x state.n_elements
+		# multiplying by 2 because PE #1 sends data to PE #2 and the other way around
+		res += (2 * (state.n_elements + state.n_elements**2)) * self.n_iterations
+
+		return res
 
 	def size_estimation(self, DPF):
 
@@ -748,10 +753,11 @@ class GaussianMixturesExchangeRecipe(ExchangeRecipe):
 
 class SetMembershipConstrainedExchangeRecipe(ExchangeRecipe):
 
-	def __init__(self, processing_elements_topology, ad_hoc_parameters, resampling_algorithm, PRNG):
+	def __init__(self, processing_elements_topology, ad_hoc_parameters, n_particles_per_PE, PRNG):
 
 		super().__init__(processing_elements_topology)
 
+		self._n_particles_per_PE = n_particles_per_PE
 		self._PRNG = PRNG
 
 		self._n_iterations_global_set_determination = ad_hoc_parameters["iterations for global set determination"]
@@ -761,6 +767,26 @@ class SetMembershipConstrainedExchangeRecipe(ExchangeRecipe):
 
 		# a list of lists in which each element yields the neighbors of a PE
 		self._neighborhoods = processing_elements_topology.get_neighbours()
+
+	def messages(self):
+
+		# the number of neighbors each PE has
+		n_neighbors = np.array([len(neigh) for neigh in self._neighborhoods])
+
+		# accumulator
+		res = 0
+
+		# global set determination
+		# REMARK: *2 is due to min/max gossip
+		res += (state.n_elements*2*n_neighbors).sum()*self._n_iterations_global_set_determination
+
+		# consensus on likelihood
+		res += (self._n_particles_per_PE * n_neighbors).sum() * self._n_iterations_likelihood_consensus
+
+		# max/min consensus
+		res += (self._n_particles_per_PE * n_neighbors * 2).sum() * self._n_iterations_max_min_likelihood_consensus
+
+		return res
 
 	def global_set_determination(self, DPF):
 
@@ -825,8 +851,6 @@ class SetMembershipConstrainedExchangeRecipe(ExchangeRecipe):
 			PE.loglikelihoods = estimate
 
 
-
-
 class SelectiveGossipExchangeRecipe(ExchangeRecipe):
 
 	def __init__(self, processing_elements_topology, ad_hoc_parameters, PRNG):
@@ -841,6 +865,31 @@ class SelectiveGossipExchangeRecipe(ExchangeRecipe):
 
 		# a list of lists in which each element yields the neighbors of a PE
 		self._neighborhoods = processing_elements_topology.get_neighbours()
+
+	def messages(self):
+
+		# accumulator
+		res = 0
+
+		# in order to consent on the first-stage weight
+		# =================================
+
+		# 2 (indexes and values) for PE #1 -> PE #2, 2 for PE #2 -> PE #1
+		# REMARK: this assumes the list os significant matches, otherwise a third transmission from #1 to #2 with the
+		# values that are significant for #2 but not for #1
+		res += self._n_components_selective_gossip * 4 * self._n_iterations_selective_gossip
+
+		# max-gossip
+		# REMARK: this assumes they all reached consensus on the correct indexes (no need to transmit them)
+		res += self._n_components_selective_gossip * 2 * self._n_iterations_max_gossip
+
+		# in order to consent on the actual weights
+		# =================================
+
+		# same operations
+		res *= 2
+
+		return res
 
 	def selective_and_max_gossip(self, DPF):
 

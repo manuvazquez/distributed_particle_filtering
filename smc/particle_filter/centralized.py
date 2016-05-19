@@ -406,11 +406,9 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 	def __init__(
 			self, n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
-			initial_size_estimate, aggregated_weight=1.0):
+			initial_size_estimate):
 
-		super().__init__(
-			n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
-			aggregated_weight)
+		super().__init__(n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors)
 
 		self.estimated_n_PEs = initial_size_estimate
 
