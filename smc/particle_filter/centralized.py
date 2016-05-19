@@ -51,10 +51,14 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		# every particle is updated (previous state is not stored...)
 		self._state = self._state_transition_kernel.next_state(self._state)
 
-		# TODO: this may cause a "divide by zero" warning when a likelihood is very small
 		# for each sensor, we compute the likelihood of EVERY particle (position)
-		loglikelihoods = np.log(np.array(
-			[sensor.likelihood(obs, state.to_position(self._state)) for sensor, obs in zip(self._sensors, observations)]))
+		likelihoods = np.array(
+			[sensor.likelihood(obs, state.to_position(self._state)) for sensor, obs in zip(self._sensors, observations)])
+
+		# in order to avoid floating point arithmetic issues
+		likelihoods += 1e-200
+
+		loglikelihoods = np.log(likelihoods)
 
 		# for each particle, we compute the product of the likelihoods for all the sensors
 		loglikelihoods_product = loglikelihoods.sum(axis=0)
@@ -457,11 +461,15 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# every particle is updated (previous state is not stored...)
 		self._state = self._state_transition_kernel.next_state(self._state[:, i_particles_resampled])
 
-		# TODO: this may cause a "divide by zero" warning when a likelihood is very small
 		# for each sensor, we compute the likelihood of EVERY particle (position)
-		loglikelihoods = np.log(np.array(
+		likelihoods = np.array(
 			[sensor.likelihood(obs, state.to_position(self._state)) for sensor, obs in
-			 zip(self._sensors, observations)]))
+			 zip(self._sensors, observations)])
+
+		# careful with floating point arithmetic issues
+		likelihoods += 1e-200
+
+		loglikelihoods = np.log(likelihoods)
 
 		# for each particle, we compute the product of the likelihoods for all the sensors
 		loglikelihoods_product = loglikelihoods.sum(axis=0)
@@ -694,8 +702,13 @@ class TargetTrackingSelectiveGossipParticleFilter(TargetTrackingParticleFilter):
 		auxiliar_state = self._state_transition_kernel.next_state(self._state)
 
 		# for each sensor, we compute the likelihood of EVERY particle (position)
-		loglikelihoods = np.log(np.array(
-			[sensor.likelihood(obs, state.to_position(auxiliar_state)) for sensor, obs in zip(self._sensors, observations)]))
+		likelihoods = np.array(
+			[sensor.likelihood(obs, state.to_position(auxiliar_state)) for sensor, obs in zip(self._sensors, observations)])
+
+		# careful with floating point arithmetic issues
+		likelihoods += 1e-200
+
+		loglikelihoods = np.log(likelihoods)
 
 		# for each particle we store the product of the likelihoods for all the sensors multiplied by the number of PEs
 		self.gamma = self._n_PEs*loglikelihoods.sum(axis=0)
@@ -724,8 +737,13 @@ class TargetTrackingSelectiveGossipParticleFilter(TargetTrackingParticleFilter):
 		self._state = self._state_transition_kernel.next_state(resampled)
 
 		# for each sensor, we compute the likelihood of EVERY particle (position)
-		loglikelihoods = np.log(np.array(
-			[sensor.likelihood(obs, state.to_position(self._state)) for sensor, obs in zip(self._sensors, observations)]))
+		likelihoods = np.array(
+			[sensor.likelihood(obs, state.to_position(self._state)) for sensor, obs in zip(self._sensors, observations)])
+
+		# careful with floating point arithmetic issues
+		likelihoods += 1e-200
+
+		loglikelihoods = np.log(likelihoods)
 
 		# for each particle we store the product of the likelihoods for all the sensors multiplied by the number of PEs
 		self.gamma = self._n_PEs*loglikelihoods.sum(axis=0)
