@@ -470,12 +470,6 @@ class TargetTrackingSetMembershipConstrainedParticleFilter(TargetTrackingParticl
 		# neither the particles nor the weights of any PE are modified here
 		super().step(observations)
 
-		# min = np.min([PE.bounding_box_min for PE in self._PEs], axis=0)
-		# max = np.max([PE.bounding_box_max for PE in self._PEs], axis=0)
-
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-
 		self.exchange_recipe.global_set_determination(self)
 
 		for PE, sensors_connections in zip(self._PEs, self._each_PE_required_sensors):
@@ -488,8 +482,6 @@ class TargetTrackingSetMembershipConstrainedParticleFilter(TargetTrackingParticl
 
 			PE.weight_update_step()
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
 
 # =========================================================================================================
 

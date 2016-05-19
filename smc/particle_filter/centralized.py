@@ -509,9 +509,7 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 			import pdb; pdb.set_trace()
 
 		# Q and nu are updated
-		# >= python 3.5 / numpy 1.10
-		# self._Q, self._nu = inv_covariance, inv_covariance @ mean
-		self._Q, self._nu = inv_covariance, np.dot(inv_covariance, mean)
+		self._Q, self._nu = inv_covariance, inv_covariance @ mean
 
 # =========================================================================================================
 
@@ -600,10 +598,6 @@ class TargetTrackingSetMembershipConstrainedParticleFilter(TargetTrackingParticl
 
 	def rejection_sampling(self, samples):
 
-		print('min/max')
-		print(self.bounding_box_min)
-		print(self.bounding_box_max)
-
 		# in order to avoid loops, each particle is replicated as many times as
 		n_replicas = self._n_repeats_rejection_sampling
 
@@ -642,9 +636,6 @@ class TargetTrackingSetMembershipConstrainedParticleFilter(TargetTrackingParticl
 		# the (approximation of the) normalization constant is the sum of the two of them
 		norm_constants = self._alpha*prob_within + prob_outside_but_accepted
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-
 		return propagated_particles, norm_constants
 
 	def actual_sampling_step(self, observations):
@@ -656,9 +647,6 @@ class TargetTrackingSetMembershipConstrainedParticleFilter(TargetTrackingParticl
 		# ...the resulting particles
 		self._state, self.norm_constants = self.rejection_sampling(self._state[:, i_sampled_particles])
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-
 		likelihoods = np.prod([sensor.likelihood(obs, state.to_position(self._state))
 		                       for sensor, obs in zip(self._sensors, observations)], axis=0)
 
@@ -667,21 +655,22 @@ class TargetTrackingSetMembershipConstrainedParticleFilter(TargetTrackingParticl
 
 		self.loglikelihoods = np.log(likelihoods)
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-
 	def weight_update_step(self):
 
+		# particles are in the right region?
 		belongs =self.belongs(self._state)
 
+		# the last term in the weights update equation
 		tentative_term = np.log(self._alpha * belongs.astype(float) + self._beta * (~belongs).astype(float))
 
+		# the new log-weights
 		self.log_weights = self.loglikelihoods + np.log(self.norm_constants) - tentative_term
-		self.update_aggregated_weight()
-		self.normalize_weights()
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
+		# the aggregated weight is updated...
+		self.update_aggregated_weight()
+
+		# ...to perform normalization
+		self.normalize_weights()
 
 
 # =========================================================================================================

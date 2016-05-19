@@ -242,6 +242,7 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 			# angle between the step to be taken and the horizontal line
 			angle = np.arccos(step[0, :] / np.linalg.norm(step, axis=0))
 
+			# in order to "fix" negative angles
 			angle[step[1, :] <= 0] = 2 * np.pi - angle[step[1, :] <= 0]
 
 			normal = np.empty((2, angle.shape[-1]))
@@ -274,7 +275,7 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 
 			# ...and the step, this one by computing the reflected ray using a formula involving the normal of the
 			# reflecting surface...
-			step = step_after_bounce - 2 * normal * np.diag(np.dot(normal.T, step_after_bounce))
+			step = step_after_bounce - 2 * normal * (normal * step_after_bounce).sum(axis=0)
 
 			tentative_new_pos[:, i_invalid] = previous_pos[:, i_invalid] + step
 

@@ -524,9 +524,7 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 			covariance = np.linalg.inv(PE._Q)
 
 			# ...and another for the *global* mean
-			# >= python 3.5 / numpy 1.10
-			# mean = covariance @ PE._nu
-			mean = np.dot(covariance, PE._nu)
+			mean = covariance @ PE._nu
 
 			# in case the covariance matrix is not positive semidefinite
 			try:
