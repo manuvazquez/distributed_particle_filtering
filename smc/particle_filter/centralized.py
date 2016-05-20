@@ -186,6 +186,8 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		# we forced this above
 		self._aggregated_weight = 1.0
 
+		# TODO: make sure the (natural units) weights add up to 1 exactly to avoid numerical issues?
+
 	# this methods encapsulates the parts within the code of "step" which are different in this class and its children
 	def avoid_weight_degeneracy(self):
 
@@ -752,6 +754,8 @@ class TargetTrackingSelectiveGossipParticleFilter(TargetTrackingParticleFilter):
 
 		state = self._state[:, self.i_significant]
 		weights = np.exp(self.gamma_postgossip)/self.ro[self.i_significant]
+
+		# TODO: add an epslion (1e-200) to the weights so that numerical issues don't arise?
 
 		weights /= weights.sum()
 

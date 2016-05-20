@@ -1187,7 +1187,7 @@ class MposteriorRevisited(Mposterior):
 		# ------------
 
 		for n_consensus_iter, color in zip(
-				[self._LCDPFsettings['number of consensus iterations'], 10, 5], ['brown', 'yellowgreen', 'fuchsia']):
+				[self._LCDPFsettings['number of consensus iterations']], ['brown', 'yellowgreen', 'fuchsia']):
 
 			likelihood_consensus_exchange_recipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(
 				self._PEsTopology, n_consensus_iter,
