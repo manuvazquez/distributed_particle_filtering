@@ -974,10 +974,10 @@ class Mposterior(SimpleSimulation):
 
 		for iTime in range(self._n_time_instants):
 
-			print('---------- iFrame = {}, iTime = {}'.format(self._i_current_frame, iTime))
+			print(colorama.Fore.LIGHTWHITE_EX + '---------- iFrame = {}, iTime = {}'.format(self._i_current_frame, iTime) + colorama.Style.RESET_ALL)
 
-			print('position:\n', target_position[:, iTime:iTime+1])
-			print('velocity:\n', target_velocity[:, iTime:iTime+1])
+			print(colorama.Fore.CYAN + 'position:\n' + colorama.Style.RESET_ALL, target_position[:, iTime:iTime+1])
+			print(colorama.Fore.YELLOW + 'velocity:\n' + colorama.Style.RESET_ALL, target_velocity[:, iTime:iTime+1])
 
 			# for every PF (different from estimator)...
 			for pf in self._PFs:
@@ -1146,43 +1146,67 @@ class MposteriorRevisited(Mposterior):
 
 		# ------------
 
-		# # a distributed PF with DRNA
-		# self._PFs.append(
-		# 	distributed.TargetTrackingParticleFilterWithDRNA(
-		# 		self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
-		# 		self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
-		# 		self._prior, self._transition_kernel, self._sensors,
-		# 		self._everySensorWithEveryPEConnector.get_connections(self._nPEs)
-		# 	)
-		# )
-		#
-		# # the estimator is the mean
-		# self._estimators.append(smc.estimator.WeightedMean(self._PFs[-1]))
-		#
-		# self._estimators_colors.append('black')
-		# self._estimators_labels.append('DRNA exch. {}'.format(self._exchanged_particles))
+		# a distributed PF with DRNA
+		self._PFs.append(
+			distributed.TargetTrackingParticleFilterWithDRNA(
+				self._settings_DRNA["exchange period"], drna_exchange_recipe, self._n_particles_per_PE,
+				self._settings_DRNA["normalization period"], self._resampling_algorithm, self._resampling_criterion,
+				self._prior, self._transition_kernel, self._sensors,
+				self._everySensorWithEveryPEConnector.get_connections(self._nPEs)
+			)
+		)
+
+		# the estimator is the mean
+		self._estimators.append(smc.estimator.WeightedMean(self._PFs[-1]))
+
+		self._estimators_colors.append('black')
+		self._estimators_labels.append('DRNA exch. {}'.format(self._exchanged_particles))
 
 		# ------------
 
-		# # DPF with M-posterior-based exchange within a certain depth
-		# self._PFs.append(
-		# 	distributed.TargetTrackingParticleFilterWithMposterior(
-		# 		mposterior_within_radius_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
-		# 		self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
-		# 		self._PEsSensorsConnections,
-		# 		self._MposteriorSettings['sharing period'])
-		# )
-		#
-		# self._estimators.append(smc.estimator.SinglePEMeansGeometricMedianWithinRadius(
-		# 	self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_exchange_step_depth,
-		# 	radius_lower_bound=self._mposterior_exchange_step_depth)
-		# )
-		#
-		# self._estimators_colors.append('khaki')
-		# self._estimators_labels.append(
-		# 	'M-posterior exch. {} - depth {} ({} hops, {} particle(s))'.format(
-		# 		self._exchanged_particles, self._mposterior_exchange_step_depth, self._mposterior_exchange_step_depth,
-		# 		self._mposterior_n_part_estimation))
+		# DPF with M-posterior-based exchange within a certain depth
+		self._PFs.append(
+			distributed.TargetTrackingParticleFilterWithMposterior(
+				mposterior_within_radius_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
+				self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
+				self._PEsSensorsConnections,
+				self._MposteriorSettings['sharing period'])
+		)
+
+		self._estimators.append(smc.estimator.SinglePEMeansGeometricMedianWithinRadius(
+			self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_exchange_step_depth,
+			radius_lower_bound=self._mposterior_exchange_step_depth)
+		)
+
+		self._estimators_colors.append('khaki')
+		self._estimators_labels.append(
+			'M-posterior exch. {} - depth {} ({} hops, {} particle(s))'.format(
+				self._exchanged_particles, self._mposterior_exchange_step_depth, self._mposterior_exchange_step_depth,
+				self._mposterior_n_part_estimation))
+
+		# ------------
+
+		for n_consensus_iter, color in zip(
+				[self._LCDPFsettings['number of consensus iterations'], 10, 5], ['brown', 'yellowgreen', 'fuchsia']):
+
+			likelihood_consensus_exchange_recipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(
+				self._PEsTopology, n_consensus_iter,
+				self._LCDPFsettings['degree of the polynomial approximation'])
+
+			# consensus
+			self._PFs.append(
+				distributed.LikelihoodConsensusTargetTrackingParticleFilter(
+					likelihood_consensus_exchange_recipe, self._nPEs, self._n_particles_per_PE, self._resampling_algorithm,
+					self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
+					self._PEsSensorsConnections, self._LCDPFsettings['degree of the polynomial approximation']
+					)
+			)
+
+			# the estimator just delegates the calculus of the estimate to one of the PEs
+			self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], 0))
+
+			self._estimators_colors.append(color)
+			self._estimators_labels.append('Likelihood Consensus DPF with {} iterations'.format(n_consensus_iter))
 
 		# ------------
 
