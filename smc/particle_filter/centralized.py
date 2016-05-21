@@ -188,6 +188,21 @@ class TargetTrackingParticleFilter(ParticleFilter):
 
 		# TODO: make sure the (natural units) weights add up to 1 exactly to avoid numerical issues?
 
+	def normalize_weights_and_update_aggregated(self):
+
+		weights = np.exp(self._log_weights)
+
+		# to avoid numerical issues/ the sum of the weights being 0
+		weights += 1e-200
+
+		weights /= weights.sum()
+
+		# normalization
+		self._log_weights = np.log(weights)
+
+		# this is enforced above
+		self._aggregated_weight = 1.0
+
 	# this methods encapsulates the parts within the code of "step" which are different in this class and its children
 	def avoid_weight_degeneracy(self):
 
@@ -479,11 +494,8 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# every likelihood is exponentiated by the estimate of the number of PEs
 		self._log_weights = loglikelihoods_product*self.estimated_n_PEs - np.log(predictions_likelihoods_product[i_particles_resampled])
 
-		# the aggregated weight is kept up to date at all times
-		self.update_aggregated_weight()
-
-		# normalization of the weights (that will be later used in "step")
-		self.normalize_weights()
+		# normalization
+		self.normalize_weights_and_update_aggregated()
 
 		# -------------------------
 
@@ -674,11 +686,8 @@ class TargetTrackingSetMembershipConstrainedParticleFilter(TargetTrackingParticl
 		# the new log-weights
 		self.log_weights = self.loglikelihoods + np.log(self.norm_constants) - tentative_term
 
-		# the aggregated weight is updated...
-		self.update_aggregated_weight()
-
-		# ...to perform normalization
-		self.normalize_weights()
+		# normalization
+		self.normalize_weights_and_update_aggregated()
 
 
 # =========================================================================================================
@@ -752,15 +761,16 @@ class TargetTrackingSelectiveGossipParticleFilter(TargetTrackingParticleFilter):
 
 	def weights_update_step(self):
 
-		state = self._state[:, self.i_significant]
+		significant_state = self._state[:, self.i_significant]
 		weights = np.exp(self.gamma_postgossip)/self.ro[self.i_significant]
 
-		# TODO: add an epslion (1e-200) to the weights so that numerical issues don't arise?
+		# to avoid numerical issues
+		weights += 1e-200
 
 		weights /= weights.sum()
 
 		# we resample from the set of *significant* particles
 		i_resampling = self._resampling_algorithm.get_indexes(weights, self.n_particles)
 
-		self._state = state[:, i_resampling]
+		self._state = significant_state[:, i_resampling]
 		self.weights = np.full(self.n_particles, 1/self.n_particles)

@@ -206,7 +206,7 @@
 			"implementing class": "RandomGeometricGraph",
 			"number of PEs": 9,
 			"parameters": {
-				"factor": 7.5
+				"factor": 15
 			}
 		}
 	},
