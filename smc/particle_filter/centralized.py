@@ -762,7 +762,9 @@ class TargetTrackingSelectiveGossipParticleFilter(TargetTrackingParticleFilter):
 	def weights_update_step(self):
 
 		significant_state = self._state[:, self.i_significant]
-		weights = np.exp(self.gamma_postgossip)/self.ro[self.i_significant]
+
+		# an epsilon is added in the denominator to avoid numerical issues
+		weights = np.exp(self.gamma_postgossip)/(self.ro[self.i_significant] + 1e-200)
 
 		# to avoid numerical issues
 		weights += 1e-200

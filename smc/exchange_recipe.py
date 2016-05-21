@@ -528,7 +528,7 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 			try:
 				PE.samples = self._PRNG.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T
 			except ValueError:
-				PE.samples = np.tile(mean[:,np.newaxis],(1,self._n_particles_per_PE))
+				PE.samples = np.tile(mean[:, np.newaxis], (1, self._n_particles_per_PE))
 
 			self._room.bind(PE.samples)
 
