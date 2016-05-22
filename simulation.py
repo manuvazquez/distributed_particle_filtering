@@ -165,12 +165,9 @@ class SimpleSimulation(Simulation):
 	def process_frame(self, target_position, target_velocity):
 		
 		super().process_frame(target_position, target_velocity)
-		
-		# observations for all the sensors at every time instant (each list)
-		# NOTE: conversion to float is done so that the observations (1 or 0) are amenable to be used in later computations
-		self._observations = [np.array(
-			[sens.detect(state.to_position(s[:, np.newaxis])) for sens in self._sensors], dtype=float
-		) for s in target_position.T]
+
+		# a call to the method in charge of "filling" self._observations
+		self.build_observations(target_position)
 		
 		# a reference to the "group" for the current frame (notice the prefix in the name given "self._h5py_prefix")...
 		self._h5_current_frame = self._f.create_group(
@@ -179,6 +176,15 @@ class SimpleSimulation(Simulation):
 		# ...where a new dataset is created for the "actual position" of the target...
 		self._h5_current_frame.create_dataset(
 			'actual position', shape=(2, self._n_time_instants), dtype=float, data=target_position)
+
+	def build_observations(self, target_position):
+
+		# observations for all the sensors at every time instant (each list)
+		# REMARK: conversion to float is done so that the observations (when 1 or 0) are amenable to be used in later
+		# computations
+		self._observations = [np.array(
+			[sens.detect(state.to_position(s[:, np.newaxis])) for sens in self._sensors], dtype=float
+		) for s in target_position.T]
 
 	def save_data(self, target_position):
 

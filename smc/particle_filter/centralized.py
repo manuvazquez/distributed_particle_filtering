@@ -462,18 +462,12 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 			[sensor.likelihood(obs, state.to_position(predictions)) for sensor, obs in
 			 zip(self._sensors, observations)])
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-
 		# + 1e-200 in order to avoid division by zero
 		predictions_likelihoods_product = predictions_likelihoods.prod(axis=0) + 1e-200
 
 		sampling_weights = predictions_likelihoods_product / predictions_likelihoods_product.sum()
 
 		i_particles_resampled = self._resampling_algorithm.get_indexes(sampling_weights)
-
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
 
 		# every particle is updated (previous state is not stored...)
 		self._state = self._state_transition_kernel.next_state(self._state[:, i_particles_resampled])
@@ -492,7 +486,8 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		loglikelihoods_product = loglikelihoods.sum(axis=0)
 
 		# every likelihood is exponentiated by the estimate of the number of PEs
-		self._log_weights = loglikelihoods_product*self.estimated_n_PEs - np.log(predictions_likelihoods_product[i_particles_resampled])
+		self._log_weights = loglikelihoods_product*self.estimated_n_PEs - np.log(
+			predictions_likelihoods_product[i_particles_resampled])
 
 		# normalization
 		self.normalize_weights_and_update_aggregated()
@@ -509,7 +504,7 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# code.interact(local=dict(globals(), **locals()))
 
 		# if the matrix is singular (this happens when a single particle accumulates most of the weight)
-		if np.isnan(np.linalg.cond(covariance)) or  np.linalg.cond(covariance) > (1 / sys.float_info.epsilon):
+		if np.isnan(np.linalg.cond(covariance)) or np.linalg.cond(covariance) > (1 / sys.float_info.epsilon):
 
 			# the (weighted) covariance matrix being zero does NOT mean there is no uncertainty about the random vector.
 			# On the contrary, it *most likely* means that ALL of the likelihoods are really small, which results in a
@@ -526,7 +521,8 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# it it's not possible (singular)...
 		except np.linalg.linalg.LinAlgError:
 
-			import pdb; pdb.set_trace()
+			# an epsilon is added to the diagonal of the covariance matrix
+			inv_covariance = np.linalg.inv(covariance + np.identity(covariance.shape[0])*1e-9)
 
 		# Q and nu are updated
 		self._Q, self._nu = inv_covariance, inv_covariance @ mean
