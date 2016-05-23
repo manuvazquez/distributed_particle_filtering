@@ -1180,14 +1180,14 @@ class MposteriorRevisited(Mposterior):
 		)
 
 		self._estimators.append(smc.estimator.SinglePEMeansGeometricMedianWithinRadius(
-			self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_exchange_step_depth,
+			self._PFs[-1], self._i_PE_estimation, self._PEsTopology, self._mposterior_estimator_radius[0],
 			radius_lower_bound=self._mposterior_exchange_step_depth)
 		)
 
 		self._estimators_colors.append('khaki')
 		self._estimators_labels.append(
 			'M-posterior exch. {} - depth {} ({} hops, {} particle(s))'.format(
-				self._exchanged_particles, self._mposterior_exchange_step_depth, self._mposterior_exchange_step_depth,
+				self._exchanged_particles, self._mposterior_exchange_step_depth, self._mposterior_estimator_radius[0],
 				self._mposterior_n_part_estimation))
 
 		# ------------

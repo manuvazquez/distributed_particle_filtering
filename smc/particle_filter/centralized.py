@@ -548,6 +548,7 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 			self._state = np.tile(mean[:, np.newaxis], (1, self.n_particles))
 
+		# the position of samples that fall outside the region are truncated
 		self._room.bind(self._state)
 
 
