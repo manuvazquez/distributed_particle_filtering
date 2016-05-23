@@ -16,7 +16,11 @@
 			"exchanged particles": 3,
 			"sensors-PEs connector": "sensors connected to the closest PEs",
 			"index of reference PE": 0,
-			"file name prefix for the estimation error vs time plot": "errorVsTime"
+			"file name prefix for the estimation error vs time plot": "errorVsTime",
+			"malfunctioning PEs": {
+				"3.14": [11,12,13,14,15],
+				"2.71": [51,52,53,54,55]
+			}
 		},
 		"Mposterior": {
 			"implementing class": "Mposterior",

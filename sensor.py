@@ -118,7 +118,11 @@ class RSSsensor(Sensor):
 
 		distance = np.linalg.norm((self.position - target_pos))
 
-		return self.likelihoodMean(distance) + self._pseudo_random_numbers_generator.randn()*self._noiseStd
+		return self.likelihoodMean(distance) + self.measurement_noise()
+
+	def measurement_noise(self):
+
+		return self._pseudo_random_numbers_generator.randn()*self._noiseStd
 
 	def likelihood(self, observation, positions):
 

@@ -4,6 +4,16 @@ import numpy as np
 import networkx
 
 
+def sensors_PEs_mapping(PEs_sensors_mapping):
+	n_sensors = sum([len(l) for l in PEs_sensors_mapping])
+
+	res = [
+		[i_PE for i_PE, PE_sensors in enumerate(PEs_sensors_mapping) if i_sensor in PE_sensors]
+		for i_sensor in range(n_sensors)]
+
+	# the list of lists is flattened before returning it
+	return [e for l in res for e in l]
+
 class SensorsPEsConnector(metaclass=abc.ABCMeta):
 	
 	def __init__(self, sensors_positions, PEs_positions=None, parameters=None):
@@ -18,7 +28,6 @@ class SensorsPEsConnector(metaclass=abc.ABCMeta):
 	def get_connections(self, n_PEs):
 		
 		return
-
 
 class EverySensorWithEveryPEConnector(SensorsPEsConnector):
 	

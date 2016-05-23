@@ -1112,6 +1112,47 @@ class MposteriorNumberOfParticlesForEstimation(Mposterior):
 
 class MposteriorRevisited(Mposterior):
 
+	def build_observations(self, target_position):
+
+		if "malfunctioning PEs" not in self._simulation_parameters:
+
+			super().build_observations(target_position)
+
+			return
+
+		# for convenience (notation)
+		sensor2PE = sensors_PEs_connector.sensors_PEs_mapping(self._PEsSensorsConnections)
+
+		# ...idem
+		failing_PEs = self._simulation_parameters["malfunctioning PEs"]
+
+		self._observations = []
+
+		for t, s in enumerate(target_position.T):
+
+			# a list with the observations for all the sensors at the current time instant
+			current_obs = []
+
+			for i_sens, sens in enumerate(self._sensors):
+
+				# the PE associated with this sensor
+				i_PE = str(sensor2PE[i_sens])
+
+				# if the PE is in the list *and* marked to fail at this specific time instant...
+				if (i_PE in failing_PEs) and (t in failing_PEs[i_PE]):
+
+					# print('t = {}, i_PE = {}'.format(t, i_PE))
+
+					# ...the method yielding just noise is called
+					current_obs.append(sens.measurement_noise())
+
+				else:
+
+					current_obs.append(sens.detect(state.to_position(s.reshape(-1,1))))
+
+			# all the observations for the current time instant are added to the final result
+			self._observations.append(np.array(current_obs))
+
 	def add_algorithms(self):
 		"""Adds the algorithms to be tested by this simulation, defining the required parameters.
 
