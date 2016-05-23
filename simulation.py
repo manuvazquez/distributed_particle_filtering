@@ -1221,8 +1221,8 @@ class MposteriorRevisited(Mposterior):
 			distributed.TargetTrackingGaussianParticleFilter(
 				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
 				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-				gaussian_exchange_recipe, self._parameters["Gaussian products"],
-				PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
+				gaussian_exchange_recipe, self._parameters["Gaussian products"], self._room,
+				PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"],
 			)
 		)
 

@@ -190,7 +190,9 @@ class UnboundedTransitionKernel(TransitionKernel):
 
 class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 	
-	def __init__(self, room, velocity_variance=0.5, noise_variance=0.1, step_duration=1, PRNG=np.random.RandomState()):
+	def __init__(
+			self, room, velocity_variance=0.5, noise_variance=0.1, step_duration=1, PRNG=np.random.RandomState(),
+			max_bounces=5):
 		
 		# the parent's constructor is called
 		super().__init__(room, velocity_variance, noise_variance, step_duration, PRNG)
@@ -198,6 +200,9 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 		# canonical vectors used in computations
 		self._iVector = np.array([[1.0], [0.0]])
 		self._jVector = np.array([[0.0], [1.0]])
+
+		# maximum number of bounces before giving up on unbounded positions
+		self._max_bounces = max_bounces
 
 	def next_state(self, state, PRNG=None):
 
@@ -216,6 +221,8 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 		# those positions that are NOT bounded before update are ignored below
 		i_bounded_before_update = self._room.belong(previous_pos)
 
+		n_bounces = 0
+
 		while True:
 
 			# the positions that need update are those that were bounded BEFORE the update and are not AFTERWARDS
@@ -223,7 +230,7 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 				np.logical_not(self._room.belong(tentative_new_pos)), i_bounded_before_update)
 			)[0]
 
-			if i_invalid.size == 0:
+			if (i_invalid.size == 0) or (n_bounces==self._max_bounces):
 
 				return np.vstack((tentative_new_pos, velocity))
 
@@ -283,6 +290,8 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 			# note that this only needs to be done in the last iteration of the while loop, but since the velocity
 			# is not used within the "else" part, it's not a problem
 			velocity[:, i_invalid] = step / np.linalg.norm(step) * np.linalg.norm(velocity[:, i_invalid])
+
+			n_bounces += 1
 
 
 class OnEdgeResetTransitionKernel(UnboundedTransitionKernel):

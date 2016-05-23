@@ -333,7 +333,7 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 	def __init__(
 			self, n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
-			sensors, each_PE_required_sensors, exchange_recipe, ad_hoc_parameters, PRNG):
+			sensors, each_PE_required_sensors, exchange_recipe, ad_hoc_parameters, room, PRNG):
 
 		super().__init__(
 			exchange_recipe.n_processing_elements, n_particles_per_PE, resampling_algorithm,
@@ -366,7 +366,7 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# the particle filters are built (each one associated with a different set of sensors)
 		self._PEs = [centralized.TargetTrackingGaussianParticleFilter(
 			n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
-			[sensors[iSensor] for iSensor in connections], initial_size_estimate
+			[sensors[iSensor] for iSensor in connections], initial_size_estimate, room, PRNG
 		) for connections in each_PE_required_sensors]
 
 	def initialize(self):
@@ -383,6 +383,10 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		super().step(observations)
 
 		self.exchange_recipe.perform_exchange(self)
+
+		for PE, sensors_connections in zip(self._PEs, self._each_PE_required_sensors):
+
+			PE.actual_sampling(observations[sensors_connections])
 
 # =========================================================================================================
 

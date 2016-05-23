@@ -486,7 +486,7 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 		# if no number of iterations is provided through the parameters file...
 		if "n_iterations" not in ad_hoc_parameters:
 
-			# ...the initial estimate is assumed to be...
+			# ...then it is determined by the (maybe estimated) number of PEs
 			# TODO: this assumes the actual number of PEs is known to *every* PE
 			self.n_iterations = 5*self._n_PEs**2
 
@@ -515,28 +515,6 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 			# average of the nus
 			DPF.PEs[i_PE]._nu = DPF.PEs[i_selected_neighbor]._nu\
 				= (DPF.PEs[i_PE]._nu + DPF.PEs[i_selected_neighbor]._nu) / 2
-
-		for PE in DPF.PEs:
-
-			# an estimate of (n times) the *global* covariance...
-			covariance = np.linalg.inv(PE._Q)
-
-			# ...and another for the *global* mean
-			mean = covariance @ PE._nu
-
-			try:
-
-				# FIXME: this is to induce an exception whenever the matrix is not positive definite
-				np.linalg.cholesky(covariance)
-
-				# actual sampling
-				PE.samples = self._PRNG.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T
-
-			except np.linalg.linalg.LinAlgError:
-
-				PE.samples = np.tile(mean[:, np.newaxis], (1, self._n_particles_per_PE))
-
-			self._room.bind(PE.samples)
 
 	def messages(self):
 

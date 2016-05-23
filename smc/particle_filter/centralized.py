@@ -427,11 +427,13 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 	def __init__(
 			self, n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
-			initial_size_estimate):
+			initial_size_estimate, room, PRNG):
 
 		super().__init__(n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors)
 
 		self.estimated_n_PEs = initial_size_estimate
+		self._room = room
+		self._PRNG = PRNG
 
 		# they will be set later
 		self._Q = None
@@ -455,7 +457,7 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		assert len(observations) == len(self._sensors)
 
 		# the particles are propagated with a *fake* RandomState that always returns 0's
-		predictions = self._state_transition_kernel.next_state(self._state)
+		predictions = self._state_transition_kernel.next_state(self._state, self._fake_random_state)
 
 		# for each sensor, we compute the likelihood of EVERY predicted particle (position)
 		predictions_likelihoods = np.array(
@@ -465,6 +467,7 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# + 1e-200 in order to avoid division by zero
 		predictions_likelihoods_product = predictions_likelihoods.prod(axis=0) + 1e-200
 
+		# first-stage weights in Auxiliary Particle Filter
 		sampling_weights = predictions_likelihoods_product / predictions_likelihoods_product.sum()
 
 		i_particles_resampled = self._resampling_algorithm.get_indexes(sampling_weights)
@@ -486,6 +489,7 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		loglikelihoods_product = loglikelihoods.sum(axis=0)
 
 		# every likelihood is exponentiated by the estimate of the number of PEs
+		# REMARK: exponentiating the argument of the logaritm is tantamount to multiplying the logarithm
 		self._log_weights = loglikelihoods_product*self.estimated_n_PEs - np.log(
 			predictions_likelihoods_product[i_particles_resampled])
 
@@ -499,9 +503,6 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 		# ...and (weighted) covariance
 		covariance = np.cov(self.samples, ddof=0, aweights=self.weights)
-
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
 
 		# if the matrix is singular (this happens when a single particle accumulates most of the weight)
 		if np.isnan(np.linalg.cond(covariance)) or np.linalg.cond(covariance) > (1 / sys.float_info.epsilon):
@@ -526,6 +527,29 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 		# Q and nu are updated
 		self._Q, self._nu = inv_covariance, inv_covariance @ mean
+
+	def actual_sampling(self, observations):
+
+		# an estimate of (n times) the *global* covariance...
+		covariance = np.linalg.inv(self._Q)
+
+		# ...and another for the *global* mean
+		mean = covariance @ self._nu
+
+		try:
+
+			# FIXME: this is to induce an exception whenever the matrix is not positive definite
+			np.linalg.cholesky(covariance)
+
+			# actual sampling
+			self._state = self._PRNG.multivariate_normal(mean, covariance, size=self.n_particles).T
+
+		except np.linalg.linalg.LinAlgError:
+
+			self._state = np.tile(mean[:, np.newaxis], (1, self.n_particles))
+
+		self._room.bind(self._state)
+
 
 # =========================================================================================================
 

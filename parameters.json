@@ -267,7 +267,9 @@
 		"type": "resetting target",
 		"bouncing target": {
 			"implementing class": "BouncingWithinRectangleTransitionKernel",
-			"parameters": {}
+			"parameters": {
+				"max_bounces": 5
+			}
 		},
 		"resetting target": {
 			"implementing class": "OnEdgeResetTransitionKernel",
