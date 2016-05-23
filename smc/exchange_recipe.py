@@ -524,10 +524,16 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 			# ...and another for the *global* mean
 			mean = covariance @ PE._nu
 
-			# in case the covariance matrix is not positive semidefinite
 			try:
+
+				# FIXME: this is to induce an exception whenever the matrix is not positive definite
+				np.linalg.cholesky(covariance)
+
+				# actual sampling
 				PE.samples = self._PRNG.multivariate_normal(mean, covariance, size=self._n_particles_per_PE).T
-			except ValueError:
+
+			except np.linalg.linalg.LinAlgError:
+
 				PE.samples = np.tile(mean[:, np.newaxis], (1, self._n_particles_per_PE))
 
 			self._room.bind(PE.samples)

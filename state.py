@@ -284,8 +284,6 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 			# is not used within the "else" part, it's not a problem
 			velocity[:, i_invalid] = step / np.linalg.norm(step) * np.linalg.norm(velocity[:, i_invalid])
 
-		return np.vstack((tentative_new_pos, velocity))
-
 
 class OnEdgeResetTransitionKernel(UnboundedTransitionKernel):
 	
