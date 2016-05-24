@@ -1,6 +1,7 @@
 import sys
 import numpy as np
 import scipy.stats
+import colorama
 
 import state
 from smc.particle_filter.particle_filter import ParticleFilter
@@ -438,6 +439,8 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# they will be set later
 		self._Q = None
 		self._nu = None
+		self._mean = None
+		self._covariance = None
 
 		# value of the elements in the diagonal of a covariance matrix that became 0
 		self._default_variance = 20
@@ -498,35 +501,35 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 		# -------------------------
 
-		# we compute the mean...
-		mean = (self.weights[np.newaxis, :] * self.samples).sum(axis=1)
+		# we compute the self._mean...
+		self._mean = (self.weights[np.newaxis, :] * self.samples).sum(axis=1)
 
-		# ...and (weighted) covariance
-		covariance = np.cov(self.samples, ddof=0, aweights=self.weights)
+		# ...and (weighted) self._covariance
+		self._covariance = np.cov(self.samples, ddof=0, aweights=self.weights)
 
 		# if the matrix is singular (this happens when a single particle accumulates most of the weight)
-		if np.isnan(np.linalg.cond(covariance)) or np.linalg.cond(covariance) > (1 / sys.float_info.epsilon):
+		if np.isnan(np.linalg.cond(self._covariance)) or np.linalg.cond(self._covariance) > (1 / sys.float_info.epsilon):
 
-			# the (weighted) covariance matrix being zero does NOT mean there is no uncertainty about the random vector.
+			# the (weighted) self._covariance matrix being zero does NOT self._mean there is no uncertainty about the random vector.
 			# On the contrary, it *most likely* means that ALL of the likelihoods are really small, which results in a
 			# single (arbitrary, due to numeric precision) weight concentrating all the mass (corresponding to the
 			# biggest likelihood that may be 10^-12...)
-			covariance += np.identity(state.n_elements)*self._default_variance
+			self._covariance += np.identity(state.n_elements)*self._default_variance
 
 		# we try...
 		try:
 
-			# ...to invert the covariance matrix
-			inv_covariance = np.linalg.inv(covariance)
+			# ...to invert the self._covariance matrix
+			inv_covariance = np.linalg.inv(self._covariance)
 
 		# it it's not possible (singular)...
 		except np.linalg.linalg.LinAlgError:
 
-			# an epsilon is added to the diagonal of the covariance matrix
-			inv_covariance = np.linalg.inv(covariance + np.identity(covariance.shape[0])*1e-9)
+			# an epsilon is added to the diagonal of the self._covariance matrix
+			inv_covariance = np.linalg.inv(self._covariance + np.identity(self._covariance.shape[0])*1e-9)
 
 		# Q and nu are updated
-		self._Q, self._nu = inv_covariance, inv_covariance @ mean
+		self._Q, self._nu = inv_covariance, inv_covariance @ self._mean
 
 	def actual_sampling(self, observations):
 
@@ -536,17 +539,50 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# ...and another for the *global* mean
 		mean = covariance @ self._nu
 
+		# we start assuming mean and covariance resulting from consensus are fine; if inverse covariance and transformed
+		# mean resulting from consensus are not trustworthy, then neither are the covariance and mean *computed from them*
+		invalid_mean_or_covariance = False
+
 		try:
 
-			# FIXME: this is to induce an exception whenever the matrix is not positive definite
-			np.linalg.cholesky(covariance)
-
-			# actual sampling
-			self._state = self._PRNG.multivariate_normal(mean, covariance, size=self.n_particles).T
+			# probability of the *global* mean conditional on the local mean
+			local_likelihood = scipy.stats.multivariate_normal.pdf(x=mean, mean=self._mean, cov=self._covariance)
 
 		except np.linalg.linalg.LinAlgError:
 
-			self._state = np.tile(mean[:, np.newaxis], (1, self.n_particles))
+			# the covariance matrix is not even a covariance matrix
+			invalid_mean_or_covariance = True
+
+		else:
+
+			print(local_likelihood)
+
+			# a sample (or mean) that cannot happen according to the local data should never have happened either
+			# according to the global data, and hence if it has, there must be something wrong with the consensus
+			if local_likelihood == 0:
+
+				invalid_mean_or_covariance = True
+
+		try:
+
+			# FIXME: this is to force an exception whenever the matrix is not positive definite...
+			np.linalg.cholesky(covariance)
+
+		except np.linalg.linalg.LinAlgError:
+
+			# ...in which case, the covariance is not valid
+			invalid_mean_or_covariance = True
+
+		# if we cannot trust the resulting mean and/or covariance...
+		if invalid_mean_or_covariance:
+
+			print(colorama.Fore.RED + 'using local mean and covariance...' + colorama.Style.RESET_ALL)
+
+			# ...we just use the local ones
+			mean = self._mean
+			covariance = self._covariance
+
+		self._state = self._PRNG.multivariate_normal(mean, covariance, size=self.n_particles).T
 
 		# the position of samples that fall outside the region are truncated
 		self._room.bind(self._state)

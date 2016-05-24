@@ -792,11 +792,6 @@ class SetMembershipConstrainedExchangeRecipe(ExchangeRecipe):
 
 	def consensus_on_likelihood(self, DPF):
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-
-		# np.array([PE.loglikelihoods for PE in DPF.PEs]).sum(axis=0)
-
 		# every row a PE, every column a particle
 		loglikelihoods = np.array([PE.loglikelihoods for PE in DPF.PEs])
 
@@ -806,10 +801,8 @@ class SetMembershipConstrainedExchangeRecipe(ExchangeRecipe):
 
 			for i_PE, (PE, neighbours) in enumerate(zip(DPF.PEs, self._neighborhoods)):
 
-				# import code
-				# code.interact(local=dict(globals(), **locals()))
-
-				loglikelihoods[i_PE, :] += self._mu*(loglikelihoods_copy[neighbours, :] - loglikelihoods[i_PE, :]).sum(axis=0)
+				loglikelihoods[i_PE, :] += self._mu*(
+					loglikelihoods_copy[neighbours, :] - loglikelihoods[i_PE, :]).sum(axis=0)
 
 		# initialization (every row a PE, every column a particle)
 		max_loglikelihoods = loglikelihoods.copy()
@@ -822,11 +815,13 @@ class SetMembershipConstrainedExchangeRecipe(ExchangeRecipe):
 
 			for i_PE, (PE, neighbours) in enumerate(zip(DPF.PEs, self._neighborhoods)):
 
-				max_loglikelihoods[i_PE, :] = np.vstack((max_loglikelihoods_copy[neighbours, :], max_loglikelihoods[i_PE, :])).max(axis=0)
-				min_loglikelihoods[i_PE, :] = np.vstack((min_loglikelihoods_copy[neighbours, :], min_loglikelihoods[i_PE, :])).min(axis=0)
+				max_loglikelihoods[i_PE, :] = np.vstack(
+					(max_loglikelihoods_copy[neighbours, :], max_loglikelihoods[i_PE, :])
+				).max(axis=0)
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
+				min_loglikelihoods[i_PE, :] = np.vstack(
+					(min_loglikelihoods_copy[neighbours, :], min_loglikelihoods[i_PE, :])
+				).min(axis=0)
 
 		sum_loglikelihoods_estimate = (max_loglikelihoods +  min_loglikelihoods)/2 * self._n_PEs
 
