@@ -555,8 +555,6 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 		else:
 
-			print(local_likelihood)
-
 			# a sample (or mean) that cannot happen according to the local data should never have happened either
 			# according to the global data, and hence if it has, there must be something wrong with the consensus
 			if local_likelihood == 0:
@@ -576,7 +574,7 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# if we cannot trust the resulting mean and/or covariance...
 		if invalid_mean_or_covariance:
 
-			print(colorama.Fore.RED + 'using local mean and covariance...' + colorama.Style.RESET_ALL)
+			print(type(self).__name__ + ': ' + colorama.Fore.RED + 'using local mean and covariance...' + colorama.Style.RESET_ALL)
 
 			# ...we just use the local ones
 			mean = self._mean

@@ -14,6 +14,7 @@ def sensors_PEs_mapping(PEs_sensors_mapping):
 	# the list of lists is flattened before returning it
 	return [e for l in res for e in l]
 
+
 class SensorsPEsConnector(metaclass=abc.ABCMeta):
 	
 	def __init__(self, sensors_positions, PEs_positions=None, parameters=None):
@@ -28,6 +29,7 @@ class SensorsPEsConnector(metaclass=abc.ABCMeta):
 	def get_connections(self, n_PEs):
 		
 		return
+
 
 class EverySensorWithEveryPEConnector(SensorsPEsConnector):
 	
@@ -76,9 +78,9 @@ class ProximityBasedConnector(SensorsPEsConnector):
 			(np.subtract(self._PEsPositions[:, :, np.newaxis], self._sensorsPositions[:, np.newaxis, :])**2).sum(axis=0))
 		
 		# for each sensor, the index of the PE which is closest to it
-		i_closest_PE_to_sensors = distances.argmin(axis=0)
+		i_closest_pe_to_sensors = distances.argmin(axis=0)
 		
-		return [list(np.where(i_closest_PE_to_sensors == iPE)[0]) for iPE in range(n_PEs)]
+		return [list(np.where(i_closest_pe_to_sensors == iPE)[0]) for iPE in range(n_PEs)]
 
 
 class ConstrainedProximityBasedConnector(ProximityBasedConnector):

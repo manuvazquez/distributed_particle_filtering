@@ -744,9 +744,12 @@ class SetMembershipConstrainedExchangeRecipe(ExchangeRecipe):
 		self._n_particles_per_PE = n_particles_per_PE
 		self._PRNG = PRNG
 
-		self._n_iterations_global_set_determination = ad_hoc_parameters["iterations for global set determination"]
+		# the "radius" of the network is half the maximum number of hops between any two PEs
+		network_radius = np.ceil(processing_elements_topology.distances_between_processing_elements.max() / 2).astype(int)
+
+		self._n_iterations_global_set_determination = network_radius
 		self._n_iterations_likelihood_consensus = ad_hoc_parameters["iterations for likelihood consensus"]
-		self._n_iterations_max_min_likelihood_consensus =  ad_hoc_parameters["iterations for likelihood max/min consensus"]
+		self._n_iterations_max_min_likelihood_consensus = network_radius
 		self._mu = ad_hoc_parameters["mu for likelihood consensus"]
 
 		# a list of lists in which each element yields the neighbors of a PE
@@ -773,9 +776,6 @@ class SetMembershipConstrainedExchangeRecipe(ExchangeRecipe):
 		return res
 
 	def global_set_determination(self, DPF):
-
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
 
 		# Max gossip
 		for _ in range(self._n_iterations_global_set_determination):
