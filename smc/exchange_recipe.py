@@ -27,6 +27,11 @@ class ExchangeRecipe(metaclass=abc.ABCMeta):
 		# for the sake of convenience, we keep the number of PEs...
 		self._n_PEs = processing_elements_topology.n_processing_elements
 
+		# the "radius" of the network is half the maximum number of hops between any two PEs
+		self._network_radius = np.ceil(
+			processing_elements_topology.distances_between_processing_elements.max() / 2
+		).astype(int)
+
 	def randomized_wakeup(self, n, PRNG):
 
 		# time elapsed between ticks of the PEs' clocks (each row is the tick of the corresponding PE)
@@ -744,12 +749,9 @@ class SetMembershipConstrainedExchangeRecipe(ExchangeRecipe):
 		self._n_particles_per_PE = n_particles_per_PE
 		self._PRNG = PRNG
 
-		# the "radius" of the network is half the maximum number of hops between any two PEs
-		network_radius = np.ceil(processing_elements_topology.distances_between_processing_elements.max() / 2).astype(int)
-
-		self._n_iterations_global_set_determination = network_radius
+		self._n_iterations_global_set_determination = self._network_radius
 		self._n_iterations_likelihood_consensus = ad_hoc_parameters["iterations for likelihood consensus"]
-		self._n_iterations_max_min_likelihood_consensus = network_radius
+		self._n_iterations_max_min_likelihood_consensus = self._network_radius
 		self._mu = ad_hoc_parameters["mu for likelihood consensus"]
 
 		# a list of lists in which each element yields the neighbors of a PE
@@ -840,7 +842,7 @@ class SelectiveGossipExchangeRecipe(ExchangeRecipe):
 
 		self._n_iterations_selective_gossip = ad_hoc_parameters["iterations for selective gossip"]
 		self._n_components_selective_gossip = ad_hoc_parameters["number of significant components for selective gossip"]
-		self._n_iterations_max_gossip = ad_hoc_parameters["iterations for max gossip"]
+		self._n_iterations_max_gossip = self._network_radius
 
 		# a list of lists in which each element yields the neighbors of a PE
 		self._neighborhoods = processing_elements_topology.get_neighbours()
