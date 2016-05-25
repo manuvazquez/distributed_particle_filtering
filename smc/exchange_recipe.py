@@ -747,9 +747,24 @@ class SetMembershipConstrainedExchangeRecipe(ExchangeRecipe):
 		self._n_particles_per_PE = n_particles_per_PE
 		self._PRNG = PRNG
 
-		self._n_iterations_global_set_determination = self._network_diameter
 		self._n_iterations_likelihood_consensus = ad_hoc_parameters["iterations for likelihood consensus"]
-		self._n_iterations_max_min_likelihood_consensus = self._network_diameter
+
+		if "iterations for global set determination" in ad_hoc_parameters:
+
+			self._n_iterations_global_set_determination = ad_hoc_parameters["iterations for global set determination"]
+
+		else:
+
+			self._n_iterations_global_set_determination = self._network_diameter
+
+		if "iterations for likelihood max/min consensus" in ad_hoc_parameters:
+
+			self._n_iterations_max_min_likelihood_consensus = ad_hoc_parameters[
+				"iterations for likelihood max/min consensus"]
+		else:
+
+			self._n_iterations_max_min_likelihood_consensus = self._network_diameter
+
 		self._mu = ad_hoc_parameters["mu for likelihood consensus"]
 
 		# a list of lists in which each element yields the neighbors of a PE
@@ -840,7 +855,14 @@ class SelectiveGossipExchangeRecipe(ExchangeRecipe):
 
 		self._n_iterations_selective_gossip = ad_hoc_parameters["iterations for selective gossip"]
 		self._n_components_selective_gossip = ad_hoc_parameters["number of significant components for selective gossip"]
-		self._n_iterations_max_gossip = self._network_diameter
+
+		if "iterations for max gossip" in ad_hoc_parameters:
+
+			self._n_iterations_max_gossip = ad_hoc_parameters["iterations for max gossip"]
+
+		else:
+
+			self._n_iterations_max_gossip = self._network_diameter
 
 		# a list of lists in which each element yields the neighbors of a PE
 		self._neighborhoods = processing_elements_topology.get_neighbours()
