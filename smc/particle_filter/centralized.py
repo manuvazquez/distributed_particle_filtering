@@ -543,23 +543,23 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# mean resulting from consensus are not trustworthy, then neither are the covariance and mean *computed from them*
 		invalid_mean_or_covariance = False
 
-		try:
-
-			# probability of the *global* mean conditional on the local mean
-			local_likelihood = scipy.stats.multivariate_normal.pdf(x=mean, mean=self._mean, cov=self._covariance)
-
-		except np.linalg.linalg.LinAlgError:
-
-			# the covariance matrix is not even a covariance matrix
-			invalid_mean_or_covariance = True
-
-		else:
-
-			# a sample (or mean) that cannot happen according to the local data should never have happened either
-			# according to the global data, and hence if it has, there must be something wrong with the consensus
-			if local_likelihood == 0:
-
-				invalid_mean_or_covariance = True
+		# try:
+		#
+		# 	# probability of the *global* mean conditional on the local mean
+		# 	local_likelihood = scipy.stats.multivariate_normal.pdf(x=mean, mean=self._mean, cov=self._covariance)
+		#
+		# except np.linalg.linalg.LinAlgError:
+		#
+		# 	# the covariance matrix is not even a covariance matrix
+		# 	invalid_mean_or_covariance = True
+		#
+		# else:
+		#
+		# 	# a sample (or mean) that cannot happen according to the local data should never have happened either
+		# 	# according to the global data, and hence if it has, there must be something wrong with the consensus
+		# 	if local_likelihood == 0:
+		#
+		# 		invalid_mean_or_covariance = True
 
 		try:
 
@@ -584,6 +584,9 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 		# the position of samples that fall outside the region are truncated
 		self._room.bind(self._state)
+
+		# weights must be reinitialized
+		self.weights = np.full(self.n_particles, 1 / self.n_particles)
 
 
 # =========================================================================================================
