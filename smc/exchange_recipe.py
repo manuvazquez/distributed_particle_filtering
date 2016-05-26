@@ -285,7 +285,7 @@ class MposteriorExchangeRecipe(DRNAExchangeRecipe):
 
 		self.weiszfeld_parameters = weiszfeld_parameters
 
-		self.i_own_particles_within_PEs = [np.random.randint(
+		self.i_own_particles_within_PEs = [PRNG.randint(
 			n_particles_per_processing_element, size=self.n_particles_exchanged_between_neighbours
 		) for _ in range(self._n_PEs)]
 
@@ -598,146 +598,6 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 		print('size_estimation: mean is {}'.format(np.array([PE.estimated_n_PEs for PE in DPF.PEs]).mean()))
 
 
-class GaussianMixturesExchangeRecipe(ExchangeRecipe):
-
-	def __init__(
-			self, processing_elements_topology, n_particles_per_PE, ad_hoc_parameters, resampling_algorithm, PRNG):
-
-		super().__init__(processing_elements_topology)
-
-		self._n_particles_per_PE = n_particles_per_PE
-		self._resampling_algorithm = resampling_algorithm
-
-		self._PRNG = PRNG
-
-		self._C = ad_hoc_parameters["number_of_components"]
-		self._n_particles_for_fusion = ad_hoc_parameters["number_of_particles_for_fusion"]
-		self._epsilon = ad_hoc_parameters["epsilon"]
-		self._convergence_threshold = ad_hoc_parameters["convergence_threshold"]
-		self._convergence_n_maximum_iterations = ad_hoc_parameters["convergence_n_maximum_iterations"]
-
-		self._neighbors = self._PEs_topology.get_neighbours()
-
-	def messages(self):
-
-		return np.NaN
-
-	def perform_exchange(self, DPF):
-
-		gaussian_mixtures = [self.learn(PE.samples.T, PE.weights) for PE in DPF.PEs]
-		predictive_gaussian_mixtures = [self.learn(PE.samples.T, PE.previous_weights) for PE in DPF.PEs]
-
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-
-		PE_has_converged = np.full(self._n_PEs, False, dtype=bool)
-		n_iterations_convergence = 0
-
-		while n_iterations_convergence < self._convergence_n_maximum_iterations and not np.all(PE_has_converged):
-
-			print('seeking convergence #{}...'.format(n_iterations_convergence))
-
-			for i_PE in range(self._n_PEs):
-
-				neighbors_gms = [gaussian_mixtures[i] for i in self._neighbors[i_PE]]
-
-				# gaussian_mixture_before_update = copy.deepcopy(gaussian_mixtures[i_PE])
-
-				gaussian_mixtures[i_PE] = self.fusion(gaussian_mixtures[i_PE], neighbors_gms)
-
-				# means_frob = np.linalg.norm(gaussian_mixtures[i_PE].means_ - gaussian_mixture_before_update.means_)
-
-				# print('difference for PE {} = {}'.format(i_PE, means_frob))
-
-				# PE_has_converged[i_PE] = means_frob < self._convergence_threshold
-
-			n_iterations_convergence += 1
-
-			# means = [g.means_ for g in gaussian_mixtures]
-			# covars = [g.covars_ for g in gaussian_mixtures]
-			# weights = [g.weights_ for g in gaussian_mixtures]
-			#
-			# import code
-			# code.interact(local=dict(globals(), **locals()))
-
-		if n_iterations_convergence < self._convergence_n_maximum_iterations:
-
-			print(colorama.Fore.GREEN + 'converged!!' + colorama.Style.RESET_ALL)
-
-		else:
-
-			print(colorama.Fore.RED + 'reached maximum number of iterations!!' + colorama.Style.RESET_ALL)
-
-		for i_PE in range(self._n_PEs):
-
-			recovered_gaussian_mixture = self.recovery(gaussian_mixtures[i_PE], predictive_gaussian_mixtures[i_PE])
-
-			DPF.PEs[i_PE].samples = recovered_gaussian_mixture.sample(self._n_particles_per_PE, self._PRNG).T
-			DPF.PEs[i_PE].weights = np.full(self._n_particles_per_PE, 1/self._n_particles_per_PE)
-
-	def learn(self, samples, weights):
-
-		i_resampled = self._resampling_algorithm.get_indexes(weights)
-
-		smallest_bic = np.infty
-		best_model = None
-		# n_components_best_model = None
-
-		for n_components in range(1, self._C + 1):
-
-			resulting_gm = sklearn.mixture.GMM(n_components, covariance_type='full', random_state=self._PRNG)
-			resulting_gm.fit(samples[i_resampled, :])
-
-			bic = resulting_gm.bic(samples[i_resampled, :])
-
-			if bic < smallest_bic:
-
-				smallest_bic = bic
-				best_model = resulting_gm
-				# n_components_best_model = n_components
-
-		# print('best number of components = {}'.format(n_components_best_model))
-
-		return best_model
-
-	def fusion(self, gaussian_mixture, neighbors_gaussian_mixtures):
-
-		# number of neighbors
-		N_k = len(neighbors_gaussian_mixtures)
-
-		samples = gaussian_mixture.sample(self._n_particles_for_fusion, self._PRNG)
-
-		# every column is a sample, every row a different GM
-		prob = np.vstack([np.exp(gm.score(samples)) for gm in [gaussian_mixture] + neighbors_gaussian_mixtures])
-
-		# first GM is associated with the PE performing the fusion
-		prob[0, :] **= -self._epsilon*N_k
-
-		# the rest of the PEs are the neighbors
-		prob[1:, :] **= self._epsilon
-
-		weights = prob.prod(axis=0) + 1e-200
-
-		weights /= weights.sum()
-
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-
-		return self.learn(samples, weights)
-
-	def recovery(self, gaussian_mixture, previous_gaussian_mixture):
-
-		samples = previous_gaussian_mixture.sample(self._n_particles_for_fusion, self._PRNG)
-
-		prob = np.vstack([np.exp(gm.score(samples)) for gm in [gaussian_mixture, previous_gaussian_mixture]])
-
-		weights = (prob[0, :]/prob[1, :])**self._n_PEs + 1e-200
-
-		weights /= weights.sum()
-
-		return self.learn(samples, weights)
-
-
 class SetMembershipConstrainedExchangeRecipe(ExchangeRecipe):
 
 	def __init__(self, processing_elements_topology, ad_hoc_parameters, n_particles_per_PE, PRNG):
@@ -953,3 +813,63 @@ class SelectiveGossipExchangeRecipe(ExchangeRecipe):
 
 			PE.gamma_postgossip = gamma[indexes]
 			PE.i_significant = indexes
+
+
+class PerfectConsensusGaussianExchangeRecipe(GaussianExchangeRecipe):
+
+	def messages(self):
+
+		return np.NaN
+
+	def perform_exchange(self, DPF):
+
+		# lists with all the Q's and nu's
+		Qs = [PE._Q for PE in DPF.PEs]
+		nus = [PE._nu for PE in DPF.PEs]
+
+		# the mean of each one is computed along the appropriate axis
+		mean_Q = np.stack(Qs, axis=2).mean(axis=2)
+		mean_nu = np.stack(nus, axis=1).mean(axis=1)
+
+		# the computed means are set within every PE
+		for PE in DPF.PEs:
+
+			PE._Q = mean_Q
+			PE._nu = mean_nu
+
+
+class PerfectSelectiveGossipExchangeRecipe(SelectiveGossipExchangeRecipe):
+
+	def messages(self):
+
+		return np.NaN
+
+	def selective_and_max_gossip(self, DPF):
+
+		# ------------------- selective Gossip ---------------------
+
+		# the gamma's obtained by every PE are collected in an array
+		# REMARK: every row is a different PE, every column a value
+		gammas = np.array([PE.gamma for PE in DPF.PEs])
+
+		# the indexes of the "self._n_components_selective_gossip" largest gammas in every PE
+		PEs_i_significant = np.argsort(gammas, axis=1)[:, -self._n_components_selective_gossip:]
+
+		# accumulator for the union
+		union = set()
+
+		for pe in PEs_i_significant:
+
+			union |= set(pe)
+
+		# the union of all the signficant indexes
+		i_significant = list(union)
+
+		# the mean of the corresponding gammas in every PE
+		gammas_means = gammas[:, i_significant].mean(axis=0)
+
+		# the result is stored within every PE
+		for PE in DPF.PEs:
+
+			PE.gamma_postgossip = gammas_means
+			PE.i_significant = i_significant

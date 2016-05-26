@@ -1162,13 +1162,6 @@ class MposteriorRevisited(Mposterior):
 			self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
-		mposterior_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
-			smc.exchange_recipe.SameParticlesMposteriorWithinRadiusExchangeRecipe(
-				self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
-				self._MposteriorSettings['findWeiszfeldMedian parameters'], 1,
-				PRNG=self._PRNGs["topology pseudo random numbers generator"]),
-			self._MposteriorSettings["number of iterations"])
-
 		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
 			smc.exchange_recipe.SameParticlesMposteriorWithinRadiusExchangeRecipe(
 					self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
@@ -1180,8 +1173,8 @@ class MposteriorRevisited(Mposterior):
 			self._PEsTopology, self._n_particles_per_PE, self._parameters["Gaussian products"], self._room,
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
-		gaussian_mixtures_exchange_recipe = smc.exchange_recipe.GaussianMixturesExchangeRecipe(
-			self._PEsTopology, self._n_particles_per_PE, self._parameters["Gaussian Mixtures"], self._resampling_algorithm,
+		perfect_gaussian_exchange_recipe = smc.exchange_recipe.PerfectConsensusGaussianExchangeRecipe(
+			self._PEsTopology, self._n_particles_per_PE, self._parameters["Gaussian products"], self._room,
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 		setmembership_constrained_exchange_recipe = smc.exchange_recipe.SetMembershipConstrainedExchangeRecipe(
@@ -1190,6 +1183,10 @@ class MposteriorRevisited(Mposterior):
 
 		selective_gossip_exchange_recipe = smc.exchange_recipe.SelectiveGossipExchangeRecipe(
 			self._PEsTopology, self._parameters["Selective Gossip"], self._PRNGs["topology pseudo random numbers generator"])
+
+		perfect_selective_gossip_exchange_recipe = smc.exchange_recipe.PerfectSelectiveGossipExchangeRecipe(
+			self._PEsTopology, self._parameters["Selective Gossip"],
+			self._PRNGs["topology pseudo random numbers generator"])
 
 		# ------------
 
@@ -1275,21 +1272,21 @@ class MposteriorRevisited(Mposterior):
 
 		# ------------
 
-		# # DPF via optimal fusion of Gaussian mixtures
-		# self._PFs.append(
-		# 	distributed.TargetTrackingGaussianMixtureParticleFilter(
-		# 		self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
-		# 		self._transition_kernel, self._sensors, self._PEsSensorsConnections,
-		# 		gaussian_mixtures_exchange_recipe, self._parameters["Gaussian Mixtures"],
-		# 		PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
-		# 	)
-		# )
-		#
-		# # the estimator is the mean
-		# self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
-		#
-		# self._estimators_colors.append('brown')
-		# self._estimators_labels.append('Gaussian Mixtures')
+		# asynchronous DPF via decentralized...with perfect consensus
+		self._PFs.append(
+			distributed.TargetTrackingGaussianParticleFilter(
+				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
+				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+				perfect_gaussian_exchange_recipe, self._parameters["Gaussian products"], self._room,
+				PRNG=self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"],
+			)
+		)
+
+		# the estimator is the mean
+		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
+
+		self._estimators_colors.append('red')
+		self._estimators_labels.append('Perfect Gaussian')
 
 		# ------------
 
@@ -1325,3 +1322,20 @@ class MposteriorRevisited(Mposterior):
 
 		self._estimators_colors.append('brown')
 		self._estimators_labels.append('Selective gossip')
+
+		# ------------
+
+		# Selective gossip with perfect consensus
+		self._PFs.append(
+			distributed.TargetTrackingSelectiveGossipParticleFilter(
+				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
+				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+				perfect_selective_gossip_exchange_recipe, self._parameters["Selective Gossip"]
+			)
+		)
+
+		# the estimator is the mean
+		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
+
+		self._estimators_colors.append('blue')
+		self._estimators_labels.append('Perfect Selective gossip')

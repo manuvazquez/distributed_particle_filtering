@@ -450,9 +450,11 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 	class FakeRandomState:
 
 		def __init__(self):
+
 			pass
 
 		def normal(self, mean, variance, size):
+
 			return np.zeros(size)
 
 	def step(self, observations):
@@ -501,10 +503,10 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 		# -------------------------
 
-		# we compute the self._mean...
+		# we compute the mean...
 		self._mean = (self.weights[np.newaxis, :] * self.samples).sum(axis=1)
 
-		# ...and (weighted) self._covariance
+		# ...and (weighted) covariance
 		self._covariance = np.cov(self.samples, ddof=0, aweights=self.weights)
 
 		# if the matrix is singular (this happens when a single particle accumulates most of the weight)
@@ -588,32 +590,6 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		# weights must be reinitialized
 		self.weights = np.full(self.n_particles, 1 / self.n_particles)
 
-
-# =========================================================================================================
-
-
-class TargetTrackingGaussianMixtureParticleFilter(TargetTrackingParticleFilter):
-
-	def __init__(
-			self, n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
-			aggregated_weight=1.0):
-
-		super().__init__(
-			n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors,
-			aggregated_weight)
-
-		self.previous_weights = None
-
-	# the same as in the parent class with no resampling
-	def avoid_weight_degeneracy(self):
-
-		self.normalize_weights()
-
-	def step(self, observations):
-
-		self.previous_weights = self.weights
-
-		super().step(observations)
 
 # =========================================================================================================
 

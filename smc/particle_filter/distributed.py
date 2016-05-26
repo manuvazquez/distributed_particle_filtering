@@ -388,39 +388,6 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 
 			PE.actual_sampling(observations[sensors_connections])
 
-# =========================================================================================================
-
-
-class TargetTrackingGaussianMixtureParticleFilter(TargetTrackingParticleFilter):
-
-	def __init__(
-			self, n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
-			sensors, each_PE_required_sensors, exchange_recipe, ad_hoc_parameters, PRNG):
-
-		super().__init__(
-			exchange_recipe.n_processing_elements, n_particles_per_PE, resampling_algorithm,
-			resampling_criterion, prior, state_transition_kernel, sensors, each_PE_required_sensors)
-
-		self.exchange_recipe = exchange_recipe
-		self._PRNG = PRNG
-
-		self._C = ad_hoc_parameters["number_of_components"]
-
-		# the particle filters are built (each one associated with a different set of sensors)
-		self._PEs = [centralized.TargetTrackingGaussianMixtureParticleFilter(
-			n_particles_per_PE, resampling_algorithm, resampling_criterion, prior, state_transition_kernel,
-			[sensors[iSensor] for iSensor in connections]
-		) for connections in each_PE_required_sensors]
-
-	def step(self, observations):
-
-		super().step(observations)
-
-		self.exchange_recipe.perform_exchange(self)
-
-	def messages(self, processing_elements_topology, each_processing_element_connected_sensors):
-
-		return np.NaN
 
 # =========================================================================================================
 
