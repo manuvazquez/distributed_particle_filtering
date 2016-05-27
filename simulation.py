@@ -1181,6 +1181,10 @@ class MposteriorRevisited(Mposterior):
 			self._PEsTopology, self._parameters["Set-Membership constrained"], self._n_particles_per_PE,
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
+		alt_setmembership_constrained_exchange_recipe = smc.exchange_recipe.SetMembershipConstrainedExchangeRecipe(
+			self._PEsTopology, self._parameters["Set-Membership constrained Alt."], self._n_particles_per_PE,
+			PRNG=self._PRNGs["topology pseudo random numbers generator"])
+
 		selective_gossip_exchange_recipe = smc.exchange_recipe.SelectiveGossipExchangeRecipe(
 			self._PEsTopology, self._parameters["Selective Gossip"], self._PRNGs["topology pseudo random numbers generator"])
 
@@ -1308,6 +1312,24 @@ class MposteriorRevisited(Mposterior):
 
 		# ------------
 
+		# Alternative (exchange with different parameters) Set-membership Constrained DPF
+		self._PFs.append(
+			distributed.TargetTrackingSetMembershipConstrainedParticleFilter(
+				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
+				self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+				alt_setmembership_constrained_exchange_recipe, self._parameters["Set-Membership constrained Alt."],
+				self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"]
+			)
+		)
+
+		# the estimator is the mean
+		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
+
+		self._estimators_colors.append('yellowgreen')
+		self._estimators_labels.append('Alt. Set-Membership constrained')
+
+		# ------------
+
 		# Selective gossip
 		self._PFs.append(
 			distributed.TargetTrackingSelectiveGossipParticleFilter(
@@ -1320,7 +1342,7 @@ class MposteriorRevisited(Mposterior):
 		# the estimator is the mean
 		self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1]))
 
-		self._estimators_colors.append('brown')
+		self._estimators_colors.append('fuchsia')
 		self._estimators_labels.append('Selective gossip')
 
 		# ------------

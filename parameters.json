@@ -119,6 +119,17 @@
 		"rejection sampling number of repetitions": 20000
 	},
 
+	"Set-Membership constrained Alt.": {
+		"over-sampling factor": 10,
+		"iterations for likelihood consensus": 5,
+		"iterations for global set determination": 4,
+		"iterations for likelihood max/min consensus": 4,
+		"mu for likelihood consensus": 0.1,
+		"beta_k": 0.001,
+		"alpha_k": 1,
+		"rejection sampling number of repetitions": 20000
+	},
+
 	"Selective Gossip": {
 		"iterations for selective gossip": 20,
 		"number of significant components for selective gossip": 3
