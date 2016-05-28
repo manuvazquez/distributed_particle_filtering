@@ -1154,9 +1154,7 @@ class MposteriorRevisited(Mposterior):
 			self._observations.append(np.array(current_obs))
 
 	def add_algorithms(self):
-		"""Adds the algorithms to be tested by this simulation, defining the required parameters.
-
-		"""
+		"""Adds the algorithms to be tested by this simulation, defining the required parameters."""
 
 		drna_exchange_recipe = smc.exchange_recipe.DRNAExchangeRecipe(
 			self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
@@ -1235,7 +1233,7 @@ class MposteriorRevisited(Mposterior):
 		# ------------
 
 		for n_consensus_iter, color in zip(
-				[self._LCDPFsettings['number of consensus iterations']], ['brown', 'yellowgreen', 'fuchsia']):
+				[self._LCDPFsettings['number of consensus iterations'], 75], ['brown', 'yellowgreen', 'fuchsia']):
 
 			likelihood_consensus_exchange_recipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(
 				self._PEsTopology, n_consensus_iter,
