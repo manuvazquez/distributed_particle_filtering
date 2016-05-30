@@ -289,7 +289,7 @@ class BouncingWithinRectangleTransitionKernel(UnboundedTransitionKernel):
 			# the direction of the velocity is updated according to the reflection that occurred in the trajectory
 			# note that this only needs to be done in the last iteration of the while loop, but since the velocity
 			# is not used within the "else" part, it's not a problem
-			velocity[:, i_invalid] = step / np.linalg.norm(step) * np.linalg.norm(velocity[:, i_invalid])
+			velocity[:, i_invalid] = step / np.linalg.norm(step, axis=0) * np.linalg.norm(velocity[:, i_invalid], axis=0)
 
 			n_bounces += 1
 
