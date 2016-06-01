@@ -24,8 +24,8 @@ class Rectangle:
 	def belong(self, positions):
 
 		return np.logical_and(
-			(positions > self._bottom_left_corner).all(axis=0),
-			(positions < self._top_right_corner).all(axis=0)
+			(positions >= self._bottom_left_corner).all(axis=0),
+			(positions <= self._top_right_corner).all(axis=0)
 		)
 
 	def bind(self, positions):
