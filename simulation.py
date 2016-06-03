@@ -1121,10 +1121,10 @@ class MposteriorRevisited(Mposterior):
 			return
 
 		# for convenience (notation)
-		sensor2PE = sensors_PEs_connector.sensors_PEs_mapping(self._PEsSensorsConnections)
+		sensor_to_proc_elem = sensors_PEs_connector.sensors_PEs_mapping(self._PEsSensorsConnections)
 
 		# ...idem
-		failing_PEs = self._simulation_parameters["malfunctioning PEs"]
+		failing_proc_elem = self._simulation_parameters["malfunctioning PEs"]
 
 		self._observations = []
 
@@ -1136,19 +1136,23 @@ class MposteriorRevisited(Mposterior):
 			for i_sens, sens in enumerate(self._sensors):
 
 				# the PE associated with this sensor
-				i_PE = str(sensor2PE[i_sens])
+				i_pe = str(sensor_to_proc_elem[i_sens])
 
 				# if the PE is in the list *and* marked to fail at this specific time instant...
-				if (i_PE in failing_PEs) and (t in failing_PEs[i_PE]):
-
-					# print('t = {}, i_PE = {}'.format(t, i_PE))
+				if (i_pe in failing_proc_elem) and (t in failing_proc_elem[i_pe]):
 
 					# ...the method yielding just noise is called
 					current_obs.append(sens.measurement_noise())
 
+					# # ...a large noise is added
+					# current_obs.append(
+					# 	sens.detect(state.to_position(s.reshape(-1, 1))) +
+					# 	self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"].randn()*np.sqrt(50)
+					# )
+
 				else:
 
-					current_obs.append(sens.detect(state.to_position(s.reshape(-1,1))))
+					current_obs.append(sens.detect(state.to_position(s.reshape(-1, 1))))
 
 			# all the observations for the current time instant are added to the final result
 			self._observations.append(np.array(current_obs))
