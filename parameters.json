@@ -20,7 +20,8 @@
 			"malfunctioning PEs": {
 				"3.14": [11,12,13,14,15],
 				"2.71": [51,52,53,54,55]
-			}
+			},
+			"malfunctioning PEs deed": "pure noise"
 		},
 		"Mposterior": {
 			"implementing class": "Mposterior",

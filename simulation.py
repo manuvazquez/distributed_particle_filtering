@@ -3,6 +3,7 @@ import numpy as np
 import scipy.io
 import colorama
 import h5py
+import re
 
 import smc.particle_filter.centralized as centralized
 import smc.particle_filter.distributed as distributed
@@ -1141,14 +1142,26 @@ class MposteriorRevisited(Mposterior):
 				# if the PE is in the list *and* marked to fail at this specific time instant...
 				if (i_pe in failing_proc_elem) and (t in failing_proc_elem[i_pe]):
 
-					# ...the method yielding just noise is called
-					current_obs.append(sens.measurement_noise())
+					if self._simulation_parameters["malfunctioning PEs deed"] == "pure noise":
 
-					# # ...a large noise is added
-					# current_obs.append(
-					# 	sens.detect(state.to_position(s.reshape(-1, 1))) +
-					# 	self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"].randn()*np.sqrt(50)
-					# )
+						# ...the method yielding just noise is called
+						current_obs.append(sens.measurement_noise())
+
+					elif re.match('additive noise with variance (\d+)', self._simulation_parameters["malfunctioning PEs deed"]):
+
+						m = re.match('additive noise with variance (\d+)', self._simulation_parameters["malfunctioning PEs deed"])
+
+						# ...a large noise is added
+						current_obs.append(
+							sens.detect(state.to_position(s.reshape(-1, 1))) +
+							self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"].randn()*np.sqrt(
+								float(m.group(1))
+							)
+						)
+
+					else:
+
+						raise Exception("unknown deed for malfunctioning PEs")
 
 				else:
 
