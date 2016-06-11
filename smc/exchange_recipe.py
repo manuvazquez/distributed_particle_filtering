@@ -526,7 +526,7 @@ class GaussianExchangeRecipe(ExchangeRecipe):
 
 		# "nu" is state.n_elements x 1, "Q" is state.n_elements x state.n_elements
 		# multiplying by 2 because PE #1 sends data to PE #2 and the other way around
-		res += (2 * (state.n_elements + state.n_elements**2)) * self.n_iterations
+		res += (2 * (state.n_elements + (state.n_elements**2 + state.n_elements)/2)) * self.n_iterations
 
 		return res
 
