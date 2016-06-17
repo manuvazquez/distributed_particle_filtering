@@ -27,9 +27,6 @@ class ExchangeRecipe(metaclass=abc.ABCMeta):
 		# for the sake of convenience, we keep the number of PEs...
 		self._n_PEs = processing_elements_topology.n_processing_elements
 
-		# the "radius" of the network is half the maximum number of hops between any two PEs
-		self._network_diameter = processing_elements_topology.distances_between_processing_elements.max()
-
 	def randomized_wakeup(self, n, PRNG):
 
 		# time elapsed between ticks of the PEs' clocks (each row is the tick of the corresponding PE)
@@ -609,6 +606,9 @@ class SetMembershipConstrainedExchangeRecipe(ExchangeRecipe):
 
 		self._n_iterations_likelihood_consensus = ad_hoc_parameters["iterations for likelihood consensus"]
 
+		# the "radius" of the network is half the maximum number of hops between any two PEs
+		self._network_diameter = processing_elements_topology.distances_between_processing_elements.max()
+
 		if "iterations for global set determination" in ad_hoc_parameters:
 
 			self._n_iterations_global_set_determination = ad_hoc_parameters["iterations for global set determination"]
@@ -715,6 +715,9 @@ class SelectiveGossipExchangeRecipe(ExchangeRecipe):
 
 		self._n_iterations_selective_gossip = ad_hoc_parameters["iterations for selective gossip"]
 		self._n_components_selective_gossip = ad_hoc_parameters["number of significant components for selective gossip"]
+
+		# the "radius" of the network is half the maximum number of hops between any two PEs
+		self._network_diameter = processing_elements_topology.distances_between_processing_elements.max()
 
 		if "iterations for max gossip" in ad_hoc_parameters:
 
