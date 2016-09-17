@@ -12,13 +12,22 @@ import signal
 import socket
 import pickle
 import argparse
+import importlib.util
 
 import region
 
+# the plot module from the appropriate directory is imported
+spec = importlib.util.spec_from_file_location(
+	'tiw.plot', os.path.join(os.environ['HOME'], 'python', 'manu', 'smc', 'resampling.py'))
+resampling = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(resampling)
+
 # keys used to identify the different pseudo random numbers generators
 # (they must coincide with those in the parameters file...)
-PRNGsKeys = ['Sensors and Monte Carlo pseudo random numbers generator',
-             'Trajectory pseudo random numbers generator', 'topology pseudo random numbers generator']
+PRNGsKeys = [
+	'Sensors and Monte Carlo pseudo random numbers generator',
+	'Trajectory pseudo random numbers generator',
+	'topology pseudo random numbers generator']
 
 # in order to clock the execution time...
 start_time = timeit.default_timer()
@@ -26,8 +35,9 @@ start_time = timeit.default_timer()
 # -------------------------------------------- arguments parser --------------------------------------------------------
 
 parser = argparse.ArgumentParser(description='Distributed Resampling with Non-proportional Allocation.')
-parser.add_argument('-r', '--reproduce', type=argparse.FileType('r'), dest='reproduce_filename',
-                    help='repeat the simulation given by the parameters file')
+parser.add_argument(
+	'-r', '--reproduce', type=argparse.FileType('r'), dest='reproduce_filename',
+	help='repeat the simulation given by the parameters file')
 
 # a different number of frames when re-running a simulation
 parser.add_argument('-n', '--new-number-of-frames', dest='new_n_frames', type=int)
@@ -78,7 +88,6 @@ if use_matplotlib_agg_backend:
 # they have been imported here and not at the very beginning
 import target
 import state
-from smc import resampling
 import simulation
 
 # the name of the machine running the program (supposedly, using the socket module gives rise to portable code)

@@ -734,7 +734,7 @@ class Mposterior(SimpleSimulation):
 	def add_algorithms(self):
 		
 		"""Adds the algorithms to be tested by this simulation, defining the required parameters.
-		
+
 		"""
 
 		drna_exchange_recipe = smc.exchange_recipe.DRNAExchangeRecipe(
