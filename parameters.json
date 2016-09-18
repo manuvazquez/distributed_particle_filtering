@@ -295,10 +295,7 @@
 		"file name prefix for the aggregated weights supremum vs time plot": "supremumVsTime",
 		"file name prefix for the MSE vs number of PEs plot": "MSEvsM",
 		"file name prefix for the euclidean distance vs number of PEs plot": "errorVsM",
-		"file name prefix for the aggregated weights supremum vs number of PEs plot": "supremumVsM",
-		"display evolution?": false,
-		"display particles evolution?": false,
-		"use display server if available?": false
+		"file name prefix for the aggregated weights supremum vs number of PEs plot": "supremumVsM"
 	},
 
 	"sensors-PEs connectors": {

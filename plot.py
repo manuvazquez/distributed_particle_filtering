@@ -417,7 +417,9 @@ class RoomPainter:
 		# if this is not the first update (i.e., there exists a previous position)...
 		if self._previousPosition is not None:
 			# ...plot the step taken
-			self._ax.plot(np.array([self._previousPosition[0],position[0]]),np.array([self._previousPosition[1],position[1]]),linestyle='-',color='red')
+			self._ax.plot(
+				np.array([self._previousPosition[0],position[0]]),
+				np.array([self._previousPosition[1],position[1]]), linestyle='-', color='red')
 		# if this is the first update...
 		else:
 			# ...just plot the position keeping the handler...
@@ -439,7 +441,9 @@ class RoomPainter:
 		# if this is not the first update (i.e., there exists a previous estimate)...
 		if identifier in self._previousEstimates:
 			# ...plot the step taken
-			self._ax.plot(np.array([self._previousEstimates[identifier][0],position[0]]),np.array([self._previousEstimates[identifier][1],position[1]]),linestyle='-',color=color)
+			self._ax.plot(
+				np.array([self._previousEstimates[identifier][0],position[0]]),
+				np.array([self._previousEstimates[identifier][1],position[1]]),linestyle='-', color=color)
 		# if this is the first update...
 		else:
 			# ...just plot the position keeping the handler...
@@ -489,13 +493,15 @@ class RectangularRoomPainter(RoomPainter):
 		self._roomTopRightCorner = roomTopRightCorner
 		self._roomDiagonalVector = self._roomTopRightCorner - self._roomBottomLeftCorner
 		
-	def setup(self,borderLineProperties={'color':'blue'},sensorsLineProperties = {'marker':'+','color':'red'}):
+	def setup(self, borderLineProperties={'color':'blue'}, sensorsLineProperties = {'marker':'+','color':'red'}):
 		
 		# let the parent class do its thing
 		super().setup(sensorsLineProperties=sensorsLineProperties)
 		
 		# we define a rectangular patch...
-		roomEdge = matplotlib.patches.Rectangle((self._roomBottomLeftCorner[0],self._roomBottomLeftCorner[1]), self._roomDiagonalVector[0], self._roomDiagonalVector[1], fill=False,**borderLineProperties)
+		roomEdge = matplotlib.patches.Rectangle(
+			(self._roomBottomLeftCorner[0], self._roomBottomLeftCorner[1]),
+			self._roomDiagonalVector[0], self._roomDiagonalVector[1], fill=False, **borderLineProperties)
 
 		# ...and added to the axes
 		self._ax.add_patch(roomEdge)
@@ -515,7 +521,10 @@ class TightRectangularRoomPainter(RectangularRoomPainter):
 		self._figure = plt.figure('Room',figsize=tuple(self._roomDiagonalVector//4))
 		self._ax = self._figure.add_axes((0,0,1,1))
 		
-	def setup(self,borderLineProperties={'color':'black','linewidth':4},sensorsLineProperties = {'marker':'x','color':(116/255,113/255,209/255),'markersize':10,'markeredgewidth':5}):
+	def setup(
+			self,
+			borderLineProperties={'color':'black','linewidth':4},
+			sensorsLineProperties = {'marker':'x','color':(116/255,113/255,209/255),'markersize':10,'markeredgewidth':5}):
 		
 		# let the parent class do its thing
 		super().setup(borderLineProperties=borderLineProperties,sensorsLineProperties=sensorsLineProperties)
@@ -544,7 +553,9 @@ class TightRectangularRoomPainterWithPEs(TightRectangularRoomPainter):
 		self._connections = connections
 		self._PEsPEsConnections = PEsPEsConnections
 	
-	def setup(self,borderLineProperties={'color':'black','linewidth':4},sensorsLineProperties = {'marker':'x','color':(116/255,113/255,209/255),'markersize':10,'markeredgewidth':5}):
+	def setup(
+			self, borderLineProperties={'color':'black','linewidth':4},
+			sensorsLineProperties = {'marker':'x','color':(116/255,113/255,209/255), 'markersize':10,'markeredgewidth':5}):
 		
 		super().setup(borderLineProperties=borderLineProperties,sensorsLineProperties=sensorsLineProperties)
 

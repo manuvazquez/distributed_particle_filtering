@@ -14,7 +14,6 @@ import drnautil
 import sensor
 import sensors_PEs_connector
 import state
-import plot
 import network_nodes
 
 
@@ -359,49 +358,6 @@ class Convergence(SimpleSimulation):
 		# FIXME: this method should only be called after completing a frame (never in the middle)
 		self._i_current_frame += 1
 
-		# the mean of the MSE incurred by both PFs
-		centralized_particle_filter_MSE = (
-			(self._centralizedPF_pos[:, :, :self._i_current_frame, :] - target_position[:, :, :self._i_current_frame, np.newaxis])**2
-		).mean(axis=0).mean(axis=1)
-		distributed_particle_filter_MSE = (
-			(self._distributedPF_pos[:, :, :self._i_current_frame, :] - target_position[:, :, :self._i_current_frame, np.newaxis])**2
-		).mean(axis=0).mean(axis=1)
-
-		# ...the same for the error (euclidean distance)
-		centralizedPF_error = np.sqrt(
-			((self._centralizedPF_pos[:, :, :self._i_current_frame, :] - target_position[:, :, :self._i_current_frame, np.newaxis])**2).sum(
-				axis=0)).mean(axis=1)
-		distributedPF_error = np.sqrt(
-			((self._distributedPF_pos[:, :, :self._i_current_frame, :] - target_position[:, :, :self._i_current_frame, np.newaxis])**2).sum(
-				axis=0)).mean(axis=1)
-
-		# MSE vs time (only the results for the first topology are plotted)
-		plot.distributed_against_centralized_particle_filter(
-			np.arange(self._n_time_instants), centralized_particle_filter_MSE[:, 0], distributed_particle_filter_MSE[:, 0],
-			output_file='{}_{}_nFrames={}.eps'.format(
-				self._settings_painter["file name prefix for the MSE vs time plot"], self._output_file, repr(self._i_current_frame)
-			), centralized_particle_filter_parameters={
-				'label': 'Centralized PF', 'color': self._settings_painter["color for the centralized PF"],
-				'marker': self._settings_painter["marker for the centralized PF"]
-			}, distributed_particle_filter_parameters={
-				'label': 'Distributed PF', 'color': self._settings_painter["color for the distributed PF"],
-				'marker': self._settings_painter["marker for the distributed PF"]
-			}, figure_id='MSE vs Time')
-
-		# distance vs time (only the results for the first topology are plotted)
-		plot.distributed_against_centralized_particle_filter(
-			np.arange(self._n_time_instants), centralizedPF_error[:, 0], distributedPF_error[:, 0],
-			output_file='{}_{}_nFrames={}.eps'.format(
-				self._settings_painter["file name prefix for the euclidean distance vs time plot"], self._output_file,
-				repr(self._i_current_frame)
-			), centralized_particle_filter_parameters={
-				'label': 'Centralized PF', 'color': self._settings_painter["color for the centralized PF"],
-				'marker': self._settings_painter["marker for the centralized PF"]
-			}, distributed_particle_filter_parameters={
-				'label': 'Distributed PF', 'color': self._settings_painter["color for the distributed PF"],
-				'marker': self._settings_painter["marker for the distributed PF"]
-			}, figure_id='Euclidean distance vs Time')
-
 		# the aggregated weights are normalized at ALL TIMES, for EVERY frame and EVERY topology
 		normalized_aggregated_weights = [
 			w[:, :, :self._i_current_frame] / w[:, :, :self._i_current_frame].sum(axis=1)[:, np.newaxis, :]
@@ -410,17 +366,6 @@ class Convergence(SimpleSimulation):
 		# ...the same data structured in a dictionary
 		dic_normalized_aggregated_weights = {
 			'normalizedAggregatedWeights_{}'.format(i): array for i, array in enumerate(normalized_aggregated_weights)}
-
-		# ...and the maximum weight, also at ALL TIMES and for EVERY frame, is obtained
-		max_weights = np.array(
-			[(w.max(axis=1)**self._settings_DRNA['q']).mean(axis=1) for w in normalized_aggregated_weights])
-
-		# evolution of the largest aggregated weight over time (only the results for the first topology are plotted)
-		plot.aggregated_weights_supremum_vs_time(
-			max_weights[0, :], self._aggregatedWeightsUpperBounds[0], '{}_{}_nFrames={}.eps'.format(
-				self._settings_painter["file name prefix for the aggregated weights supremum vs time plot"],
-				self._output_file, repr(self._i_current_frame)
-			), self._settings_DRNA["exchange period"])
 
 		# a dictionary encompassing all the data to be saved
 		data_to_be_saved = dict(
@@ -457,22 +402,6 @@ class Convergence(SimpleSimulation):
 			pf.initialize()
 			distributed_pf.initialize()
 
-			if self._settings_painter['display evolution?'] and self._settings_painter["use display server if available?"]:
-
-				# if this is not the first frame...
-				if self._painter:
-
-					# ...then, the previous figure is closed
-					self._painter.close()
-
-				# this object will handle graphics...
-				self._painter = plot.RectangularRoomPainter(
-					self._settings_room["bottom left corner"], self._settings_room["top right corner"],
-					self._sensorsPositions, sleepTime=self._settings_painter["sleep time between updates"])
-
-				# ...e.g., draw the sensors
-				self._painter.setup()
-
 			for iTime in range(self._n_time_instants):
 
 				print('---------- iFrame = {}, iTopology = {}, iTime = {}'.format(self._i_current_frame, iTopology, iTime))
@@ -499,21 +428,6 @@ class Convergence(SimpleSimulation):
 
 				print('centralized PF\n', centralizedPF_mean)
 				print('distributed PF\n', distributedPF_mean)
-
-				if self._settings_painter["display evolution?"] and self._settings_painter["use display server if available?"]:
-
-					# the plot is updated with the position of the target...
-					self._painter.updateTargetPosition(target_position[:, iTime:iTime+1])
-
-					# ...those estimated by the PFs
-					self._painter.updateEstimatedPosition(state.to_position(centralizedPF_mean), identifier='centralized', color=self._settings_painter["color for the centralized PF"])
-					self._painter.updateEstimatedPosition(state.to_position(distributedPF_mean), identifier='distributed', color=self._settings_painter["color for the distributed PF"])
-
-					if self._settings_painter["display particles evolution?"]:
-
-						# ...and those of the particles...
-						self._painter.updateParticlesPositions(state.to_position(pf.get_state()), identifier='centralized', color=self._settings_painter["color for the centralized PF"])
-						self._painter.updateParticlesPositions(state.to_position(distributed_pf.get_state()), identifier='distributed', color=self._settings_painter["color for the distributed PF"])
 
 			# data is saved
 			h5_estimated_pos = self._h5_current_frame.create_dataset(
@@ -635,15 +549,6 @@ class Mposterior(SimpleSimulation):
 		max_hops_number = self._PEsTopology.distances_between_processing_elements.max()
 
 		print('maximum number of hops between PEs = {}'.format(max_hops_number))
-
-		# ...are plot the connections between them
-		sensors_network_plot = plot.TightRectangularRoomPainterWithPEs(
-			self._settings_room["bottom left corner"], self._settings_room["top right corner"], self._sensorsPositions,
-			self._PEsPositions, self._PEsSensorsConnections, self._PEsTopology.get_neighbours(),
-			sleepTime=self._settings_painter["sleep time between updates"])
-
-		sensors_network_plot.setup()
-		sensors_network_plot.save(outputFile='network_topology_{}_PEs.pdf'.format(self._nPEs))
 
 		# ------------------ parameters to be used by add_algorithms
 
@@ -936,17 +841,6 @@ class Mposterior(SimpleSimulation):
 		scipy.io.savemat('res_' + self._output_file, data_to_be_saved)
 		print('results saved in "{}"'.format('res_' + self._output_file))
 		
-		# the mean of the error (euclidean distance) incurred by the PFs
-		pf_error = np.sqrt(
-			((self._estimated_pos[:, :, :self._i_current_frame, :] - target_position[:, :, :self._i_current_frame, np.newaxis]) ** 2).sum(
-				axis=0)).mean(axis=1)
-		
-		plot.particle_filters(
-			range(self._n_time_instants), pf_error,
-			self._simulation_parameters["file name prefix for the estimation error vs time plot"] +
-			'_' + self._output_file + '_nFrames={}.eps'.format(repr(self._i_current_frame)),
-			[{'label': l, 'color': c} for l, c in zip(self._estimators_labels, self._estimators_colors)])
-		
 		print(self._estimated_pos)
 		
 	def process_frame(self, target_position, target_velocity):
@@ -962,22 +856,6 @@ class Mposterior(SimpleSimulation):
 
 			# ...initialization
 			pf.initialize()
-
-		if self._settings_painter['display evolution?'] and self._settings_painter["use display server if available?"]:
-
-			# if this is not the first frame...
-			if self._painter:
-
-				# ...then, the previous figure is closed
-				self._painter.close()
-
-			# this object will handle graphics...
-			self._painter = plot.RectangularRoomPainter(
-				self._settings_room["bottom left corner"], self._settings_room["top right corner"], self._sensorsPositions,
-				sleepTime=self._settings_painter["sleep time between updates"])
-
-			# ...e.g., draw the self._sensors
-			self._painter.setup()
 
 		for iTime in range(self._n_time_instants):
 
@@ -1004,23 +882,6 @@ class Mposterior(SimpleSimulation):
 				estimated_pos[:, iTime:iTime+1, iEstimator] = current_estimated_pos
 
 				print('position estimated by {}\n'.format(label), self._estimated_pos[:, iTime:iTime + 1, self._i_current_frame, iEstimator])
-
-			if self._settings_painter["display evolution?"] and self._settings_painter["use display server if available?"]:
-
-				# the plot is updated with the position of the target...
-				self._painter.updateTargetPosition(target_position[:, iTime:iTime+1])
-
-				# ...those estimated by the PFs
-				for iEstimator, (pf, color) in enumerate(zip(self._estimators, self._estimators_colors)):
-
-					self._painter.updateEstimatedPosition(
-							self._estimated_pos[:, iTime:iTime + 1, self._i_current_frame, iEstimator],
-						identifier='#{}'.format(iEstimator), color=color)
-
-					if self._settings_painter["display particles evolution?"]:
-
-						self._painter.updateParticlesPositions(
-							state.to_position(pf.get_state()), identifier='#{}'.format(iEstimator), color=color)
 
 		# the results (estimated positions) are saved
 		self._h5_current_frame.create_dataset(

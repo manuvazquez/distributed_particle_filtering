@@ -15,12 +15,14 @@ import argparse
 import importlib.util
 
 import region
+import target
+import state
+import simulation
 
-# the plot module from the appropriate directory is imported
-spec = importlib.util.spec_from_file_location(
-	'tiw.plot', os.path.join(os.environ['HOME'], 'python', 'manu', 'smc', 'resampling.py'))
-resampling = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(resampling)
+sys.path.append(os.path.join(os.environ['HOME'], 'python'))
+
+import manu.util
+import manu.smc.resampling
 
 # keys used to identify the different pseudo random numbers generators
 # (they must coincide with those in the parameters file...)
@@ -75,29 +77,7 @@ settings_state_transition = parameters["state transition"]
 # for the particle filters: type of simulation and the corresponding parameters
 settings_simulation = parameters['simulations']
 
-# we use the "agg" backend if the DISPLAY variable is not present
-# (the program is running without a display server) or the parameters file says so
-use_matplotlib_agg_backend = ('DISPLAY' not in os.environ) or (
-	not parameters["painter"]["use display server if available?"])
-
-if use_matplotlib_agg_backend:
-	import matplotlib
-	matplotlib.use('agg')
-
-# some of this modules also import matplotlib.pyplot, and since this should be done AFTER calling "matplotlib.use",
-# they have been imported here and not at the very beginning
-import target
-import state
-import simulation
-
-# the name of the machine running the program (supposedly, using the socket module gives rise to portable code)
-hostname = socket.gethostname()
-
-# date and time
-date = time.strftime("%a_%Y-%m-%d_%H:%M:%S")
-
-# output data file
-output_file = hostname + '_' + date + '_' + str(os.getpid())
+output_file = manu.util.filename_from_host_and_date()
 
 # how numpy arrays are printed on screen is specified here
 np.set_printoptions(precision=3, linewidth=300)
@@ -246,12 +226,12 @@ transitionKernel = getattr(state, settings_transition_kernel['implementing class
 # ------------------------------------------------ SMC stuff -----------------------------------------------------------
 
 # a resampling algorithm...
-resampling_algorithm = resampling.MultinomialResamplingAlgorithm(
+resampling_algorithm = manu.smc.resampling.MultinomialResamplingAlgorithm(
 	PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ...and a resampling criterion are needed for the particle filters
-# resampling_criterion = resampling.EffectiveSampleSizeBasedResamplingCriterion(parameters["SMC"]["resampling ratio"])
-resampling_criterion = resampling.AlwaysResamplingCriterion()
+# resampling_criterion = manu.smc.resampling.EffectiveSampleSizeBasedResamplingCriterion(parameters["SMC"]["resampling ratio"])
+resampling_criterion = manu.smc.resampling.AlwaysResamplingCriterion()
 
 # -------------------------------------------------- other stuff  ------------------------------------------------------
 
@@ -317,11 +297,3 @@ elapsed_time = end_time - start_time
 
 # a "timedelta" object is used to conveniently format the seconds
 print('Execution time: {}'.format(datetime.timedelta(seconds=elapsed_time)))
-
-# ----------------------------------------------------------------------------------------------------------------------
-
-# if using the agg backend (no pictures shown), there is no point in bringing up the interactive prompt before exiting
-if not use_matplotlib_agg_backend:
-
-	import code
-	code.interact(local=dict(globals(), **locals()))
