@@ -2,22 +2,23 @@
 
 import numpy as np
 import json
-import time
 import timeit
 import datetime
 import sys
 import os
 import copy
 import signal
-import socket
 import pickle
 import argparse
-import importlib.util
 
 import region
 import target
 import state
-import simulation
+
+import simulations.drna
+import simulations.mposterior
+
+simulation_modules = [simulations.drna, simulations.mposterior]
 
 sys.path.append(os.path.join(os.environ['HOME'], 'python'))
 
@@ -242,7 +243,21 @@ target_position = np.empty((2, n_time_instants, parameters["number of frames"]))
 mobile = target.Target(prior, transitionKernel, pseudo_random_numbers_generator=PRNGs["Trajectory pseudo random numbers generator"])
 
 # the class of the "simulation" object to be created...
-simulation_class = getattr(simulation, settings_simulation[parameters['simulation type']]['implementing class'])
+simulation_class = None
+
+for m in simulation_modules:
+
+	try:
+
+		simulation_class = getattr(m, settings_simulation[parameters['simulation type']]['implementing class'])
+
+	except AttributeError:
+
+		pass
+
+if not simulation_class:
+
+	raise Exception("don't know about that simulation")
 
 # ...is used to instantiate the latter
 sim = simulation_class(parameters, room, resampling_algorithm, resampling_criterion, prior, transitionKernel, output_file, PRNGs)

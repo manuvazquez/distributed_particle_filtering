@@ -1,4 +1,3 @@
-import abc
 import numpy as np
 import scipy.io
 import colorama
@@ -10,481 +9,53 @@ import smc.particle_filter.distributed as distributed
 import smc.exchange_recipe
 import smc.estimator
 import PEs_topology
-import drnautil
-import sensor
 import sensors_PEs_connector
 import state
-import network_nodes
+import simulations.base
 
 
-class Simulation(metaclass=abc.ABCMeta):
-	
-	@abc.abstractmethod
+class MultipleMposterior(simulations.base.Simulation):
 	def __init__(
 			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators):
 
-		self._parameters = parameters
-		self._room = room
-		
-		# these parameters are kept for later use
-		self._resampling_algorithm = resampling_algorithm
-		self._resampling_criterion = resampling_criterion
-		self._prior = prior
-		self._transition_kernel = transition_kernel
-		self._PRNGs = pseudo_random_numbers_generators
-		
-		# number of particles per processing element (PE)
-		self._n_particles_per_PE = parameters["number of particles per PE"]
-		
-		# length of the trajectory
-		self._n_time_instants = parameters["number of time instants"]
-		
-		# name of the file to store the results
-		self._output_file = output_file
-		
-		# parameters related to plotting
-		self._settings_painter = parameters["painter"]
-		
-		# room  dimensions
-		self._settings_room = parameters["room"]
-		
-		# the settings for the topology or topologies given...if it is a list...
-		if isinstance(parameters['topologies types'], list):
-			# ...we have a list of settings
-			self._settings_topologies = [parameters['topologies'][i] for i in parameters['topologies types']]
-		# otherwise...
-		else:
-			# the "topology settings" object is just a dictionary
-			self._settings_topologies = parameters['topologies'][parameters['topologies types']]
-		
-		# so that it equals 0 the first time it is incremented...
-		self._i_current_frame = -1
-		
-		# the parameters for this particular simulation are obtained
-		self._simulation_parameters = parameters['simulations'][parameters['simulation type']]
-		
-	@abc.abstractmethod
-	def process_frame(self, target_position, target_velocity):
-		
-		self._i_current_frame += 1
-	
-	# TODO: remove target_position as argument?
-	
-	@abc.abstractmethod
-	def save_data(self, target_position):
-
-		if self._i_current_frame == 0:
-			print('save_data: still in the first frame...maybe nothing will be saved')
-
-
-class SimpleSimulation(Simulation):
-	
-	def __init__(
-			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
-			pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements=None, n_sensors=None):
-		
-		super().__init__(
-			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
-			pseudo_random_numbers_generators)
-
-		# for saving the data in HDF5
-		self._h5py_file = h5py_file
-		self._h5py_prefix = h5py_prefix
-
-		# if a reference to an HDF5 file was not received...
-		if h5py_file is None:
-
-			# ...a new HDF5 file is created
-			self._f = h5py.File('res_' + self._output_file + '.hdf5', 'w', driver='core', libver='latest')
-
-		# otherwise...
-		else:
-
-			# the value received is assumed to be a reference to an already open file
-			self._f = self._h5py_file
-
-		# for the sake of convenience
-		sensors_settings = parameters["sensors"]
-
-		if n_sensors is None:
-			
-			n_sensors = parameters["number of sensors"]
-		
-		if n_processing_elements is None:
-
-			# we try to extract the "number of PEs" from the topology settings...
-			try:
-				
-				n_processing_elements = self._settings_topologies['number of PEs']
-			
-			# ...it it's not possible, it is because there are multiple topology settings => Convergence simulation
-			except TypeError:
-				
-				# n_PEs = None
-				pass
-		
-		# for the sake of convenience below...
-		network_nodes_settings = parameters['network nodes'][self._simulation_parameters['network']]
-		network_nodes_class = getattr(network_nodes, network_nodes_settings['implementing class'])
-		
-		# the appropriate class is instantiated with the given parameters
-		self._network = network_nodes_class(
-			self._settings_room["bottom left corner"], self._settings_room["top right corner"], n_processing_elements,
-			n_sensors, **network_nodes_settings['parameters'])
-		
-		# the positions of the PEs and the sensors are collected from the network just built
-		self._sensors_positions, self._PEs_positions = self._network.sensors_positions, self._network.PEs_positions
-		
-		# the class to be instantiated is figured out from the settings for that particular sensor type
-		sensor_class = getattr(sensor, sensors_settings[parameters['sensors type']]['implementing class'])
-		
-		self._sensors = [sensor_class(
-			pos[:, np.newaxis],
-			pseudo_random_numbers_generator=pseudo_random_numbers_generators[
-				'Sensors and Monte Carlo pseudo random numbers generator'],
-			**sensors_settings[parameters['sensors type']]['parameters']
-		) for pos in self._sensors_positions.T]
-
-		self._f.create_dataset(
-			self._h5py_prefix + 'room/bottom left corner',
-			parameters['room']['bottom left corner'].shape, data=parameters['room']['bottom left corner'])
-
-		self._f.create_dataset(
-			self._h5py_prefix + 'room/top right corner',
-			parameters['room']['top right corner'].shape, data=parameters['room']['top right corner'])
-
-		# these are going to be set/used by other methods
-		self._observations = None
-		self._h5_current_frame = None
-
-	def process_frame(self, target_position, target_velocity):
-		
-		super().process_frame(target_position, target_velocity)
-
-		# a call to the method in charge of "filling" self._observations
-		self.build_observations(target_position)
-		
-		# a reference to the "group" for the current frame (notice the prefix in the name given "self._h5py_prefix")...
-		self._h5_current_frame = self._f.create_group(
-			self._h5py_prefix + 'frames/{}'.format(self._i_current_frame))
-		
-		# ...where a new dataset is created for the "actual position" of the target...
-		self._h5_current_frame.create_dataset(
-			'actual position', shape=(2, self._n_time_instants), dtype=float, data=target_position)
-
-	def build_observations(self, target_position):
-
-		# observations for all the sensors at every time instant (each list)
-		# REMARK: conversion to float is done so that the observations (when 1 or 0) are amenable to be used in later
-		# computations
-		self._observations = [np.array(
-			[sens.detect(state.to_position(s[:, np.newaxis])) for sens in self._sensors], dtype=float
-		) for s in target_position.T]
-
-	def save_data(self, target_position):
-
-		super().save_data(target_position)
-
-		# if a reference to an HDF5 was not received, that means the file was created by this object,
-		# and hence it is responsible of closing it...
-		if self._h5py_file is None:
-
-			# ...in order to make sure the HDF5 file is valid...
-			self._f.close()
-
-	def save_this_frame_pseudo_random_numbers_generators(self, pseudo_random_numbers_generators):
-
-		self.save_pseudo_random_numbers_generators_in_hdf5_group(pseudo_random_numbers_generators, self._h5_current_frame)
-
-	def save_initial_pseudo_random_numbers_generators(self, pseudo_random_numbers_generators):
-
-		self.save_pseudo_random_numbers_generators_in_hdf5_group(pseudo_random_numbers_generators, self._f)
-
-	@staticmethod
-	def save_pseudo_random_numbers_generators_in_hdf5_group(pseudo_random_numbers_generators, group):
-
-		for key, value in pseudo_random_numbers_generators.items():
-
-			prng_state = value.get_state()
-
-			group.create_dataset(
-				'pseudo random numbers generators/{}/1'.format(key), shape=(1,), dtype=h5py.special_dtype(vlen=str))
-			group['pseudo random numbers generators/{}/1'.format(key)][0] = 'MT19937'
-
-			group.create_dataset(
-				'pseudo random numbers generators/{}/2'.format(key), shape=prng_state[1].shape, dtype=np.uint,
-				data=prng_state[1])
-			group.create_dataset(
-				'pseudo random numbers generators/{}/3'.format(key), shape=(1,), dtype=int, data=prng_state[2])
-			group.create_dataset(
-				'pseudo random numbers generators/{}/4'.format(key), shape=(1,), dtype=int, data=prng_state[3])
-			group.create_dataset(
-				'pseudo random numbers generators/{}/5'.format(key), shape=(1,), dtype=float, data=prng_state[4])
-
-	@staticmethod
-	def pseudo_random_numbers_generators_from_file(filename, i_frame=None):
-
-		if i_frame:
-			path_within_file = 'frames/{}/pseudo random numbers generators'.format(i_frame)
-		else:
-			path_within_file = 'pseudo random numbers generators'
-
-		with h5py.File(filename, 'r') as data_file:
-
-			prngs = data_file[path_within_file]
-
-			res = {}
-
-			for p in prngs:
-
-				state = [None]*5
-
-				state[0] = prngs[p]['1'][0]
-				state[1] = prngs[p]['2'][...]
-				state[2] = prngs[p]['3'][0]
-				state[3] = prngs[p]['4'][0]
-				state[4] = prngs[p]['5'][0]
-
-				res[p] = np.random.RandomState()
-				res[p].set_state(tuple(state))
-
-		return res
-
-
-class Convergence(SimpleSimulation):
-
-	@staticmethod
-	def parse_hdf5(data_file):
-
-		n_state, n_time_instants, n_algorithms = data_file['frames/0/topology/0/estimated position'].shape
-		n_topologies = len(data_file['frames/0/topology'])
-		n_frames = len(data_file['frames'])
-
-		estimated_position = np.empty((n_state, n_time_instants, n_algorithms, n_frames, n_topologies))
-
-		for i_frame, frame in enumerate(data_file['frames']):
-
-			for i_topology, topology in enumerate(data_file['frames/{}/topology'.format(i_frame)]):
-				estimated_position[..., i_frame, i_topology] = data_file[
-					'frames/{}/topology/{}/estimated position'.format(i_frame, i_topology)]
-
-		actual_position = np.concatenate(
-			[data_file['frames/{}/actual position'.format(i)][...][..., np.newaxis] for i in data_file['frames']],
-			axis=2)
-
-		return actual_position, estimated_position
-
-	def __init__(
-			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
-			pseudo_random_numbers_generators, h5py_file=None, h5py_prefix=''):
-
-		# let the super class do its thing...
-		super().__init__(
-			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
-			pseudo_random_numbers_generators, h5py_file, h5py_prefix)
-
-		# DRNA-related settings
-		self._settings_DRNA = parameters["DRNA"]
-
-		topologies = [getattr(PEs_topology, t['implementing class'])(
-			t['number of PEs'], t['parameters']) for t in self._settings_topologies]
-
-		exchange_recipes = [smc.exchange_recipe.DRNAExchangeRecipe(
-			t, self._n_particles_per_PE, self._simulation_parameters["exchanged particles"],
-			PRNG=self._PRNGs["topology pseudo random numbers generator"]) for t in topologies]
-
-		# we compute the upper bound for the supremum of the aggregated weights that should guarantee convergence
-		self._aggregatedWeightsUpperBounds = [drnautil.supremum_upper_bound(
-			t['number of PEs'], self._settings_DRNA['c'], self._settings_DRNA['q'], self._settings_DRNA['epsilon']
-		) for t in self._settings_topologies]
-
-		# plain non-parallelized particle filter
-		self._PFsForTopologies = [centralized.TargetTrackingParticleFilter(
-			self._n_particles_per_PE*t.n_processing_elements, resampling_algorithm, resampling_criterion, prior,
-			transition_kernel, self._sensors) for t in topologies]
-
-		PEs_sensors_requirements = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensors_positions)
-
-		# distributed particle filter
-		self._distributedPFsForTopologies = [distributed.TargetTrackingParticleFilterWithDRNA(
-			self._settings_DRNA["exchange period"], e, self._n_particles_per_PE, self._settings_DRNA["normalization period"],
-			resampling_algorithm, resampling_criterion, prior, transition_kernel, self._sensors,
-			PEs_sensors_requirements.get_connections(e.n_processing_elements)) for e in exchange_recipes]
-
-		# ------------------------------------------ metrics initialization --------------------------------------------
-
-		# we store the aggregated weights...
-		self._distributedPFaggregatedWeights = [np.empty(
-			(self._n_time_instants, t.n_processing_elements, parameters["number of frames"])
-		) for t in topologies]
-
-		# ...and the position estimates
-		self._centralizedPF_pos = np.empty((2, self._n_time_instants, parameters["number of frames"], len(topologies)))
-		self._distributedPF_pos = np.empty((2, self._n_time_instants, parameters["number of frames"], len(topologies)))
-
-		# HDF5
-
-		# the names of the algorithms are also stored
-		h5_algorithms_names = self._f.create_dataset(
-			self._h5py_prefix + 'algorithms/names', shape=(2,), dtype=h5py.special_dtype(vlen=str))
-		h5_algorithms_names[0] = 'Centralized PF'
-		h5_algorithms_names[1] = 'Distributed PF'
-
-		# the colors
-		h5_algorithms_colors = self._f.create_dataset(
-			self._h5py_prefix + 'algorithms/plot/colors', shape=(2,), dtype=h5py.special_dtype(vlen=str))
-		h5_algorithms_colors[0] = self._settings_painter["color for the centralized PF"]
-		h5_algorithms_colors[1] = self._settings_painter["color for the distributed PF"]
-
-		# markers
-		h5_algorithms_markers = self._f.create_dataset(
-			self._h5py_prefix + 'algorithms/plot/markers', shape=(2,), dtype=h5py.special_dtype(vlen=str))
-		h5_algorithms_markers[0] = self._settings_painter["marker for the centralized PF"]
-		h5_algorithms_markers[1] = self._settings_painter["marker for the distributed PF"]
-
-		# saving of the aggregated weights upper bounds for each topology
-		self._f.create_dataset(
-			self._h5py_prefix + 'upper bounds for the aggregated weights', shape=(len(self._settings_topologies),),
-			data=self._aggregatedWeightsUpperBounds)
-
-	def save_data(self, target_position):
-
-		# let the super class do its thing...
-		super().save_data(target_position)
-
-		# so that the last frame is also saved
-		# FIXME: this method should only be called after completing a frame (never in the middle)
-		self._i_current_frame += 1
-
-		# the aggregated weights are normalized at ALL TIMES, for EVERY frame and EVERY topology
-		normalized_aggregated_weights = [
-			w[:, :, :self._i_current_frame] / w[:, :, :self._i_current_frame].sum(axis=1)[:, np.newaxis, :]
-			for w in self._distributedPFaggregatedWeights]
-
-		# ...the same data structured in a dictionary
-		dic_normalized_aggregated_weights = {
-			'normalizedAggregatedWeights_{}'.format(i): array for i, array in enumerate(normalized_aggregated_weights)}
-
-		# a dictionary encompassing all the data to be saved
-		data_to_be_saved = dict(
-				aggregatedWeightsUpperBounds=self._aggregatedWeightsUpperBounds,
-				targetPosition=target_position[:, :, :self._i_current_frame],
-				centralizedPF_pos=self._centralizedPF_pos[:, :, :self._i_current_frame, :],
-				distributedPF_pos=self._distributedPF_pos[:, :, :self._i_current_frame, :],
-				**dic_normalized_aggregated_weights
-			)
-
-		# data is saved
-		scipy.io.savemat('res_' + self._output_file, data_to_be_saved)
-		print('results saved in "{}"'.format('res_' + self._output_file))
-
-		# the above fix is undone
-		self._i_current_frame -= 1
-
-	def process_frame(self, target_position, target_velocity):
-
-		# let the super class do its thing...
-		super().process_frame(target_position, target_velocity)
-
-		for iTopology, (pf, distributed_pf) in enumerate(zip(self._PFsForTopologies, self._distributedPFsForTopologies)):
-
-			n_PEs = self._settings_topologies[iTopology]['number of PEs']
-
-			# the last dimension is for the number of algorithms (centralized and distributed)
-			estimated_pos = np.full((state.n_elements_position, self._n_time_instants, 2), np.nan)
-
-			aggregated_weights = np.full((self._n_time_instants, n_PEs), np.nan)
-
-			# initialization of the particle filters
-			pf.initialize()
-			distributed_pf.initialize()
-
-			for iTime in range(self._n_time_instants):
-
-				print('---------- iFrame = {}, iTopology = {}, iTime = {}'.format(self._i_current_frame, iTopology, iTime))
-
-				print('position:\n', target_position[:, iTime:iTime+1])
-				print('velocity:\n', target_velocity[:, iTime:iTime+1])
-
-				# particle filters are updated
-				pf.step(self._observations[iTime])
-				distributed_pf.step(self._observations[iTime])
-
-				# the mean computed by the centralized and distributed PFs
-				centralizedPF_mean, distributedPF_mean = pf.compute_mean(), distributed_pf.compute_mean()
-
-				estimated_pos[:, iTime:iTime+1, 0] = state.to_position(centralizedPF_mean)
-				estimated_pos[:, iTime:iTime+1, 1] = state.to_position(distributedPF_mean)
-
-				self._centralizedPF_pos[:, iTime:iTime+1, self._i_current_frame, iTopology] = state.to_position(centralizedPF_mean)
-				self._distributedPF_pos[:, iTime:iTime+1, self._i_current_frame, iTopology] = state.to_position(distributedPF_mean)
-
-				# the aggregated weights of the different PEs in the distributed PF are stored
-				self._distributedPFaggregatedWeights[iTopology][iTime, :, self._i_current_frame] = distributed_pf.aggregated_weights
-				aggregated_weights[iTime, :] = distributed_pf.aggregated_weights
-
-				print('centralized PF\n', centralizedPF_mean)
-				print('distributed PF\n', distributedPF_mean)
-
-			# data is saved
-			h5_estimated_pos = self._h5_current_frame.create_dataset(
-				'topology/{}/estimated position'.format(iTopology), shape=estimated_pos.shape, dtype=float,
-				data=estimated_pos)
-
-			h5_estimated_pos.attrs['M'] = n_PEs
-
-			self._h5_current_frame.create_dataset(
-				'topology/{}/DPF aggregated weights'.format(iTopology), aggregated_weights.shape, dtype=float,
-				data=aggregated_weights)
-
-
-class MultipleMposterior(Simulation):
-	
-	def __init__(
-			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
-			pseudo_random_numbers_generators):
-		
 		# let the super class do its thing...
 		super().__init__(
 			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators)
-		
+
 		# HDF5 output file
 		self._f = h5py.File('res_' + self._output_file + '.hdf5', 'w')
-		
+
 		# we will build several "Mposterior" objects...
 		self._simulations = []
-		
+
 		# ...and each one will have a different set of sensors
 		self._sensors = []
-		
+
 		# for every pair nPEs-nSensors we aim to simulate...
 		for (nPEs, nSensors) in self._simulation_parameters["nPEs-nSensors pairs"]:
-			
 			self._simulations.append(Mposterior(
 				parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 				pseudo_random_numbers_generators, self._f, '{} PEs,{} sensors/'.format(nPEs, nSensors), nPEs, nSensors))
 
 	def process_frame(self, target_position, target_velocity):
-		
+
 		# let the super class do its thing...
 		super().process_frame(target_position, target_velocity)
-		
+
 		for sim in self._simulations:
-		
 			sim.process_frame(target_position, target_velocity)
-		
+
 	def save_data(self, target_position):
-		
+
 		# let the super class do its thing...
 		super().save_data(target_position)
-		
+
 		self._f.close()
 
 
-class Mposterior(SimpleSimulation):
-
+class Mposterior(simulations.base.SimpleSimulation):
 	@staticmethod
 	def parse_hdf5(data_file, prefix=''):
 
@@ -500,18 +71,18 @@ class Mposterior(SimpleSimulation):
 		actual_position = np.empty((n_state, n_time_instants, n_frames))
 
 		for i_frame, frame in enumerate(h5_frames):
-
 			estimated_position[..., i_frame] = h5_frames['{}/estimated position'.format(frame)]
 			actual_position[..., i_frame] = h5_frames['{}/actual position'.format(frame)]
 
 		return actual_position, estimated_position, n_frames
-	
+
 	# TODO: a method of the object is called from within "__init__" (allowed in python...but weird)
-	
+
 	def __init__(
 			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
-			pseudo_random_numbers_generators, h5py_file=None, h5py_prefix='', n_processing_elements=None, n_sensors=None):
-		
+			pseudo_random_numbers_generators, h5py_file=None, h5py_prefix='', n_processing_elements=None,
+			n_sensors=None):
+
 		# let the super class do its thing...
 		super().__init__(
 			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
@@ -519,10 +90,10 @@ class Mposterior(SimpleSimulation):
 
 		# DRNA-related settings
 		self._settings_DRNA = parameters["DRNA"]
-		
+
 		self._MposteriorSettings = parameters['Mposterior']
 		self._LCDPFsettings = parameters['Likelihood Consensus']
-		
+
 		# if the number of PEs is not received...
 		if n_processing_elements is None:
 			# ...it is looked up in "parameters"
@@ -530,17 +101,20 @@ class Mposterior(SimpleSimulation):
 		# otherwise...
 		else:
 			self._nPEs = n_processing_elements
-		
+
 		# a connector that connects every sensor to every PE
-		self._everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensors_positions)
-		
+		self._everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(
+			self._sensors_positions)
+
 		# the settings for the selected "sensors-PES connector"
 		settings_sensors_PEs_connector = parameters['sensors-PEs connectors'][
 			self._simulation_parameters['sensors-PEs connector']]
-		
+
 		# ...are used to build a connector, from which the links between PEs and sensors are obtained
-		self._PEsSensorsConnections = getattr(sensors_PEs_connector, settings_sensors_PEs_connector['implementing class'])(
-			self._sensors_positions, self._PEs_positions, settings_sensors_PEs_connector['parameters']).get_connections(self._nPEs)
+		self._PEsSensorsConnections = getattr(sensors_PEs_connector,
+		                                      settings_sensors_PEs_connector['implementing class'])(
+			self._sensors_positions, self._PEs_positions, settings_sensors_PEs_connector['parameters']).get_connections(
+			self._nPEs)
 
 		# network topology, which describes the connection among PEs, as well as the exact particles exchanged/shared
 		self._PEsTopology = getattr(PEs_topology, self._settings_topologies['implementing class'])(
@@ -572,7 +146,7 @@ class Mposterior(SimpleSimulation):
 		self._mposterior_n_part_estimation = parameters["Mposterior"]["number of particles from each PE for estimation"]
 
 		# -----------------------------------------------------------
-		
+
 		# the lists of PFs, estimators, colors and labels are initialized...
 		self._PFs = []
 		self._estimators = []
@@ -586,14 +160,15 @@ class Mposterior(SimpleSimulation):
 		# ============================================================================================
 
 		# the position estimates
-		self._estimated_pos = np.empty((2, self._n_time_instants, parameters["number of frames"], len(self._estimators)))
-		
+		self._estimated_pos = np.empty(
+			(2, self._n_time_instants, parameters["number of frames"], len(self._estimators)))
+
 		assert len(self._estimators_colors) == len(self._estimators_labels) == len(self._estimators)
-		
+
 		# information about the simulated algorithms is added to the parameters...
 		parameters['algorithms'] = [{'name': name, 'color': color} for name, color in zip(
 			self._estimators_labels, self._estimators_colors)]
-		
+
 		# HDF5
 
 		# the names of the algorithms are also stored
@@ -601,7 +176,7 @@ class Mposterior(SimpleSimulation):
 			self._h5py_prefix + 'algorithms/names', shape=(len(self._estimators),), dtype=h5py.special_dtype(vlen=str))
 		for il, l in enumerate(self._estimators_labels):
 			h5algorithms[il] = l
-		
+
 		# the position, connected sensors, and neighbours of each PE
 		for iPE, (pos, sens, neighbours) in enumerate(zip(
 				self._PEs_positions.T, self._PEsSensorsConnections, self._PEsTopology.get_neighbours())):
@@ -621,14 +196,13 @@ class Mposterior(SimpleSimulation):
 		algorithms_messages = []
 
 		for estimator, label in zip(self._estimators, self._estimators_labels):
-
 			# number of messages due to the particular estimator used
 			messages_during_estimation = estimator.messages(self._PEsTopology)
 
 			# number of messages related to the algorithm
 			messages_algorithm_operation = estimator.DPF.messages(self._PEsTopology, self._PEsSensorsConnections)
 
-			algorithms_messages.append(messages_during_estimation+messages_algorithm_operation)
+			algorithms_messages.append(messages_during_estimation + messages_algorithm_operation)
 
 			print(colorama.Fore.GREEN + '{}'.format(label) + colorama.Style.RESET_ALL +
 			      ': messages = {}'.format(algorithms_messages[-1]))
@@ -636,9 +210,9 @@ class Mposterior(SimpleSimulation):
 		# the messages (per iteration) required by each algorithm
 		self._f.create_dataset(
 			self._h5py_prefix + 'algorithms/messages', shape=(len(algorithms_messages),), data=algorithms_messages)
-	
+
 	def add_algorithms(self):
-		
+
 		"""Adds the algorithms to be tested by this simulation, defining the required parameters.
 
 		"""
@@ -664,22 +238,21 @@ class Mposterior(SimpleSimulation):
 		mposterior_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
 			smc.exchange_recipe.SameParticlesMposteriorWithinRadiusExchangeRecipe(
 				self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
-					self._MposteriorSettings['findWeiszfeldMedian parameters'], 1,
-					PRNG=self._PRNGs["topology pseudo random numbers generator"]),
+				self._MposteriorSettings['findWeiszfeldMedian parameters'], 1,
+				PRNG=self._PRNGs["topology pseudo random numbers generator"]),
 			self._MposteriorSettings["number of iterations"])
 
 		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
 			smc.exchange_recipe.SameParticlesMposteriorWithinRadiusExchangeRecipe(
-					self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
-					self._MposteriorSettings['findWeiszfeldMedian parameters'], self._mposterior_exchange_step_depth,
-					PRNG=self._PRNGs["topology pseudo random numbers generator"]),
+				self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
+				self._MposteriorSettings['findWeiszfeldMedian parameters'], self._mposterior_exchange_step_depth,
+				PRNG=self._PRNGs["topology pseudo random numbers generator"]),
 			self._MposteriorSettings["number of iterations"])
 
 		# ------------
 
 		for n_consensus_iter, color in zip(
 				[self._LCDPFsettings['number of consensus iterations'], 10, 5], ['brown', 'yellowgreen', 'fuchsia']):
-
 			likelihood_consensus_exchange_recipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(
 				self._PEsTopology, n_consensus_iter,
 				self._LCDPFsettings['degree of the polynomial approximation'])
@@ -687,10 +260,11 @@ class Mposterior(SimpleSimulation):
 			# consensus
 			self._PFs.append(
 				distributed.LikelihoodConsensusTargetTrackingParticleFilter(
-					likelihood_consensus_exchange_recipe, self._nPEs, self._n_particles_per_PE, self._resampling_algorithm,
+					likelihood_consensus_exchange_recipe, self._nPEs, self._n_particles_per_PE,
+					self._resampling_algorithm,
 					self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
 					self._PEsSensorsConnections, self._LCDPFsettings['degree of the polynomial approximation']
-					)
+				)
 			)
 
 			# the estimator just delegates the calculus of the estimate to one of the PEs
@@ -698,7 +272,7 @@ class Mposterior(SimpleSimulation):
 
 			self._estimators_colors.append(color)
 			self._estimators_labels.append('Likelihood Consensus DPF with {} iterations'.format(n_consensus_iter))
-		
+
 		# ------------
 
 		# a single PE (with the number of particles of any other PE) that has access to all the observations
@@ -706,7 +280,7 @@ class Mposterior(SimpleSimulation):
 			centralized.TargetTrackingParticleFilterWithFusionCenter(
 				self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion, self._prior,
 				self._transition_kernel, self._sensors, self._i_PE_estimation
-				)
+			)
 		)
 
 		# the estimator just delegates the calculus of the estimate to the PF
@@ -714,25 +288,26 @@ class Mposterior(SimpleSimulation):
 
 		self._estimators_colors.append('indigo')
 		self._estimators_labels.append('Single know-it-all PE')
-		
+
 		# ------------
 
 		# centralized PF
 		self._PFs.append(
 			centralized.TargetTrackingParticleFilterWithFusionCenter(
-				self._n_particles_per_PE*self._nPEs, self._resampling_algorithm, self._resampling_criterion, self._prior,
+				self._n_particles_per_PE * self._nPEs, self._resampling_algorithm, self._resampling_criterion,
+				self._prior,
 				self._transition_kernel, self._sensors, self._i_PE_estimation
-				)
+			)
 		)
-			
+
 		# the estimator just delegates the calculus of the estimate to the PF
 		self._estimators.append(smc.estimator.Delegating(self._PFs[-1]))
-		
+
 		self._estimators_colors.append('lawngreen')
 		self._estimators_labels.append('Centralized')
-		
+
 		# ------------
-		
+
 		# a distributed PF with DRNA
 		self._PFs.append(
 			distributed.TargetTrackingParticleFilterWithDRNA(
@@ -742,23 +317,24 @@ class Mposterior(SimpleSimulation):
 				self._everySensorWithEveryPEConnector.get_connections(self._nPEs)
 			)
 		)
-		
+
 		# the estimator is the mean
 		self._estimators.append(smc.estimator.WeightedMean(self._PFs[-1]))
-		
+
 		self._estimators_colors.append('black')
 		self._estimators_labels.append('DRNA exch. {}'.format(self._exchanged_particles))
-		
+
 		# ------------
 
 		# DPF with M-posterior-based exchange
 		self._PFs.append(
 			distributed.TargetTrackingParticleFilterWithMposterior(
-				mposterior_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm, self._resampling_criterion,
+				mposterior_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
+				self._resampling_criterion,
 				self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
 				self._MposteriorSettings['sharing period'])
 		)
-		
+
 		# an estimator computing the geometric median with 1 particle taken from each PE
 		self._estimators.append(smc.estimator.GeometricMedian(
 			self._PFs[-1], max_iterations=self._MposteriorSettings['findWeiszfeldMedian parameters']['maxit'],
@@ -767,11 +343,10 @@ class Mposterior(SimpleSimulation):
 		self._estimators_colors.append('green')
 		self._estimators_labels.append('M-posterior exch. {} ({} particle(s) from each PE)'.format(
 			self._exchanged_particles, self._mposterior_n_part_estimation))
-		
+
 		# ------------
 
 		for mposterior_estimator_radius in self._mposterior_estimator_radius:
-
 			# an estimator which yields the geometric median of the particles in the "self._i_PE_estimation"-th PE
 			self._estimators.append(smc.estimator.SinglePEGeometricMedianWithinRadius(
 				self._PFs[-1], self._i_PE_estimation, self._PEsTopology, mposterior_estimator_radius,
@@ -781,11 +356,10 @@ class Mposterior(SimpleSimulation):
 			self._estimators_colors.append('coral')
 			self._estimators_labels.append('M-posterior exch. {} ({} hops, {} particle(s))'.format(
 				self._exchanged_particles, mposterior_estimator_radius, self._mposterior_n_part_estimation))
-		
+
 		# ------------
 
 		for i_PE in range(self._nPEs):
-
 			# an estimator which yields the mean of the particles in the "self._i_PE_estimation"-th PE
 			self._estimators.append(smc.estimator.SinglePEMean(self._PFs[-1], i_PE))
 
@@ -798,7 +372,8 @@ class Mposterior(SimpleSimulation):
 		self._PFs.append(
 			distributed.TargetTrackingParticleFilterWithMposterior(
 				mposterior_within_radius_exchange_recipe, self._n_particles_per_PE, self._resampling_algorithm,
-				self._resampling_criterion, self._prior, self._transition_kernel, self._sensors, self._PEsSensorsConnections,
+				self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
+				self._PEsSensorsConnections,
 				self._MposteriorSettings['sharing period'])
 		)
 
@@ -814,7 +389,6 @@ class Mposterior(SimpleSimulation):
 		# ------------
 
 		for mposterior_estimator_radius in self._mposterior_estimator_radius:
-
 			# an estimator which yields the geometric median of the particles in the "self._i_PE_estimation"-th PE
 			self._estimators.append(smc.estimator.SinglePEGeometricMedianWithinRadius(
 				self._PFs[-1], self._i_PE_estimation, self._PEsTopology, mposterior_estimator_radius,
@@ -828,24 +402,24 @@ class Mposterior(SimpleSimulation):
 					self._mposterior_n_part_estimation))
 
 	def save_data(self, target_position):
-		
+
 		# let the super class do its thing...
 		super().save_data(target_position)
-		
+
 		# a dictionary encompassing all the data to be saved
 		data_to_be_saved = dict(
-				targetPosition=target_position[:, :, :self._i_current_frame],
-				PF_pos=self._estimated_pos[:, :, :self._i_current_frame, :]
-			)
-		
+			targetPosition=target_position[:, :, :self._i_current_frame],
+			PF_pos=self._estimated_pos[:, :, :self._i_current_frame, :]
+		)
+
 		# data is saved
 		scipy.io.savemat('res_' + self._output_file, data_to_be_saved)
 		print('results saved in "{}"'.format('res_' + self._output_file))
-		
+
 		print(self._estimated_pos)
-		
+
 	def process_frame(self, target_position, target_velocity):
-		
+
 		# let the super class do its thing...
 		super().process_frame(target_position, target_velocity)
 
@@ -854,35 +428,34 @@ class Mposterior(SimpleSimulation):
 
 		# for every PF (different from estimator)...
 		for pf in self._PFs:
-
 			# ...initialization
 			pf.initialize()
 
 		for iTime in range(self._n_time_instants):
 
-			print(colorama.Fore.LIGHTWHITE_EX + '---------- iFrame = {}, iTime = {}'.format(self._i_current_frame, iTime) + colorama.Style.RESET_ALL)
+			print(colorama.Fore.LIGHTWHITE_EX + '---------- iFrame = {}, iTime = {}'.format(self._i_current_frame,
+			                                                                                iTime) + colorama.Style.RESET_ALL)
 
-			print(colorama.Fore.CYAN + 'position:\n' + colorama.Style.RESET_ALL, target_position[:, iTime:iTime+1])
-			print(colorama.Fore.YELLOW + 'velocity:\n' + colorama.Style.RESET_ALL, target_velocity[:, iTime:iTime+1])
+			print(colorama.Fore.CYAN + 'position:\n' + colorama.Style.RESET_ALL, target_position[:, iTime:iTime + 1])
+			print(colorama.Fore.YELLOW + 'velocity:\n' + colorama.Style.RESET_ALL, target_velocity[:, iTime:iTime + 1])
 
 			# for every PF (different from estimator)...
 			for pf in self._PFs:
-
 				# ...a step is taken
 				pf.step(self._observations[iTime])
 
 			# for every estimator, along with its corresponding label,...
 			for iEstimator, (estimator, label) in enumerate(zip(self._estimators, self._estimators_labels)):
-
 				# for the sake of efficiency
 				current_estimated_pos = state.to_position(estimator.estimate())
 
 				self._estimated_pos[:, iTime:iTime + 1, self._i_current_frame, iEstimator] = current_estimated_pos
 
 				# the position given by this estimator at the current time instant is written to the HDF5 file
-				estimated_pos[:, iTime:iTime+1, iEstimator] = current_estimated_pos
+				estimated_pos[:, iTime:iTime + 1, iEstimator] = current_estimated_pos
 
-				print('position estimated by {}\n'.format(label), self._estimated_pos[:, iTime:iTime + 1, self._i_current_frame, iEstimator])
+				print('position estimated by {}\n'.format(label),
+				      self._estimated_pos[:, iTime:iTime + 1, self._i_current_frame, iEstimator])
 
 		# the results (estimated positions) are saved
 		self._h5_current_frame.create_dataset(
@@ -907,7 +480,6 @@ class Mposterior(SimpleSimulation):
 
 		# for every index that gives a list with unique elements....
 		for i in i_to_keep:
-
 			# relevant stuff is added to the lists...
 			new_estimator_labels.append(self._estimators_labels[i])
 			new_estimator_colors.append(self._estimators_colors[i])
@@ -920,11 +492,8 @@ class Mposterior(SimpleSimulation):
 
 
 class MposteriorExchange(Mposterior):
-
 	def add_algorithms(self):
-
 		for exchange in self._exchanged_particles:
-
 			# the value set is used by "add_algorithms"
 			self._exchanged_particles = exchange
 
@@ -934,11 +503,8 @@ class MposteriorExchange(Mposterior):
 
 
 class MposteriorNumberOfParticles(Mposterior):
-
 	def add_algorithms(self):
-
 		for n_particles in self._simulation_parameters['number of particles']:
-
 			# how many algorithms were queued so far
 			n_algorithms = len(self._estimators)
 
@@ -952,20 +518,15 @@ class MposteriorNumberOfParticles(Mposterior):
 
 
 class MposteriorEstimationRadius(Mposterior):
-
 	def add_algorithms(self):
-
 		self._mposterior_estimator_radius = self._simulation_parameters['radius']
 
 		super().add_algorithms()
 
 
 class MposteriorNumberOfParticlesForEstimation(Mposterior):
-
 	def add_algorithms(self):
-
 		for n_particles in self._simulation_parameters['number of particles']:
-
 			self._mposterior_n_part_estimation = n_particles
 
 			super().add_algorithms()
@@ -974,11 +535,9 @@ class MposteriorNumberOfParticlesForEstimation(Mposterior):
 
 
 class MposteriorRevisited(Mposterior):
-
 	def build_observations(self, target_position):
 
 		if "malfunctioning PEs" not in self._simulation_parameters:
-
 			super().build_observations(target_position)
 
 			return
@@ -1009,14 +568,16 @@ class MposteriorRevisited(Mposterior):
 						# ...the method yielding just noise is called
 						current_obs.append(sens.measurement_noise())
 
-					elif re.match('additive noise with variance (\d+)', self._simulation_parameters["malfunctioning PEs deed"]):
+					elif re.match('additive noise with variance (\d+)',
+					              self._simulation_parameters["malfunctioning PEs deed"]):
 
-						m = re.match('additive noise with variance (\d+)', self._simulation_parameters["malfunctioning PEs deed"])
+						m = re.match('additive noise with variance (\d+)',
+						             self._simulation_parameters["malfunctioning PEs deed"])
 
 						# ...a large noise is added
 						current_obs.append(
 							sens.detect(state.to_position(s.reshape(-1, 1))) +
-							self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"].randn()*np.sqrt(
+							self._PRNGs["Sensors and Monte Carlo pseudo random numbers generator"].randn() * np.sqrt(
 								float(m.group(1))
 							)
 						)
@@ -1041,9 +602,9 @@ class MposteriorRevisited(Mposterior):
 
 		mposterior_within_radius_exchange_recipe = smc.exchange_recipe.IteratedExchangeRecipe(
 			smc.exchange_recipe.SameParticlesMposteriorWithinRadiusExchangeRecipe(
-					self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
-					self._MposteriorSettings['findWeiszfeldMedian parameters'], self._mposterior_exchange_step_depth,
-					PRNG=self._PRNGs["topology pseudo random numbers generator"]),
+				self._PEsTopology, self._n_particles_per_PE, self._exchanged_particles,
+				self._MposteriorSettings['findWeiszfeldMedian parameters'], self._mposterior_exchange_step_depth,
+				PRNG=self._PRNGs["topology pseudo random numbers generator"]),
 			self._MposteriorSettings["number of iterations"])
 
 		gaussian_exchange_recipe = smc.exchange_recipe.GaussianExchangeRecipe(
@@ -1063,7 +624,8 @@ class MposteriorRevisited(Mposterior):
 			PRNG=self._PRNGs["topology pseudo random numbers generator"])
 
 		selective_gossip_exchange_recipe = smc.exchange_recipe.SelectiveGossipExchangeRecipe(
-			self._PEsTopology, self._parameters["Selective Gossip"], self._PRNGs["topology pseudo random numbers generator"])
+			self._PEsTopology, self._parameters["Selective Gossip"],
+			self._PRNGs["topology pseudo random numbers generator"])
 
 		perfect_selective_gossip_exchange_recipe = smc.exchange_recipe.PerfectSelectiveGossipExchangeRecipe(
 			self._PEsTopology, self._parameters["Selective Gossip"],
@@ -1113,7 +675,6 @@ class MposteriorRevisited(Mposterior):
 
 		for n_consensus_iter, color in zip(
 				[self._LCDPFsettings['number of consensus iterations'], 75], ['brown', 'yellowgreen', 'fuchsia']):
-
 			likelihood_consensus_exchange_recipe = smc.exchange_recipe.LikelihoodConsensusExchangeRecipe(
 				self._PEsTopology, n_consensus_iter,
 				self._LCDPFsettings['degree of the polynomial approximation'])
@@ -1121,10 +682,11 @@ class MposteriorRevisited(Mposterior):
 			# consensus
 			self._PFs.append(
 				distributed.LikelihoodConsensusTargetTrackingParticleFilter(
-					likelihood_consensus_exchange_recipe, self._nPEs, self._n_particles_per_PE, self._resampling_algorithm,
+					likelihood_consensus_exchange_recipe, self._nPEs, self._n_particles_per_PE,
+					self._resampling_algorithm,
 					self._resampling_criterion, self._prior, self._transition_kernel, self._sensors,
 					self._PEsSensorsConnections, self._LCDPFsettings['degree of the polynomial approximation']
-					)
+				)
 			)
 
 			# the estimator just delegates the calculus of the estimate to one of the PEs
