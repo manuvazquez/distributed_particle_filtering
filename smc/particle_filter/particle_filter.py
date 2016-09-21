@@ -20,11 +20,6 @@ class ParticleFilter(metaclass=abc.ABCMeta):
 
 		pass
 
-	@abc.abstractmethod
-	def get_state(self):
-
-		pass
-
 	@property
 	def n_particles(self):
 

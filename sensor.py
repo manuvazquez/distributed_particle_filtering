@@ -82,7 +82,7 @@ class BinarySensor(Sensor):
 		likelihoods[distances < self._threshold] = self._pmfObservationsWhenClose[observation]
 
 		# ...and a different one if it's outside it
-		likelihoods[distances>=self._threshold] = self._pmfObservationsWhenFar[observation]
+		likelihoods[distances >= self._threshold] = self._pmfObservationsWhenFar[observation]
 
 		return likelihoods
 
@@ -96,37 +96,37 @@ class RSSsensor(Sensor):
 		super().__init__(position, pseudo_random_numbers_generator)
 
 		# the power of the transmitter
-		self._txPower = transmitter_power
+		self._tx_power = transmitter_power
 
 		# the path loss exponent (depending on the medium)
-		self._pathLossExponent = path_loss_exponent
+		self._path_loss_exponent = path_loss_exponent
 
 		# the variance of the additive noise in the model (it is meant to be accessed from outside)
-		self.noiseVar = noise_variance
+		self.noise_var = noise_variance
 
 		# ...and, for the sake of efficiency, the standard deviation
-		self._noiseStd = np.sqrt(noise_variance)
+		self._noise_std = np.sqrt(noise_variance)
 
 		# minimum amount of power the sensor is able to measure
-		self._minimumPower = minimum_amount_of_power
+		self._minimum_power = minimum_amount_of_power
 
-	def likelihoodMean(self, distances):
+	def likelihood_mean(self, distances):
 
-		return 10*np.log10(self._txPower/distances**self._pathLossExponent + self._minimumPower)
+		return 10*np.log10(self._tx_power / distances ** self._path_loss_exponent + self._minimum_power)
 
 	def detect(self, target_pos):
 
 		distance = np.linalg.norm((self.position - target_pos))
 
-		return self.likelihoodMean(distance) + self.measurement_noise()
+		return self.likelihood_mean(distance) + self.measurement_noise()
 
 	def measurement_noise(self):
 
-		return self._pseudo_random_numbers_generator.randn()*self._noiseStd
+		return self._pseudo_random_numbers_generator.randn()*self._noise_std
 
 	def likelihood(self, observation, positions):
 
 		# the distances to ALL the positions are computed
 		distances = np.linalg.norm(np.subtract(positions,self.position),axis=0)
 
-		return scipy.stats.norm.pdf(observation, self.likelihoodMean(distances), self._noiseStd)
+		return scipy.stats.norm.pdf(observation, self.likelihood_mean(distances), self._noise_std)

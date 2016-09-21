@@ -73,11 +73,6 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		# whatever is required (it depends on the algorithm) to avoid weights degeneracy...
 		self.avoid_weight_degeneracy()
 
-	# FIXME: this method is useless given the property below
-	def get_state(self):
-
-		return self._state
-
 	def resample(self, normalized_log_weights):
 
 		# the weights need to be converted to "natural" units
@@ -284,7 +279,7 @@ class TargetTrackingParticleFilterWithConsensusCapabilities(TargetTrackingPartic
 		super().__init__(n_particles, resampling_algorithm, resampling_criterion, prior, state_transition_kernel, sensors)
 
 		# the noise covariance matrix is built from the individual variances of each sensor
-		self._noiseCovariance = np.diag([s.noiseVar for s in sensors])
+		self._noiseCovariance = np.diag([s.noise_var for s in sensors])
 
 		# the position of every sensor
 		self._sensorsPositions = np.hstack([s.position for s in sensors])
@@ -304,7 +299,7 @@ class TargetTrackingParticleFilterWithConsensusCapabilities(TargetTrackingPartic
 		# each row gives the distances from a sensor to ALL the positions
 		distances = np.linalg.norm(positions[:, :, np.newaxis] - self._sensorsPositions[:, np.newaxis, :], axis=0).T
 
-		return np.vstack([s.likelihoodMean(d) for d, s in zip(distances, self._sensors)])
+		return np.vstack([s.likelihood_mean(d) for d, s in zip(distances, self._sensors)])
 
 	def step(self, observations):
 

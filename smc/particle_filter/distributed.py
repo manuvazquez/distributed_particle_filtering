@@ -63,7 +63,7 @@ class TargetTrackingParticleFilter(ParticleFilter, metaclass=abc.ABCMeta):
 	def get_state(self):
 
 		# the state from every PE is gathered together
-		return np.hstack([PE.get_state() for PE in self._PEs])
+		return np.hstack([PE.samples for PE in self._PEs])
 
 	def messages_observations_propagation(self, PEs_topology, each_processing_element_connected_sensors):
 

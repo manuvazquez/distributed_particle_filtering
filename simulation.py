@@ -43,9 +43,6 @@ class Simulation(metaclass=abc.ABCMeta):
 		# name of the file to store the results
 		self._output_file = output_file
 		
-		# DRNA related
-		self._settings_DRNA = parameters["DRNA"]
-		
 		# parameters related to plotting
 		self._settings_painter = parameters["painter"]
 		
@@ -137,7 +134,7 @@ class SimpleSimulation(Simulation):
 			n_sensors, **network_nodes_settings['parameters'])
 		
 		# the positions of the PEs and the sensors are collected from the network just built
-		self._sensorsPositions, self._PEsPositions = self._network.sensors_positions, self._network.PEs_positions
+		self._sensors_positions, self._PEs_positions = self._network.sensors_positions, self._network.PEs_positions
 		
 		# the class to be instantiated is figured out from the settings for that particular sensor type
 		sensor_class = getattr(sensor, sensors_settings[parameters['sensors type']]['implementing class'])
@@ -147,7 +144,7 @@ class SimpleSimulation(Simulation):
 			pseudo_random_numbers_generator=pseudo_random_numbers_generators[
 				'Sensors and Monte Carlo pseudo random numbers generator'],
 			**sensors_settings[parameters['sensors type']]['parameters']
-		) for pos in self._sensorsPositions.T]
+		) for pos in self._sensors_positions.T]
 
 		self._f.create_dataset(
 			self._h5py_prefix + 'room/bottom left corner',
@@ -160,8 +157,7 @@ class SimpleSimulation(Simulation):
 		# these are going to be set/used by other methods
 		self._observations = None
 		self._h5_current_frame = None
-		self._painter = None
-		
+
 	def process_frame(self, target_position, target_velocity):
 		
 		super().process_frame(target_position, target_velocity)
@@ -288,6 +284,9 @@ class Convergence(SimpleSimulation):
 			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators, h5py_file, h5py_prefix)
 
+		# DRNA-related settings
+		self._settings_DRNA = parameters["DRNA"]
+
 		topologies = [getattr(PEs_topology, t['implementing class'])(
 			t['number of PEs'], t['parameters']) for t in self._settings_topologies]
 
@@ -305,7 +304,7 @@ class Convergence(SimpleSimulation):
 			self._n_particles_per_PE*t.n_processing_elements, resampling_algorithm, resampling_criterion, prior,
 			transition_kernel, self._sensors) for t in topologies]
 
-		PEs_sensors_requirements = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensorsPositions)
+		PEs_sensors_requirements = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensors_positions)
 
 		# distributed particle filter
 		self._distributedPFsForTopologies = [distributed.TargetTrackingParticleFilterWithDRNA(
@@ -377,7 +376,6 @@ class Convergence(SimpleSimulation):
 			)
 
 		# data is saved
-		#np.savez('res_' + self._outputFile + '.npz',**data_to_be_saved)
 		scipy.io.savemat('res_' + self._output_file, data_to_be_saved)
 		print('results saved in "{}"'.format('res_' + self._output_file))
 
@@ -518,6 +516,9 @@ class Mposterior(SimpleSimulation):
 		super().__init__(
 			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
 			pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements, n_sensors)
+
+		# DRNA-related settings
+		self._settings_DRNA = parameters["DRNA"]
 		
 		self._MposteriorSettings = parameters['Mposterior']
 		self._LCDPFsettings = parameters['Likelihood Consensus']
@@ -531,7 +532,7 @@ class Mposterior(SimpleSimulation):
 			self._nPEs = n_processing_elements
 		
 		# a connector that connects every sensor to every PE
-		self._everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensorsPositions)
+		self._everySensorWithEveryPEConnector = sensors_PEs_connector.EverySensorWithEveryPEConnector(self._sensors_positions)
 		
 		# the settings for the selected "sensors-PES connector"
 		settings_sensors_PEs_connector = parameters['sensors-PEs connectors'][
@@ -539,11 +540,11 @@ class Mposterior(SimpleSimulation):
 		
 		# ...are used to build a connector, from which the links between PEs and sensors are obtained
 		self._PEsSensorsConnections = getattr(sensors_PEs_connector, settings_sensors_PEs_connector['implementing class'])(
-			self._sensorsPositions, self._PEsPositions, settings_sensors_PEs_connector['parameters']).get_connections(self._nPEs)
+			self._sensors_positions, self._PEs_positions, settings_sensors_PEs_connector['parameters']).get_connections(self._nPEs)
 
 		# network topology, which describes the connection among PEs, as well as the exact particles exchanged/shared
 		self._PEsTopology = getattr(PEs_topology, self._settings_topologies['implementing class'])(
-			self._nPEs, self._settings_topologies['parameters'], PEs_positions=self._PEsPositions)
+			self._nPEs, self._settings_topologies['parameters'], PEs_positions=self._PEs_positions)
 
 		# the maximum number of hops between any pair of PEs
 		max_hops_number = self._PEsTopology.distances_between_processing_elements.max()
@@ -603,7 +604,7 @@ class Mposterior(SimpleSimulation):
 		
 		# the position, connected sensors, and neighbours of each PE
 		for iPE, (pos, sens, neighbours) in enumerate(zip(
-				self._PEsPositions.T, self._PEsSensorsConnections, self._PEsTopology.get_neighbours())):
+				self._PEs_positions.T, self._PEsSensorsConnections, self._PEsTopology.get_neighbours())):
 			self._f.create_dataset(self._h5py_prefix + 'PEs/{}/position'.format(iPE), shape=(2,), data=pos)
 			self._f.create_dataset(
 				self._h5py_prefix + 'PEs/{}/connected sensors'.format(iPE), shape=(len(sens),), data=sens)
@@ -614,7 +615,7 @@ class Mposterior(SimpleSimulation):
 
 		# the positions of the sensors
 		self._f.create_dataset(
-			self._h5py_prefix + 'sensors/positions', shape=self._sensorsPositions.shape, data=self._sensorsPositions)
+			self._h5py_prefix + 'sensors/positions', shape=self._sensors_positions.shape, data=self._sensors_positions)
 
 		# a list with the messages required by every algorithm at a single time instant
 		algorithms_messages = []
