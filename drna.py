@@ -17,8 +17,9 @@ import state
 
 import simulations.drna
 import simulations.mposterior
+import simulations.npmc
 
-simulation_modules = [simulations.drna, simulations.mposterior]
+simulation_modules = [simulations.drna, simulations.mposterior, simulations.npmc]
 
 sys.path.append(os.path.join(os.environ['HOME'], 'python'))
 

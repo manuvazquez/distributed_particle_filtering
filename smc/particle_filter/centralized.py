@@ -1,4 +1,6 @@
 import sys
+import copy
+
 import numpy as np
 import scipy.stats
 import colorama
@@ -25,7 +27,7 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		self._prior = prior
 
 		# the sensors are kept
-		self._sensors = sensors
+		self._sensors = copy.deepcopy(sensors)
 
 		# EVERY time, this PF is initialized, the aggregated weight is set to this value
 		self._initial_aggregated_weight = aggregated_weight
@@ -33,6 +35,8 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		# these will get set as soon as the "initialize" method gets called
 		self._state = None
 		self._aggregated_weight = None
+
+		self._loglikelihoods_product = None
 
 	def initialize(self):
 
@@ -62,10 +66,10 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		loglikelihoods = np.log(likelihoods)
 
 		# for each particle, we compute the product of the likelihoods for all the sensors
-		loglikelihoods_product = loglikelihoods.sum(axis=0)
+		self._loglikelihoods_product = loglikelihoods.sum(axis=0)
 
 		# the weights are updated
-		self._log_weights += loglikelihoods_product
+		self._log_weights += self._loglikelihoods_product
 
 		# the aggregated weight is kept up to date at all times
 		self.update_aggregated_weight()
@@ -96,6 +100,9 @@ class TargetTrackingParticleFilter(ParticleFilter):
 			# the above indexes are used to update the state
 			self._state = self._state[:, i_particles_to_be_kept]
 
+			# the loglikelihoods that are kept need also be updated
+			self._loglikelihoods_product = self._loglikelihoods_product[i_particles_to_be_kept]
+
 			# note that if the weights have been normalized ("standard" centralized particle filter),
 			# then "self._aggregated_weight" is equal to 1
 			self._log_weights.fill(np.log(self._aggregated_weight) - np.log(self._n_particles))
@@ -124,6 +131,11 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		return self._state[:, indexes]
 
 	@property
+	def last_unnormalized_loglikelihoods(self):
+
+		return self._loglikelihoods_product
+
+	@property
 	def samples(self):
 
 		return self._state
@@ -138,6 +150,11 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		else:
 
 			raise Exception('the number and/or dimensions of the samples are not equal to the current ones')
+
+	@property
+	def sensors(self):
+
+		return self._sensors
 
 	def set_particle(self, index, particle):
 

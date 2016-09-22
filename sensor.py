@@ -127,6 +127,11 @@ class RSSsensor(Sensor):
 	def likelihood(self, observation, positions):
 
 		# the distances to ALL the positions are computed
-		distances = np.linalg.norm(np.subtract(positions,self.position),axis=0)
+		distances = np.linalg.norm(np.subtract(positions, self.position), axis=0)
 
 		return scipy.stats.norm.pdf(observation, self.likelihood_mean(distances), self._noise_std)
+
+	def set_parameters(self,  minimum_amount_of_power, path_loss_exponent):
+
+		self._path_loss_exponent = path_loss_exponent
+		self._minimum_power = minimum_amount_of_power
