@@ -15,6 +15,7 @@ import region
 import target
 import state
 
+import simulations.base
 import simulations.drna
 import simulations.mposterior
 import simulations.npmc
@@ -267,7 +268,7 @@ sim = simulation_class(parameters, room, resampling_algorithm, resampling_criter
 if command_arguments.reproduce_filename:
 
 	# the pseudo-random numbers generators for the requested frame (default is 0) are extracted from the data file...
-	saved_pseudo_random_numbers_generators = simulation.SimpleSimulation.pseudo_random_numbers_generators_from_file(
+	saved_pseudo_random_numbers_generators = simulations.base.SimpleSimulation.pseudo_random_numbers_generators_from_file(
 		command_arguments.reproduce_filename.name, command_arguments.i_first_frame)
 
 	# ...and used to set the state of existing ones

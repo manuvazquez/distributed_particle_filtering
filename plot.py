@@ -323,10 +323,10 @@ def trajectory_from_hdf5(filename, i_trajectory=0, n_time_instants=-1, ticks_fon
 	import os
 	import h5py
 
-	import simulation
+	import simulations.mposterior
 
 	data_file = h5py.File(filename,'r')
-	position = simulation.Mposterior.parse_hdf5(data_file)[0][..., i_trajectory]
+	position = simulations.mposterior.Mposterior.parse_hdf5(data_file)[0][..., i_trajectory]
 
 	# parameters are loaded
 	with open(os.path.splitext(filename)[0] + '.parameters', "rb") as f:
@@ -358,7 +358,7 @@ def trajectory_from_hdf5(filename, i_trajectory=0, n_time_instants=-1, ticks_fon
 	painter = TightRectangularRoomPainterWithPEs(
 		data_file['room/bottom left corner'][...], data_file['room/top right corner'][...], sensors_positions,
 		proc_elem_positions, proc_elem_sensors_connections, proc_elem_neighbours,
-		sleepTime=parameters["painter"]["sleep time between updates"],ticksFontSize=ticks_font_size)
+		sleep_time=parameters["painter"]["sleep time between updates"],ticksFontSize=ticks_font_size)
 
 	painter.setup()
 
@@ -380,24 +380,25 @@ def trajectory_from_hdf5(filename, i_trajectory=0, n_time_instants=-1, ticks_fon
 	# HDF5 must be closed
 	data_file.close()
 
+
 class RoomPainter:
 	
-	def __init__(self, sensorsPositions, sleepTime=0.5):
+	def __init__(self, sensors_positions, sleep_time=0.5):
 		
-		self._sensorsPositions = sensorsPositions
-		self._sleepTime = sleepTime
+		self._sensors_positions = sensors_positions
+		self._sleep_time = sleep_time
 		
 		# in order to draw a segment from the previous position to the current one, we need to remember the former
-		self._previousPosition = None
+		self._previous_position = None
 		
 		# the same for the estimates, but since there can be more than one, we use a dictionary
-		self._previousEstimates = {}
+		self._previous_estimates = {}
 		
 		# used to erase the previous particles and paint the new ones
 		self._particles = {}
 		
 		# in order to avoid a legend entry per plotted segment
-		self._legendEntries = []
+		self._legend_entries = []
 		
 		# a new pair of axes is set up
 		self._ax, self._figure = setup_axes('Room', clear_figure=False)
@@ -405,7 +406,7 @@ class RoomPainter:
 	def setup(self, sensorsLineProperties={'marker':'+','color':'red'}):
 		
 		# linewidth=0 so that the points are not joined...
-		self._ax.plot(self._sensorsPositions[0,:], self._sensorsPositions[1,:], linewidth=0, **sensorsLineProperties)
+		self._ax.plot(self._sensors_positions[0, :], self._sensors_positions[1, :], linewidth=0, **sensorsLineProperties)
 
 		self._ax.set_aspect('equal', 'datalim')
 		
@@ -415,44 +416,44 @@ class RoomPainter:
 	def updateTargetPosition(self,position):
 		
 		# if this is not the first update (i.e., there exists a previous position)...
-		if self._previousPosition is not None:
+		if self._previous_position is not None:
 			# ...plot the step taken
 			self._ax.plot(
-				np.array([self._previousPosition[0],position[0]]),
-				np.array([self._previousPosition[1],position[1]]), linestyle='-', color='red')
+				np.array([self._previous_position[0], position[0]]),
+				np.array([self._previous_position[1], position[1]]), linestyle='-', color='red')
 		# if this is the first update...
 		else:
 			# ...just plot the position keeping the handler...
 			p, = self._ax.plot(position[0],position[1],color='red',marker='d',markersize=10)
 			
 			# we add this to the list of entries in the legend (just once!!)
-			self._legendEntries.append(p)
+			self._legend_entries.append(p)
 		
-		self._previousPosition = position
+		self._previous_position = position
 		
 		# plot now...
 		self._figure.canvas.draw()
 
 		# ...and wait...
-		plt.pause(self._sleepTime)
+		plt.pause(self._sleep_time)
 	
 	def updateEstimatedPosition(self,position,identifier='unnamed',color='blue'):
 		
 		# if this is not the first update (i.e., there exists a previous estimate)...
-		if identifier in self._previousEstimates:
+		if identifier in self._previous_estimates:
 			# ...plot the step taken
 			self._ax.plot(
-				np.array([self._previousEstimates[identifier][0],position[0]]),
-				np.array([self._previousEstimates[identifier][1],position[1]]),linestyle='-', color=color)
+				np.array([self._previous_estimates[identifier][0], position[0]]),
+				np.array([self._previous_estimates[identifier][1], position[1]]),linestyle='-', color=color)
 		# if this is the first update...
 		else:
 			# ...just plot the position keeping the handler...
 			p, = self._ax.plot(position[0],position[1],color=color)
 			
 			# ...to add it to the legend
-			self._legendEntries.append(p)
+			self._legend_entries.append(p)
 		
-		self._previousEstimates[identifier] = position
+		self._previous_estimates[identifier] = position
 		
 		# plot now...
 		self._figure.canvas.draw()
@@ -474,7 +475,7 @@ class RoomPainter:
 		# just in case...the current figure is set to the proper value
 		plt.figure(self._figure.number)
 		
-		self._ax.legend(self._legendEntries,['real'] + list(self._previousEstimates.keys()),ncol=3)
+		self._ax.legend(self._legend_entries, ['real'] + list(self._previous_estimates.keys()), ncol=3)
 		
 		plt.savefig(outputFile)
 		
@@ -485,13 +486,13 @@ class RoomPainter:
 
 class RectangularRoomPainter(RoomPainter):
 	
-	def __init__(self,roomBottomLeftCorner,roomTopRightCorner,sensorsPositions,sleepTime=0.5):
+	def __init__(self, room_bottom_left_corner, room_top_right_corner, sensors_positions, sleep_time=0.5):
 		
-		super().__init__(sensorsPositions,sleepTime=sleepTime)
+		super().__init__(sensors_positions, sleep_time=sleep_time)
 		
-		self._roomBottomLeftCorner = roomBottomLeftCorner
-		self._roomTopRightCorner = roomTopRightCorner
-		self._roomDiagonalVector = self._roomTopRightCorner - self._roomBottomLeftCorner
+		self._room_bottom_left_corner = room_bottom_left_corner
+		self._room_top_right_corner = room_top_right_corner
+		self._room_diagonal_vector = self._room_top_right_corner - self._room_bottom_left_corner
 		
 	def setup(self, borderLineProperties={'color':'blue'}, sensorsLineProperties = {'marker':'+','color':'red'}):
 		
@@ -499,26 +500,26 @@ class RectangularRoomPainter(RoomPainter):
 		super().setup(sensorsLineProperties=sensorsLineProperties)
 		
 		# we define a rectangular patch...
-		roomEdge = matplotlib.patches.Rectangle(
-			(self._roomBottomLeftCorner[0], self._roomBottomLeftCorner[1]),
-			self._roomDiagonalVector[0], self._roomDiagonalVector[1], fill=False, **borderLineProperties)
+		room_edge = matplotlib.patches.Rectangle(
+			(self._room_bottom_left_corner[0], self._room_bottom_left_corner[1]),
+			self._room_diagonal_vector[0], self._room_diagonal_vector[1], fill=False, **borderLineProperties)
 
 		# ...and added to the axes
-		self._ax.add_patch(roomEdge)
+		self._ax.add_patch(room_edge)
 
 
 class TightRectangularRoomPainter(RectangularRoomPainter):
 	
-	def __init__(self,roomBottomLeftCorner,roomTopRightCorner,sensorsPositions,sleepTime=0.1,ticksFontSize=14):
+	def __init__(self, room_bottom_left_corner, room_top_right_corner, sensors_positions, sleep_time=0.1, ticksFontSize=14):
 		
-		super().__init__(roomBottomLeftCorner,roomTopRightCorner,sensorsPositions,sleepTime=sleepTime)
+		super().__init__(room_bottom_left_corner, room_top_right_corner, sensors_positions, sleep_time=sleep_time)
 		
 		self._ticksFontSize = ticksFontSize
 		
 		# the figure created by the superclass is discarded
 		self.close()
 		
-		self._figure = plt.figure('Room',figsize=tuple(self._roomDiagonalVector//4))
+		self._figure = plt.figure('Room', figsize=tuple(self._room_diagonal_vector // 4))
 		self._ax = self._figure.add_axes((0,0,1,1))
 		
 	def setup(
@@ -535,7 +536,7 @@ class TightRectangularRoomPainter(RectangularRoomPainter):
 		# the font size of the ticks in both axes is set
 		self._ax.tick_params(axis='both',labelsize=self._ticksFontSize)
 		
-	def save(self,outputFile='trajectory.pdf'):
+	def save(self, outputFile='trajectory.pdf'):
 		
 		# just in case...the current figure is set to the proper value
 		plt.figure(self._figure.number)
@@ -545,9 +546,9 @@ class TightRectangularRoomPainter(RectangularRoomPainter):
 
 class TightRectangularRoomPainterWithPEs(TightRectangularRoomPainter):
 	
-	def __init__(self,roomBottomLeftCorner,roomTopRightCorner,sensorsPositions,PEsPositions,connections,PEsPEsConnections,sleepTime=0.1,ticksFontSize=14):
+	def __init__(self, room_bottom_left_corner, room_top_right_corner, sensors_positions, PEsPositions, connections, PEsPEsConnections, sleep_time=0.1, ticksFontSize=14):
 		
-		super().__init__(roomBottomLeftCorner,roomTopRightCorner,sensorsPositions,sleepTime,ticksFontSize)
+		super().__init__(room_bottom_left_corner, room_top_right_corner, sensors_positions, sleep_time, ticksFontSize)
 		
 		self._PEsPositions = PEsPositions
 		self._connections = connections
@@ -571,7 +572,7 @@ class TightRectangularRoomPainterWithPEs(TightRectangularRoomPainter):
 			# for every sensor associated with the PE being processed
 			for iSensor in sensorsIndexes:
 			
-				self._ax.plot([self._sensorsPositions[0,iSensor],self._PEsPositions[0,iPE]],[self._sensorsPositions[1,iSensor],self._PEsPositions[1,iPE]],linewidth=2,linestyle='--')
+				self._ax.plot([self._sensors_positions[0, iSensor], self._PEsPositions[0, iPE]], [self._sensors_positions[1, iSensor], self._PEsPositions[1, iPE]], linewidth=2, linestyle='--')
 				
 		for iPE,iNeighbours in enumerate(self._PEsPEsConnections):
 			

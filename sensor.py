@@ -133,5 +133,5 @@ class RSSsensor(Sensor):
 
 	def set_parameters(self,  minimum_amount_of_power, path_loss_exponent):
 
-		self._path_loss_exponent = path_loss_exponent
 		self._minimum_power = minimum_amount_of_power
+		self._path_loss_exponent = path_loss_exponent
