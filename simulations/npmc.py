@@ -15,6 +15,14 @@ sys.path.append(os.path.join(os.environ['HOME'], 'python'))
 import manu.smc.util
 
 
+def normal_parameters_from_lognormal(mean, var):
+
+	var = 1 + var / mean ** 2
+	mean = np.log(mean / np.sqrt(var))
+
+	return mean, var
+
+
 class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 
 	def __init__(self, n_particles, resampling_algorithm, resampling_criterion, pf, prior_mean, prior_covar, prng):
@@ -57,7 +65,7 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 
 		self._loglikelihoods = np.zeros(self._n_particles)
 
-		for i_particle, (min_power, path_loss_exp) in enumerate(self._samples):
+		for i_particle, (tx_power, min_power, path_loss_exp) in enumerate(self._samples):
 
 			# the "inner" PF (for approximating the likelihood) is initialized
 			self._pf.initialize()
@@ -65,7 +73,8 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 			# the parameters of the sensors *within* the PF are set accordingly
 			for s in self._pf.sensors:
 
-				s.set_parameters(minimum_amount_of_power=np.exp(min_power), path_loss_exponent=path_loss_exp)
+				s.set_parameters(
+					tx_power=np.exp(tx_power), minimum_amount_of_power=np.exp(min_power), path_loss_exponent=path_loss_exp)
 
 			# the collection of observations is processed
 			for i_time, obs in enumerate(observations):
@@ -149,20 +158,27 @@ class NPMC(simulations.base.SimpleSimulation):
 			self._prior, self._transition_kernel, self._sensors
 		)
 
-		mean_log_eta = self._simulation_parameters["prior"]["minimum amount of power"]["mean"]
-		var_log_eta = self._simulation_parameters["prior"]["minimum amount of power"]["variance"]
+		# the *minimum amount of power* is assumed to be log-normal" (it must be positive)...
+		mean_log_min_power = self._simulation_parameters["prior"]["minimum amount of power"]["mean"]
+		var_log_min_power = self._simulation_parameters["prior"]["minimum amount of power"]["variance"]
 
-		var_eta = 1 + var_log_eta / mean_log_eta ** 2
-		mean_eta = np.log(mean_log_eta/np.sqrt(var_eta))
+		# ...and the parameters of the corresponding normal are
+		mean_min_power, var_min_power = normal_parameters_from_lognormal(mean_log_min_power, var_log_min_power)
+
+		# the same for the *transmitter power*
+		mean_log_tx_power = self._simulation_parameters["prior"]["transmitter power"]["mean"]
+		var_log_tx_power = self._simulation_parameters["prior"]["transmitter power"]["variance"]
+
+		mean_tx_power, var_tx_power = normal_parameters_from_lognormal(mean_log_tx_power, var_log_tx_power)
 
 		prior_mean = np.array([
-			# self._simulation_parameters["prior"]["minimum amount of power"]["mean"],
-			mean_eta,
+			mean_tx_power,
+			mean_min_power,
 			self._simulation_parameters["prior"]["path loss exponent"]["mean"]])
 
 		prior_covar = np.diag([
-			# self._simulation_parameters["prior"]["minimum amount of power"]["variance"],
-			var_eta,
+			var_tx_power,
+			var_min_power,
 			self._simulation_parameters["prior"]["path loss exponent"]["variance"]])
 
 		self._pmc = PopulationMonteCarlo(
@@ -174,7 +190,8 @@ class NPMC(simulations.base.SimpleSimulation):
 		self._algo = [self._pmc, self._nonlinear_pmc]
 
 		# [<component>,<iteration>,<algorithm>,<trial>,<frame>]
-		self._estimated_parameters = np.empty((2, self._n_iter_pmc, len(self._algo), self._n_trials, parameters["number of frames"]))
+		self._estimated_parameters = np.empty(
+			(len(prior_mean), self._n_iter_pmc, len(self._algo), self._n_trials, parameters["number of frames"]))
 
 		# ----- HDF5
 

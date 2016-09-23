@@ -131,7 +131,8 @@ class RSSsensor(Sensor):
 
 		return scipy.stats.norm.pdf(observation, self.likelihood_mean(distances), self._noise_std)
 
-	def set_parameters(self,  minimum_amount_of_power, path_loss_exponent):
+	def set_parameters(self,  tx_power, minimum_amount_of_power, path_loss_exponent):
 
+		self._tx_power = tx_power
 		self._minimum_power = minimum_amount_of_power
 		self._path_loss_exponent = path_loss_exponent
