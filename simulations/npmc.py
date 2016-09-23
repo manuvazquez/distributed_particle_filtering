@@ -135,7 +135,7 @@ class NPMC(simulations.base.SimpleSimulation):
 			pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements, n_sensors)
 
 		self._n_particles_likelihood = self._simulation_parameters["number of particles for approximating the likelihood"]
-		self._n_particles = self._simulation_parameters["number of particles"]
+		n_particles = self._simulation_parameters["number of particles"]
 		self._n_iter_pmc = self._simulation_parameters["number of Monte Carlo iterations"]
 
 		self._n_trials = self._simulation_parameters["number of trials"]
@@ -147,7 +147,7 @@ class NPMC(simulations.base.SimpleSimulation):
 		assert isinstance(n_clipped_particles_from_overall, types.FunctionType)
 
 		# the number of particles to be clipped is obtained using this function
-		M_T = n_clipped_particles_from_overall(self._n_particles)
+		M_Ts = [n_clipped_particles_from_overall(M) for M in n_particles]
 
 		# the pseudo random numbers generator this class will be using
 		prng = self._PRNGs['Sensors and Monte Carlo pseudo random numbers generator']
@@ -181,17 +181,20 @@ class NPMC(simulations.base.SimpleSimulation):
 			var_min_power,
 			self._simulation_parameters["prior"]["path loss exponent"]["variance"]])
 
-		self._pmc = PopulationMonteCarlo(
-			self._n_particles, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, prng)
+		pmc = [PopulationMonteCarlo(
+			M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, prng)
+		for M in n_particles]
 
-		self._nonlinear_pmc = NonLinearPopulationMonteCarlo(
-			self._n_particles, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng)
+		nonlinear_pmc = [NonLinearPopulationMonteCarlo(
+			M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng)
+		for M, M_T in zip(n_particles, M_Ts)]
 
-		self._algo = [self._pmc, self._nonlinear_pmc]
+		self._algorithms = [pmc, nonlinear_pmc]
 
 		# [<component>,<iteration>,<algorithm>,<trial>,<frame>]
 		self._estimated_parameters = np.empty(
-			(len(prior_mean), self._n_iter_pmc, len(self._algo), self._n_trials, parameters["number of frames"]))
+			(len(prior_mean), self._n_iter_pmc, len(self._algorithms), len(n_particles),
+			 self._n_trials, parameters["number of frames"]))
 
 		# ----- HDF5
 
@@ -221,9 +224,11 @@ class NPMC(simulations.base.SimpleSimulation):
 
 		for i_trial in range(self._n_trials):
 
-			for algo in self._algo:
+			for alg in self._algorithms:
 
-				algo.initialize()
+				for comb_alg_particles in alg:
+
+					comb_alg_particles.initialize()
 
 			for i_iter in range(self._n_iter_pmc):
 
@@ -234,11 +239,15 @@ class NPMC(simulations.base.SimpleSimulation):
 					' | ' +
 					colorama.Fore.LIGHTBLUE_EX + 'PMC iteration {}'.format(i_iter) + colorama.Style.RESET_ALL)
 
-				for i_alg, algo in enumerate(self._algo):
+				for i_alg, alg in enumerate(self._algorithms):
 
-					algo.step(self._observations)
+					for i_particles, comb_alg_particles in enumerate(alg):
 
-					self._estimated_parameters[:, i_iter, i_alg, i_trial, self._i_current_frame] = algo._mean
+						print('n particles {}'.format(comb_alg_particles.n_particles))
+
+						comb_alg_particles.step(self._observations)
+
+						self._estimated_parameters[:, i_iter, i_alg, i_particles, i_trial, self._i_current_frame] = comb_alg_particles._mean
 
 		# import code
 		# code.interact(local=dict(globals(), **locals()))
