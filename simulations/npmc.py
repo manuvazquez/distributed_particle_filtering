@@ -1,10 +1,10 @@
 import sys
 import os
 import types
-import copy
 
 import numpy as np
 import colorama
+import h5py
 
 import smc.particle_filter.particle_filter
 import smc.particle_filter.centralized as centralized
@@ -42,21 +42,16 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 		self._covar = None
 		self._weights = None
 
+	@property
+	def weights(self):
+
+		return self._weights
+
 	def initialize(self):
 
 		# the initial mean and covariance are given by the prior
 		self._mean = self._prior_mean
 		self._covar = self._prior_covar
-
-	def update_proposal(self):
-
-		self._weights = manu.smc.util.normalize_from_logs(self._loglikelihoods)
-
-		self._mean = self._weights @ self._samples
-		self._covar = np.cov(self._samples.T, ddof=0, aweights=self._weights)
-
-		print('mean:\n', self._mean)
-		print('covar:\n', self._covar)
 
 	def step(self, observations):
 
@@ -88,7 +83,17 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 				# logarithm of the average
 				self._loglikelihoods[i_particle] += manu.smc.util.log_sum_from_individual_logs(loglikes) - np.log(len(loglikes))
 
+		self._weights = manu.smc.util.normalize_from_logs(self._loglikelihoods)
+
 		self.update_proposal()
+
+	def update_proposal(self):
+
+		self._mean = self._weights @ self._samples
+		self._covar = np.cov(self._samples.T, ddof=0, aweights=self._weights)
+
+		print('mean:\n', self._mean)
+		print('covar:\n', self._covar)
 
 
 class NonLinearPopulationMonteCarlo(PopulationMonteCarlo):
@@ -101,7 +106,17 @@ class NonLinearPopulationMonteCarlo(PopulationMonteCarlo):
 
 		self._M_T = M_T
 
+		self._unclipped_weights = None
+
+	@property
+	def weights(self):
+
+		return self._unclipped_weights
+
 	def update_proposal(self):
+
+		# this is saved because it's returned by the above property
+		self._unclipped_weights = self._weights.copy()
 
 		# indices of the samples whose weight is to be clipped
 		i_clipped = np.argpartition(self._loglikelihoods, -self._M_T)[-self._M_T:]
@@ -191,12 +206,29 @@ class NPMC(simulations.base.SimpleSimulation):
 
 		self._algorithms = [pmc, nonlinear_pmc]
 
-		# [<component>,<iteration>,<algorithm>,<trial>,<frame>]
-		self._estimated_parameters = np.empty(
-			(len(prior_mean), self._n_iter_pmc, len(self._algorithms), len(n_particles),
-			 self._n_trials, parameters["number of frames"]))
+		# [<component>,<iteration>,<algorithm>,<particles>,<trial>,<frame>]
+		self._estimated_parameters = np.empty((
+			len(prior_mean), self._n_iter_pmc, len(self._algorithms), len(n_particles), self._n_trials,
+			parameters["number of frames"]))
+
+		# [<iteration>,<algorithm>,<particles>,<trial>,<frame>]
+		self._max_weight = np.empty((
+			self._n_iter_pmc, len(self._algorithms), len(n_particles), self._n_trials,
+			parameters["number of frames"]))
+
+		# [<iteration>,<algorithm>,<particles>,<trial>,<frame>]
+		self._M_eff = np.empty((
+			self._n_iter_pmc, len(self._algorithms), len(n_particles), self._n_trials,
+			parameters["number of frames"]))
 
 		# ----- HDF5
+
+		# the names of the algorithms are also stored
+		param_names = self._f.create_dataset(
+			self._h5py_prefix + 'parameters', shape=(3,), dtype=h5py.special_dtype(vlen=str))
+		param_names[0] = 'transmitter_power'
+		param_names[1] = 'minimum_amount_of_power'
+		param_names[2] = 'path_loss_exponent'
 
 		# the positions of the sensors
 		self._f.create_dataset(
@@ -207,9 +239,9 @@ class NPMC(simulations.base.SimpleSimulation):
 		# let the *grandparent* class do its thing...
 		simulations.base.Simulation.save_data(self, target_position)
 
-		self._f.create_dataset(
-			self._h5py_prefix + 'estimated parameters',
-			shape=self._estimated_parameters.shape, data=self._estimated_parameters)
+		self._f.create_dataset(self._h5py_prefix + 'estimated parameters', data=self._estimated_parameters)
+		self._f.create_dataset(self._h5py_prefix + 'maximum weight', data=self._max_weight)
+		self._f.create_dataset(self._h5py_prefix + 'effective sample size', data=self._M_eff)
 
 		# if a reference to an HDF5 was not received, that means the file was created by this object,
 		# and hence it is responsible of closing it...
@@ -226,9 +258,9 @@ class NPMC(simulations.base.SimpleSimulation):
 
 			for alg in self._algorithms:
 
-				for comb_alg_particles in alg:
+				for alg_particles in alg:
 
-					comb_alg_particles.initialize()
+					alg_particles.initialize()
 
 			for i_iter in range(self._n_iter_pmc):
 
@@ -241,13 +273,22 @@ class NPMC(simulations.base.SimpleSimulation):
 
 				for i_alg, alg in enumerate(self._algorithms):
 
-					for i_particles, comb_alg_particles in enumerate(alg):
+					for i_particles, alg_particles in enumerate(alg):
 
-						print('n particles {}'.format(comb_alg_particles.n_particles))
+						print('n particles {}'.format(alg_particles.n_particles))
 
-						comb_alg_particles.step(self._observations)
+						alg_particles.step(self._observations)
 
-						self._estimated_parameters[:, i_iter, i_alg, i_particles, i_trial, self._i_current_frame] = comb_alg_particles._mean
+						self._estimated_parameters[:, i_iter, i_alg, i_particles, i_trial, self._i_current_frame] =\
+							alg_particles._mean
+
+						self._max_weight[i_iter, i_alg, i_particles, i_trial, self._i_current_frame] =\
+							alg_particles.weights.max()
+
+						self._M_eff[i_iter, i_alg, i_particles, i_trial, self._i_current_frame] =\
+							1. / np.sum(alg_particles.weights ** 2)
+
+					print('=========')
 
 		# import code
 		# code.interact(local=dict(globals(), **locals()))
