@@ -134,6 +134,17 @@ class NonLinearPopulationMonteCarlo(PopulationMonteCarlo):
 		print('mean:\n', self._mean)
 		print('covar:\n', self._covar)
 
+
+class NonLinearPopulationMonteCarloCovarOnly(NonLinearPopulationMonteCarlo):
+
+	def update_proposal(self):
+
+		super().update_proposal()
+
+		# mean is recomputed using the unclipped weights
+		self._mean = self._unclipped_weights @ self._samples
+
+
 # ======================================================
 
 
@@ -204,7 +215,11 @@ class NPMC(simulations.base.SimpleSimulation):
 			M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng)
 		for M, M_T in zip(n_particles, M_Ts)]
 
-		self._algorithms = [pmc, nonlinear_pmc]
+		nonlinear_pmc_only_covar = [NonLinearPopulationMonteCarloCovarOnly(
+			M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng)
+		for M, M_T in zip(n_particles, M_Ts)]
+
+		self._algorithms = [pmc, nonlinear_pmc, nonlinear_pmc_only_covar]
 
 		# [<component>,<iteration>,<algorithm>,<particles>,<trial>,<frame>]
 		self._estimated_parameters = np.empty((

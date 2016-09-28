@@ -10,6 +10,33 @@
 	"number of particles per PE": 200,
 
 	"simulations": {
+		"Nonlinear Population Monte Carlo": {
+			"implementing class": "NPMC",
+			"network": "randomly strewn sensors and PEs",
+			"sensors-PEs connector": "sensors connected to the closest PEs",
+			"number of particles for approximating the likelihood": 100,
+
+			"number of particles": [5, 10, 20],
+			"number of Monte Carlo iterations": 10,
+			"number of clipped particles from overall number": "lambda x: int(np.sqrt(x))",
+
+			"number of trials": 100,
+
+			"prior": {
+				"transmitter power": {
+					"mean": 1,
+					"variance": 1
+				},
+				"minimum amount of power": {
+					"mean": 3e-5,
+					"variance": 1e-10
+				},
+				"path loss exponent": {
+					"mean": 0,
+					"variance": 4
+				}
+			}
+		},
 		"Mposterior revisited": {
 			"implementing class": "MposteriorRevisited",
 			"network": "randomly strewn sensors and PEs",
