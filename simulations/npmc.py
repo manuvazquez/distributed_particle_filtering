@@ -25,9 +25,10 @@ def normal_parameters_from_lognormal(mean, var):
 
 class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 
-	def __init__(self, n_particles, resampling_algorithm, resampling_criterion, pf, prior_mean, prior_covar, prng):
+	def __init__(
+			self, n_particles, resampling_algorithm, resampling_criterion, pf, prior_mean, prior_covar, prng, name=None):
 
-		super().__init__(n_particles, resampling_algorithm, resampling_criterion)
+		super().__init__(n_particles, resampling_algorithm, resampling_criterion, name=name)
 
 		# self._pf = copy.deepcopy(pf)
 		self._pf = pf
@@ -87,22 +88,26 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 
 		self.update_proposal()
 
+		adjusted_mean = self._mean.copy()
+		adjusted_mean[:2] = np.exp(adjusted_mean[:2])
+
+		print('mean:\n', self._mean)
+		print('covar:\n', self._covar)
+		print('adjusted mean:\n', colorama.Fore.LIGHTWHITE_EX + '{}'.format(adjusted_mean) + colorama.Style.RESET_ALL)
+
 	def update_proposal(self):
 
 		self._mean = self._weights @ self._samples
 		self._covar = np.cov(self._samples.T, ddof=0, aweights=self._weights)
 
-		print('mean:\n', self._mean)
-		print('covar:\n', self._covar)
-
 
 class NonLinearPopulationMonteCarlo(PopulationMonteCarlo):
 
 	def __init__(
-			self, n_particles, resampling_algorithm, resampling_criterion, pf, prior_mean, prior_covar, M_T, prng):
+			self, n_particles, resampling_algorithm, resampling_criterion, pf, prior_mean, prior_covar, M_T, prng, name=None):
 
 		super().__init__(
-			n_particles, resampling_algorithm, resampling_criterion, pf, prior_mean, prior_covar, prng)
+			n_particles, resampling_algorithm, resampling_criterion, pf, prior_mean, prior_covar, prng, name=name)
 
 		self._M_T = M_T
 
@@ -130,9 +135,6 @@ class NonLinearPopulationMonteCarlo(PopulationMonteCarlo):
 
 		self._mean = self._weights @ self._samples
 		self._covar = np.cov(self._samples.T, ddof=0, aweights=self._weights)
-
-		print('mean:\n', self._mean)
-		print('covar:\n', self._covar)
 
 
 class NonLinearPopulationMonteCarloCovarOnly(NonLinearPopulationMonteCarlo):
@@ -208,15 +210,15 @@ class NPMC(simulations.base.SimpleSimulation):
 			self._simulation_parameters["prior"]["path loss exponent"]["variance"]])
 
 		pmc = [PopulationMonteCarlo(
-			M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, prng)
+			M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, prng, name='PMC')
 		for M in n_particles]
 
 		nonlinear_pmc = [NonLinearPopulationMonteCarlo(
-			M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng)
+			M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng, name='NPMC')
 		for M, M_T in zip(n_particles, M_Ts)]
 
 		nonlinear_pmc_only_covar = [NonLinearPopulationMonteCarloCovarOnly(
-			M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng)
+			M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng, name='NPMC (covar)')
 		for M, M_T in zip(n_particles, M_Ts)]
 
 		self._algorithms = [pmc, nonlinear_pmc, nonlinear_pmc_only_covar]
@@ -244,6 +246,9 @@ class NPMC(simulations.base.SimpleSimulation):
 		param_names[0] = 'transmitter_power'
 		param_names[1] = 'minimum_amount_of_power'
 		param_names[2] = 'path_loss_exponent'
+
+		self._f.create_dataset(self._h5py_prefix + 'prior mean', data=prior_mean)
+		self._f.create_dataset(self._h5py_prefix + 'prior covariance', data=prior_covar)
 
 		# the positions of the sensors
 		self._f.create_dataset(
@@ -288,9 +293,13 @@ class NPMC(simulations.base.SimpleSimulation):
 
 				for i_alg, alg in enumerate(self._algorithms):
 
+					print(colorama.Fore.LIGHTMAGENTA_EX + alg[0].name + colorama.Style.RESET_ALL)
+
 					for i_particles, alg_particles in enumerate(alg):
 
-						print('n particles {}'.format(alg_particles.n_particles))
+						print(
+							colorama.Fore.LIGHTCYAN_EX + 'n particles {}'.format(alg_particles.n_particles) +
+							colorama.Style.RESET_ALL)
 
 						alg_particles.step(self._observations)
 
