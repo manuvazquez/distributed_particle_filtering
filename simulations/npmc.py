@@ -4,7 +4,6 @@ import types
 
 import numpy as np
 import colorama
-import h5py
 
 import smc.particle_filter.particle_filter
 import smc.particle_filter.centralized as centralized
@@ -13,6 +12,7 @@ import simulations.base
 
 sys.path.append(os.path.join(os.environ['HOME'], 'python'))
 import manu.smc.util
+import manu.util
 
 
 def normal_parameters_from_lognormal(mean, var):
@@ -56,12 +56,12 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 
 	def step(self, observations):
 
-		# 1st component (column) is "minimum amount of power" and 2nd is "path loss exponent"
+		# samples are drawn from the mean and covariance
 		self._samples = self._prng.multivariate_normal(self._mean, self._covar, size=self._n_particles)
 
 		self._loglikelihoods = np.zeros(self._n_particles)
 
-		for i_particle, (tx_power, min_power, path_loss_exp) in enumerate(self._samples):
+		for i_sample, (tx_power, min_power, path_loss_exp) in enumerate(self._samples):
 
 			# the "inner" PF (for approximating the likelihood) is initialized
 			self._pf.initialize()
@@ -73,7 +73,7 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 					tx_power=np.exp(tx_power), minimum_amount_of_power=np.exp(min_power), path_loss_exponent=path_loss_exp)
 
 			# the collection of observations is processed
-			for i_time, obs in enumerate(observations):
+			for obs in observations:
 
 				# ...a step is taken
 				self._pf.step(obs)
@@ -82,7 +82,7 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 				loglikes = self._pf.last_unnormalized_loglikelihoods
 				
 				# logarithm of the average
-				self._loglikelihoods[i_particle] += manu.smc.util.log_sum_from_individual_logs(loglikes) - np.log(len(loglikes))
+				self._loglikelihoods[i_sample] += manu.smc.util.log_sum_from_individual_logs(loglikes) - np.log(len(loglikes))
 
 		self._weights = manu.smc.util.normalize_from_logs(self._loglikelihoods)
 
@@ -240,12 +240,15 @@ class NPMC(simulations.base.SimpleSimulation):
 
 		# ----- HDF5
 
-		# the names of the algorithms are also stored
-		param_names = self._f.create_dataset(
-			self._h5py_prefix + 'parameters', shape=(3,), dtype=h5py.special_dtype(vlen=str))
-		param_names[0] = 'transmitter_power'
-		param_names[1] = 'minimum_amount_of_power'
-		param_names[2] = 'path_loss_exponent'
+		# the names of the parameters are stored
+		manu.util.write_strings_list_into_hdf5(
+			self._f, self._h5py_prefix + 'parameters',
+			['transmitter_power', 'minimum_amount_of_power', 'path_loss_exponent'])
+
+		# and so are those of the algorithms
+		manu.util.write_strings_list_into_hdf5(
+			self._f, self._h5py_prefix + 'algorithms/names',
+			[alg[0].name for alg in self._algorithms])
 
 		self._f.create_dataset(self._h5py_prefix + 'prior mean', data=prior_mean)
 		self._f.create_dataset(self._h5py_prefix + 'prior covariance', data=prior_covar)
@@ -274,8 +277,10 @@ class NPMC(simulations.base.SimpleSimulation):
 		# let the super class do its thing...
 		super().process_frame(target_position, target_velocity)
 
+		# for every Monte Carlo trial
 		for i_trial in range(self._n_trials):
 
+			# algorithms are initialized
 			for alg in self._algorithms:
 
 				for alg_particles in alg:
