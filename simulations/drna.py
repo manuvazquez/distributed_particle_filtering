@@ -24,15 +24,16 @@ class Convergence(simulations.base.SimpleSimulation):
 
 		estimated_position = np.empty((n_state, n_time_instants, n_algorithms, n_frames, n_topologies))
 
-		for i_frame, frame in enumerate(data_file['frames']):
+		for i_frame in range(len(data_file['frames'])):
 
 			for i_topology, topology in enumerate(data_file['frames/{}/topology'.format(i_frame)]):
 				estimated_position[..., i_frame, i_topology] = data_file[
 					'frames/{}/topology/{}/estimated position'.format(i_frame, i_topology)]
 
 		actual_position = np.concatenate(
-			[data_file['frames/{}/actual position'.format(i)][...][..., np.newaxis] for i in data_file['frames']],
-			axis=2)
+			[
+				data_file['frames/{}/actual position'.format(i)][...][..., np.newaxis]
+				for i in range(len(data_file['frames']))], axis=2)
 
 		return actual_position, estimated_position
 

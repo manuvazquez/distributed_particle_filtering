@@ -269,7 +269,7 @@ class TargetTrackingParticleFilterWithDRNA(TargetTrackingParticleFilter):
 		for PE in self._PEs:
 
 			# the aggregated weight is set...
-			PE._aggregated_weight = aggregated_weight
+			PE.aggregated_weight = aggregated_weight
 
 			# ...along with the individual weights within the PE
 			PE.log_weights = np.full(PE._n_particles, -np.log(self._n_PEs) - np.log(PE._n_particles))

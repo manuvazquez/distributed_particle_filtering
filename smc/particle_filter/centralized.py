@@ -1,4 +1,5 @@
 import sys
+import os
 import copy
 
 import numpy as np
@@ -7,6 +8,9 @@ import colorama
 
 import state
 from smc.particle_filter.particle_filter import ParticleFilter
+
+sys.path.append(os.path.join(os.environ['HOME'], 'python'))
+import manu.smc.util
 
 
 class TargetTrackingParticleFilter(ParticleFilter):
@@ -32,10 +36,11 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		# EVERY time, this PF is initialized, the aggregated weight is set to this value
 		self._initial_aggregated_weight = aggregated_weight
 
+		self._log_initial_aggregated_weight = np.log(aggregated_weight)
+
 		# these will get set as soon as the "initialize" method gets called
 		self._state = None
-		self._aggregated_weight = None
-
+		self._log_aggregated_weight = None
 		self._loglikelihoods_product = None
 
 	def initialize(self):
@@ -44,10 +49,9 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		self._state = self._prior.sample(self._n_particles)
 
 		# the weights are assigned equal probabilities
-		self._log_weights.fill(np.log(self._initial_aggregated_weight) - np.log(self._n_particles))
+		self._log_weights.fill(self._log_initial_aggregated_weight - np.log(self._n_particles))
 
-		# this variable just keeps tabs on the sum of all the weights
-		self._aggregated_weight = self._initial_aggregated_weight
+		self._log_aggregated_weight = self._log_initial_aggregated_weight
 
 	def step(self, observations):
 
@@ -100,12 +104,15 @@ class TargetTrackingParticleFilter(ParticleFilter):
 			# the above indexes are used to update the state
 			self._state = self._state[:, i_particles_to_be_kept]
 
-			# the loglikelihoods that are kept need also be updated
-			self._loglikelihoods_product = self._loglikelihoods_product[i_particles_to_be_kept]
+			# if present...
+			if self._loglikelihoods_product is not None:
+
+				# ...the loglikelihoods that are kept need also be updated
+				self._loglikelihoods_product = self._loglikelihoods_product[i_particles_to_be_kept]
 
 			# note that if the weights have been normalized ("standard" centralized particle filter),
-			# then "self._aggregated_weight" is equal to 1
-			self._log_weights.fill(np.log(self._aggregated_weight) - np.log(self._n_particles))
+			# then "self.aggregated_weight" is equal to 1
+			self._log_weights.fill(self._log_aggregated_weight - np.log(self._n_particles))
 
 	def get_particle(self, index):
 
@@ -167,18 +174,11 @@ class TargetTrackingParticleFilter(ParticleFilter):
 	def update_aggregated_weight(self):
 
 		# the aggregated weight is simply the sum of the non-normalized weights
-		self._aggregated_weight = np.exp(self._log_weights).sum()
+		self._log_aggregated_weight = manu.smc.util.log_sum_from_individual_logs(self._log_weights)
 
 	def compute_mean(self):
 
-		# if all the weights in this PF/PE are zero...
-		if self._aggregated_weight == 0:
-
-			# ...then an all-zeros estimate is returned...though any should do since this estimate must contribute zero
-			# return np.zeros((state.n_elements, 1))
-			return np.full((state.n_elements, 1), np.pi)
-
-		normalized_log_weights = self._log_weights - np.log(self._aggregated_weight)
+		normalized_log_weights = self._log_weights - self._log_aggregated_weight
 
 		# element-wise multiplication of the state vectors and their correspondent weights,
 		# followed by addition => weighted mean
@@ -186,35 +186,19 @@ class TargetTrackingParticleFilter(ParticleFilter):
 
 	def normalize_weights(self):
 
-		# if all the weights are zero...
-		if self._aggregated_weight == 0:
-
-			# ...then normalization makes no sense and we just initialize the weights again
-			self._log_weights.fill(-np.log(self._n_particles))
-
-		else:
-
-			self._log_weights -= np.log(self._aggregated_weight)
+		self._log_weights -= self._log_aggregated_weight
 
 		# we forced this above
-		self._aggregated_weight = 1.0
+		self._log_aggregated_weight = 0.
 
 		# TODO: make sure the (natural units) weights add up to 1 exactly to avoid numerical issues?
 
 	def normalize_weights_and_update_aggregated(self):
 
-		weights = np.exp(self._log_weights)
-
-		# to avoid numerical issues/ the sum of the weights being 0
-		weights += 1e-200
-
-		weights /= weights.sum()
-
-		# normalization
-		self._log_weights = np.log(weights)
+		self._log_weights -= manu.smc.util.log_sum_from_individual_logs(self._log_weights)
 
 		# this is enforced above
-		self._aggregated_weight = 1.0
+		self._log_aggregated_weight = 0.
 
 	# this methods encapsulates the parts within the code of "step" which are different in this class and its children
 	def avoid_weight_degeneracy(self):
@@ -264,25 +248,25 @@ class EmbeddedTargetTrackingParticleFilter(TargetTrackingParticleFilter):
 	@property
 	def aggregated_weight(self):
 
-		return self._aggregated_weight
+		return np.exp(self._log_aggregated_weight)
+
+	@aggregated_weight.setter
+	def aggregated_weight(self, value):
+
+		self._log_aggregated_weight =  np.log(value)
 
 	def divide_weights(self, factor):
 
-		self._log_weights -= np.log(factor)
-		self._aggregated_weight /= factor
+		log_factor = np.log(factor)
+
+		self._log_weights -= log_factor
+		self._log_aggregated_weight -= log_factor
 
 	# NOTE: using np.close may yield quite different results
 	def avoid_weight_degeneracy(self):
 
-		# if all the weights are zero...
-		if self._aggregated_weight == 0:
-
-			# ...there is nothing we can do
-			return
-
-		else:
-			# the normalized weights are used to resample
-			self.resample(self._log_weights - np.log(self._aggregated_weight))
+		# the normalized weights are used to resample
+		self.resample(self._log_weights - self._log_aggregated_weight)
 
 # =========================================================================================================
 
