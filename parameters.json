@@ -17,8 +17,6 @@
 			"number of particles for approximating the likelihood": 100,
 
 			"number of particles": [5, 10, 20],
-			"number of Monte Carlo iterations": 10,
-			"number of clipped particles from overall number": "lambda x: int(np.sqrt(x))",
 
 			"number of trials": 100,
 
@@ -104,6 +102,22 @@
 			"sensors-PEs connector": "sensors connected to the closest PEs",
 			"nPEs-nSensors pairs": [[2, 8], [4, 16], [8, 32]]
 		}
+	},
+
+	"Population Monte Carlo": {
+
+		"number of iterations": 10,
+
+		"Nonlinear": {
+			"number of clipped particles from overall number": "lambda x: int(np.sqrt(x))"
+		}
+
+	},
+
+	"Metropolis-Hastings": {
+
+		"burn-in period": 10
+
 	},
 
 	"DRNA": {

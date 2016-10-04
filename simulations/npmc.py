@@ -23,6 +23,35 @@ def normal_parameters_from_lognormal(mean, var):
 	return mean, var
 
 
+def loglikelihood(pf, observations, log_tx_power, log_min_power, path_loss_exp):
+
+	# the "inner" PF (for approximating the likelihood) is initialized
+	pf.initialize()
+
+	# the parameters of the sensors *within* the PF are set accordingly
+	for s in pf.sensors:
+
+		s.set_parameters(
+			tx_power=np.exp(log_tx_power), minimum_amount_of_power=np.exp(log_min_power),
+			path_loss_exponent=path_loss_exp)
+
+	res = 0.
+
+	# the collection of observations is processed
+	for obs in observations:
+
+		# ...a step is taken
+		pf.step(obs)
+
+		# the loglikelihoods computed by the "inner" bootstrap filter
+		loglikes = pf.last_unnormalized_loglikelihoods
+
+		# logarithm of the average
+		res += manu.smc.util.log_sum_from_individual_logs(loglikes) - np.log(len(loglikes))
+
+	return res
+
+
 class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 
 	def __init__(
@@ -63,26 +92,7 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 
 		for i_sample, (tx_power, min_power, path_loss_exp) in enumerate(self._samples):
 
-			# the "inner" PF (for approximating the likelihood) is initialized
-			self._pf.initialize()
-
-			# the parameters of the sensors *within* the PF are set accordingly
-			for s in self._pf.sensors:
-
-				s.set_parameters(
-					tx_power=np.exp(tx_power), minimum_amount_of_power=np.exp(min_power), path_loss_exponent=path_loss_exp)
-
-			# the collection of observations is processed
-			for obs in observations:
-
-				# ...a step is taken
-				self._pf.step(obs)
-
-				# the loglikelihoods computed by the "inner" bootstrap filter
-				loglikes = self._pf.last_unnormalized_loglikelihoods
-				
-				# logarithm of the average
-				self._loglikelihoods[i_sample] += manu.smc.util.log_sum_from_individual_logs(loglikes) - np.log(len(loglikes))
+			self._loglikelihoods[i_sample] = loglikelihood(self._pf, observations, tx_power, min_power, path_loss_exp)
 
 		self._weights = manu.smc.util.normalize_from_logs(self._loglikelihoods)
 
@@ -147,6 +157,93 @@ class NonLinearPopulationMonteCarloCovarOnly(NonLinearPopulationMonteCarlo):
 		self._mean = self._unclipped_weights @ self._samples
 
 
+class MetropolisHastings:
+
+	def __init__(self, n_samples, pf, prior_mean, prior_covar, prng, burn_in_period = 0, name=None):
+
+		self._n_samples = n_samples
+		self._pf = pf
+		self._prior_mean = prior_mean
+		self._prior_covar = prior_covar
+		self._prng = prng
+
+		self._burn_in_period = burn_in_period
+		self._name = name
+
+		# number of samples + number of samples for burn-in period + initial sample
+		self._chain = np.empty((len(prior_mean), n_samples + burn_in_period + 1))
+
+		self._kernel_covar = prior_covar/2
+
+		self._i_sample = 0
+
+		self._last_loglikelihood = None
+
+	def run(self, observations):
+
+		self._chain[:, self._i_sample] = self._prng.multivariate_normal(self._prior_mean, self._prior_covar, size=1)
+
+		self._last_loglikelihood = loglikelihood(self._pf, observations, *self._chain[:, self._i_sample])
+
+		self._i_sample += 1
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		self.extend_chain(observations, self._burn_in_period + self._n_samples)
+
+	def compute_mean(self, n_samples):
+
+		return self._chain[:, 1 + self._burn_in_period: 1 + self._burn_in_period + n_samples].mean(axis=1)
+
+	def extend_chain(self, observations, n):
+
+		# for every new sample to be added to the Markov chain
+		for i in range(n):
+
+			# a candidate sample is generated...
+			candidate = self._prng.multivariate_normal(self._chain[:, self._i_sample-1], self._kernel_covar)
+
+			# ...and its likelihood computed
+			candidate_loglikelihood = loglikelihood(self._pf, observations, *candidate)
+
+			# if the likelihood of the candidate is larger...
+			if candidate_loglikelihood > self._last_loglikelihood:
+
+				# the sample is accepted
+				self._chain[:, self._i_sample] = candidate
+
+				# the new likelihood is kept
+				self._last_loglikelihood = candidate_loglikelihood
+
+				# print(colorama.Fore.LIGHTWHITE_EX + 'accepted!!' + colorama.Style.RESET_ALL)
+				# print(candidate, self._i_sample)
+
+			else:
+
+				# the threshold does not depend on the proposal due the symmetry thereof
+				threshold = np.exp(candidate_loglikelihood - self._last_loglikelihood)
+
+				# if the threshold is essentially or the random sample is larger
+				if np.isclose(threshold, 0.) or (self._prng.random_sample() > threshold):
+
+					# the new sample is equal to the previous
+					self._chain[:, self._i_sample] = self._chain[:, self._i_sample-1]
+
+				else:
+
+					# the sample is accepted
+					self._chain[:, self._i_sample] = candidate
+
+					# the new likelihood is kept
+					self._last_loglikelihood = candidate_loglikelihood
+
+			self._i_sample += 1
+
+		import code
+		code.interact(local=dict(globals(), **locals()))
+
+
 # ======================================================
 
 
@@ -164,12 +261,14 @@ class NPMC(simulations.base.SimpleSimulation):
 
 		self._n_particles_likelihood = self._simulation_parameters["number of particles for approximating the likelihood"]
 		n_particles = self._simulation_parameters["number of particles"]
-		self._n_iter_pmc = self._simulation_parameters["number of Monte Carlo iterations"]
 
 		self._n_trials = self._simulation_parameters["number of trials"]
 
+		self._n_iter_pmc = parameters["Population Monte Carlo"]["number of iterations"]
 		n_clipped_particles_from_overall = eval(
-			self._simulation_parameters["number of clipped particles from overall number"])
+			parameters["Population Monte Carlo"]["Nonlinear"]["number of clipped particles from overall number"])
+
+		self._burn_in_period_metropolis_hastings = parameters["Metropolis-Hastings"]["burn-in period"]
 
 		# the above parameter should be a function
 		assert isinstance(n_clipped_particles_from_overall, types.FunctionType)
@@ -185,6 +284,8 @@ class NPMC(simulations.base.SimpleSimulation):
 			self._n_particles_likelihood, self._resampling_algorithm, self._resampling_criterion,
 			self._prior, self._transition_kernel, self._sensors
 		)
+
+		# ------------------------- prior
 
 		# the *minimum amount of power* is assumed to be log-normal" (it must be positive)...
 		mean_log_min_power = self._simulation_parameters["prior"]["minimum amount of power"]["mean"]
@@ -209,23 +310,36 @@ class NPMC(simulations.base.SimpleSimulation):
 			var_min_power,
 			self._simulation_parameters["prior"]["path loss exponent"]["variance"]])
 
-		pmc = [PopulationMonteCarlo(
-			M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, prng, name='PMC')
-		for M in n_particles]
+		# ------------------------- algorithms
 
-		nonlinear_pmc = [NonLinearPopulationMonteCarlo(
-			M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng, name='NPMC')
-		for M, M_T in zip(n_particles, M_Ts)]
+		pmc = [
+			PopulationMonteCarlo(
+				M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, prng, name='PMC')
+			for M in n_particles]
 
-		nonlinear_pmc_only_covar = [NonLinearPopulationMonteCarloCovarOnly(
-			M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng, name='NPMC (covar)')
-		for M, M_T in zip(n_particles, M_Ts)]
+		nonlinear_pmc = [
+			NonLinearPopulationMonteCarlo(
+				M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng, name='NPMC')
+			for M, M_T in zip(n_particles, M_Ts)]
+
+		nonlinear_pmc_only_covar = [
+			NonLinearPopulationMonteCarloCovarOnly(
+				M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng,
+				name='NPMC (covar)')
+			for M, M_T in zip(n_particles, M_Ts)]
+
+		# Metropolis-Hastings algorithm is run considering the larger number of samples and iterations
+		self.metropolis_hastings = MetropolisHastings(
+				self._n_iter_pmc*n_particles[-1], inner_pf, prior_mean, prior_covar, prng,
+				burn_in_period=self._burn_in_period_metropolis_hastings, name='Metropolis-Hastings')
 
 		self._algorithms = [pmc, nonlinear_pmc, nonlinear_pmc_only_covar]
 
+		# ------------------------- accumulators
+
 		# [<component>,<iteration>,<algorithm>,<particles>,<trial>,<frame>]
 		self._estimated_parameters = np.empty((
-			len(prior_mean), self._n_iter_pmc, len(self._algorithms), len(n_particles), self._n_trials,
+			len(prior_mean), self._n_iter_pmc, len(self._algorithms) + 1, len(n_particles), self._n_trials,
 			parameters["number of frames"]))
 
 		# [<iteration>,<algorithm>,<particles>,<trial>,<frame>]
@@ -280,6 +394,8 @@ class NPMC(simulations.base.SimpleSimulation):
 		# for every Monte Carlo trial
 		for i_trial in range(self._n_trials):
 
+			# self.metropolis_hastings.run(self._observations)
+
 			# algorithms are initialized
 			for alg in self._algorithms:
 
@@ -316,6 +432,8 @@ class NPMC(simulations.base.SimpleSimulation):
 
 						self._M_eff[i_iter, i_alg, i_particles, i_trial, self._i_current_frame] =\
 							1. / np.sum(alg_particles.weights ** 2)
+
+						# ---------
 
 					print('=========')
 
