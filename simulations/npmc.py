@@ -159,7 +159,9 @@ class NonLinearPopulationMonteCarloCovarOnly(NonLinearPopulationMonteCarlo):
 
 class MetropolisHastings:
 
-	def __init__(self, n_samples, pf, prior_mean, prior_covar, prng, burn_in_period = 0, name=None):
+	def __init__(self, n_samples, pf, prior_mean, prior_covar, prng, burn_in_period, covar_ratio, name=None):
+
+		self.name = name
 
 		self._n_samples = n_samples
 		self._pf = pf
@@ -168,12 +170,11 @@ class MetropolisHastings:
 		self._prng = prng
 
 		self._burn_in_period = burn_in_period
-		self._name = name
 
 		# number of samples + number of samples for burn-in period + initial sample
 		self._chain = np.empty((len(prior_mean), n_samples + burn_in_period + 1))
 
-		self._kernel_covar = prior_covar/2
+		self._kernel_covar = prior_covar*covar_ratio
 
 		self._i_sample = 0
 
@@ -181,16 +182,19 @@ class MetropolisHastings:
 
 	def run(self, observations):
 
+		# initialization
 		self._chain[:, self._i_sample] = self._prng.multivariate_normal(self._prior_mean, self._prior_covar, size=1)
 
+		# the likelihood of the last sample
 		self._last_loglikelihood = loglikelihood(self._pf, observations, *self._chain[:, self._i_sample])
 
+		# another sample is to be drawn
 		self._i_sample += 1
 
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
-
 		self.extend_chain(observations, self._burn_in_period + self._n_samples)
+
+		# reset (so that run can be called again)
+		self._i_sample = 0
 
 	def compute_mean(self, n_samples):
 
@@ -240,8 +244,8 @@ class MetropolisHastings:
 
 			self._i_sample += 1
 
-		import code
-		code.interact(local=dict(globals(), **locals()))
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
 
 
 # ======================================================
@@ -260,7 +264,7 @@ class NPMC(simulations.base.SimpleSimulation):
 			pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements, n_sensors)
 
 		self._n_particles_likelihood = self._simulation_parameters["number of particles for approximating the likelihood"]
-		n_particles = self._simulation_parameters["number of particles"]
+		self._n_particles = self._simulation_parameters["number of particles"]
 
 		self._n_trials = self._simulation_parameters["number of trials"]
 
@@ -268,13 +272,14 @@ class NPMC(simulations.base.SimpleSimulation):
 		n_clipped_particles_from_overall = eval(
 			parameters["Population Monte Carlo"]["Nonlinear"]["number of clipped particles from overall number"])
 
-		self._burn_in_period_metropolis_hastings = parameters["Metropolis-Hastings"]["burn-in period"]
+		burn_in_period_metropolis_hastings = parameters["Metropolis-Hastings"]["burn-in period"]
+		kernel_prior_covar_ratio_metropolis_hastings = parameters["Metropolis-Hastings"]["ratio kernel-prior covariances"]
 
 		# the above parameter should be a function
 		assert isinstance(n_clipped_particles_from_overall, types.FunctionType)
 
 		# the number of particles to be clipped is obtained using this function
-		M_Ts = [n_clipped_particles_from_overall(M) for M in n_particles]
+		M_Ts = [n_clipped_particles_from_overall(M) for M in self._n_particles]
 
 		# the pseudo random numbers generator this class will be using
 		prng = self._PRNGs['Sensors and Monte Carlo pseudo random numbers generator']
@@ -315,23 +320,23 @@ class NPMC(simulations.base.SimpleSimulation):
 		pmc = [
 			PopulationMonteCarlo(
 				M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, prng, name='PMC')
-			for M in n_particles]
+			for M in self._n_particles]
 
 		nonlinear_pmc = [
 			NonLinearPopulationMonteCarlo(
 				M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng, name='NPMC')
-			for M, M_T in zip(n_particles, M_Ts)]
+			for M, M_T in zip(self._n_particles, M_Ts)]
 
 		nonlinear_pmc_only_covar = [
 			NonLinearPopulationMonteCarloCovarOnly(
 				M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng,
-				name='NPMC (covar)')
-			for M, M_T in zip(n_particles, M_Ts)]
+				name='NPMC_covar')
+			for M, M_T in zip(self._n_particles, M_Ts)]
 
 		# Metropolis-Hastings algorithm is run considering the larger number of samples and iterations
 		self.metropolis_hastings = MetropolisHastings(
-				self._n_iter_pmc*n_particles[-1], inner_pf, prior_mean, prior_covar, prng,
-				burn_in_period=self._burn_in_period_metropolis_hastings, name='Metropolis-Hastings')
+			self._n_iter_pmc*self._n_particles[-1], inner_pf, prior_mean, prior_covar, prng,
+			burn_in_period_metropolis_hastings, kernel_prior_covar_ratio_metropolis_hastings, name='MetropolisHastings')
 
 		self._algorithms = [pmc, nonlinear_pmc, nonlinear_pmc_only_covar]
 
@@ -339,17 +344,17 @@ class NPMC(simulations.base.SimpleSimulation):
 
 		# [<component>,<iteration>,<algorithm>,<particles>,<trial>,<frame>]
 		self._estimated_parameters = np.empty((
-			len(prior_mean), self._n_iter_pmc, len(self._algorithms) + 1, len(n_particles), self._n_trials,
+			len(prior_mean), self._n_iter_pmc, len(self._algorithms) + 1, len(self._n_particles), self._n_trials,
 			parameters["number of frames"]))
 
 		# [<iteration>,<algorithm>,<particles>,<trial>,<frame>]
 		self._max_weight = np.empty((
-			self._n_iter_pmc, len(self._algorithms), len(n_particles), self._n_trials,
+			self._n_iter_pmc, len(self._algorithms), len(self._n_particles), self._n_trials,
 			parameters["number of frames"]))
 
 		# [<iteration>,<algorithm>,<particles>,<trial>,<frame>]
 		self._M_eff = np.empty((
-			self._n_iter_pmc, len(self._algorithms), len(n_particles), self._n_trials,
+			self._n_iter_pmc, len(self._algorithms), len(self._n_particles), self._n_trials,
 			parameters["number of frames"]))
 
 		# ----- HDF5
@@ -362,7 +367,7 @@ class NPMC(simulations.base.SimpleSimulation):
 		# and so are those of the algorithms
 		manu.util.write_strings_list_into_hdf5(
 			self._f, self._h5py_prefix + 'algorithms/names',
-			[alg[0].name for alg in self._algorithms])
+			[alg[0].name for alg in self._algorithms] + [self.metropolis_hastings.name])
 
 		self._f.create_dataset(self._h5py_prefix + 'prior mean', data=prior_mean)
 		self._f.create_dataset(self._h5py_prefix + 'prior covariance', data=prior_covar)
@@ -394,7 +399,7 @@ class NPMC(simulations.base.SimpleSimulation):
 		# for every Monte Carlo trial
 		for i_trial in range(self._n_trials):
 
-			# self.metropolis_hastings.run(self._observations)
+			self.metropolis_hastings.run(self._observations)
 
 			# algorithms are initialized
 			for alg in self._algorithms:
@@ -433,9 +438,18 @@ class NPMC(simulations.base.SimpleSimulation):
 						self._M_eff[i_iter, i_alg, i_particles, i_trial, self._i_current_frame] =\
 							1. / np.sum(alg_particles.weights ** 2)
 
-						# ---------
-
 					print('=========')
+
+				print(colorama.Fore.LIGHTMAGENTA_EX + self.metropolis_hastings.name + colorama.Style.RESET_ALL)
+
+				for n_particles in self._n_particles:
+
+					self._estimated_parameters[:, i_iter, i_alg + 1, i_particles, i_trial, self._i_current_frame] =\
+						self.metropolis_hastings.compute_mean(n_particles*(i_iter +1 ))
+
+					print(self._estimated_parameters[:, i_iter, i_alg + 1, i_particles, i_trial, self._i_current_frame])
+
+				print('=========')
 
 		# import code
 		# code.interact(local=dict(globals(), **locals()))

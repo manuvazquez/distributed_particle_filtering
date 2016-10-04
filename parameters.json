@@ -116,7 +116,8 @@
 
 	"Metropolis-Hastings": {
 
-		"burn-in period": 10
+		"burn-in period": 10,
+		"ratio kernel-prior covariances": 0.5
 
 	},
 
