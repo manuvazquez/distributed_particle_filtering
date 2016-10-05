@@ -204,6 +204,11 @@ class MetropolisHastings:
 		# reset (so that run can be called again)
 		self._i_sample = 0
 
+	@property
+	def chain(self):
+
+		return self._chain
+
 	def compute_mean(self, n_samples):
 
 		return self._chain[:, self._burn_in_period: self._burn_in_period + n_samples].mean(axis=1)
@@ -328,6 +333,8 @@ class NPMC(simulations.base.SimpleSimulation):
 			var_min_power,
 			self._simulation_parameters["prior"]["path loss exponent"]["variance"]])
 
+		n_samples_metropolis_hastings = self._n_iter_pmc*self._n_particles[-1]
+
 		# ------------------------- algorithms
 
 		pmc = [
@@ -348,28 +355,32 @@ class NPMC(simulations.base.SimpleSimulation):
 
 		# Metropolis-Hastings algorithm is run considering the larger number of samples and iterations
 		self.metropolis_hastings = MetropolisHastings(
-			self._n_iter_pmc*self._n_particles[-1], inner_pf, prior_mean, prior_covar, prng,
-			burn_in_period_metropolis_hastings, kernel_prior_covar_ratio_metropolis_hastings, name='MetropolisHastings')
+			n_samples_metropolis_hastings, inner_pf, prior_mean, prior_covar, prng, burn_in_period_metropolis_hastings,
+			kernel_prior_covar_ratio_metropolis_hastings, name='MetropolisHastings')
 
 		# self._algorithms = [pmc, nonlinear_pmc, nonlinear_pmc_only_covar]
 		self._algorithms = [pmc, nonlinear_pmc]
 
 		# ------------------------- accumulators
 
-		# [<component>,<iteration>,<algorithm>,<particles>,<trial>,<frame>]
+		# [<component>,<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
 		self._estimated_parameters = np.empty((
 			len(prior_mean), self._n_iter_pmc, len(self._algorithms) + 1, len(self._n_particles), self._n_trials,
 			parameters["number of frames"]))
 
-		# [<iteration>,<algorithm>,<particles>,<trial>,<frame>]
+		# [<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
 		self._max_weight = np.empty((
 			self._n_iter_pmc, len(self._algorithms), len(self._n_particles), self._n_trials,
 			parameters["number of frames"]))
 
-		# [<iteration>,<algorithm>,<particles>,<trial>,<frame>]
+		# [<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
 		self._M_eff = np.empty((
 			self._n_iter_pmc, len(self._algorithms), len(self._n_particles), self._n_trials,
 			parameters["number of frames"]))
+
+		# [<component>, <sample>, <trial>, <frame>]
+		self._markov_chains = np.empty((
+			len(prior_mean), n_samples_metropolis_hastings, self._n_trials, parameters["number of frames"]))
 
 		# ----- HDF5
 
@@ -399,6 +410,8 @@ class NPMC(simulations.base.SimpleSimulation):
 		self._f.create_dataset(self._h5py_prefix + 'maximum weight', data=self._max_weight)
 		self._f.create_dataset(self._h5py_prefix + 'effective sample size', data=self._M_eff)
 
+		self._f.create_dataset(self._h5py_prefix + 'Markov chains', data=self._markov_chains)
+
 		# if a reference to an HDF5 was not received, that means the file was created by this object,
 		# and hence it is responsible of closing it...
 		if not self._h5py_file:
@@ -414,6 +427,8 @@ class NPMC(simulations.base.SimpleSimulation):
 		for i_trial in range(self._n_trials):
 
 			self.metropolis_hastings.run(self._observations)
+
+			self._markov_chains[:, :, i_trial, self._i_current_frame] = self.metropolis_hastings.chain
 
 			# algorithms are initialized
 			for alg in self._algorithms:
