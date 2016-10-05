@@ -3,6 +3,7 @@ import os
 import types
 
 import numpy as np
+import scipy.stats
 import colorama
 
 import smc.particle_filter.particle_filter
@@ -161,6 +162,9 @@ class MetropolisHastings:
 
 	def __init__(self, n_samples, pf, prior_mean, prior_covar, prng, burn_in_period, covar_ratio, name=None):
 
+		# otherwise, the number of samples is not comparable to that of the IS algorithms
+		assert burn_in_period == 0
+
 		self.name = name
 
 		self._n_samples = n_samples
@@ -172,33 +176,41 @@ class MetropolisHastings:
 		self._burn_in_period = burn_in_period
 
 		# number of samples + number of samples for burn-in period + initial sample
-		self._chain = np.empty((len(prior_mean), n_samples + burn_in_period + 1))
+		self._chain = np.empty((len(prior_mean), n_samples + burn_in_period))
 
 		self._kernel_covar = prior_covar*covar_ratio
 
 		self._i_sample = 0
 
-		self._last_loglikelihood = None
+		self._last_posterior = None
 
 	def run(self, observations):
 
 		# initialization
-		self._chain[:, self._i_sample] = self._prng.multivariate_normal(self._prior_mean, self._prior_covar, size=1)
+		self._chain[:, self._i_sample] = self._prng.multivariate_normal(self._prior_mean, self._prior_covar)
 
-		# the likelihood of the last sample
-		self._last_loglikelihood = loglikelihood(self._pf, observations, *self._chain[:, self._i_sample])
+		# the logarithm of the prior for the sample just generated
+		log_prior = np.log(scipy.stats.multivariate_normal.pdf(
+			x=self._chain[:, self._i_sample], mean=self._prior_mean, cov=self._prior_covar))
+
+		# the posterior (up to a proportionality constant) of the last sample
+		self._last_posterior = loglikelihood(self._pf, observations, *self._chain[:, self._i_sample]) + log_prior
 
 		# another sample is to be drawn
 		self._i_sample += 1
 
-		self.extend_chain(observations, self._burn_in_period + self._n_samples)
+		self.extend_chain(observations, self._burn_in_period + self._n_samples - 1)
 
 		# reset (so that run can be called again)
 		self._i_sample = 0
 
 	def compute_mean(self, n_samples):
 
-		return self._chain[:, 1 + self._burn_in_period: 1 + self._burn_in_period + n_samples].mean(axis=1)
+		return self._chain[:, self._burn_in_period: self._burn_in_period + n_samples].mean(axis=1)
+
+	def compute_half_sample_mean(self, n_samples):
+
+		return self._chain[:, n_samples//2:  n_samples].mean(axis=1)
 
 	def extend_chain(self, observations, n):
 
@@ -208,25 +220,26 @@ class MetropolisHastings:
 			# a candidate sample is generated...
 			candidate = self._prng.multivariate_normal(self._chain[:, self._i_sample-1], self._kernel_covar)
 
-			# ...and its likelihood computed
-			candidate_loglikelihood = loglikelihood(self._pf, observations, *candidate)
+			# the log of the prior evaluated at the candidate
+			log_prior = np.log(scipy.stats.multivariate_normal.pdf(
+				x=candidate, mean=self._prior_mean, cov=self._prior_covar))
+
+			# ...and its posterior (up to a proportionality constant) computed
+			candidate_posterior = loglikelihood(self._pf, observations, *candidate) + log_prior
 
 			# if the likelihood of the candidate is larger...
-			if candidate_loglikelihood > self._last_loglikelihood:
+			if candidate_posterior > self._last_posterior:
 
 				# the sample is accepted
 				self._chain[:, self._i_sample] = candidate
 
-				# the new likelihood is kept
-				self._last_loglikelihood = candidate_loglikelihood
-
-				# print(colorama.Fore.LIGHTWHITE_EX + 'accepted!!' + colorama.Style.RESET_ALL)
-				# print(candidate, self._i_sample)
+				# the new posterior is kept
+				self._last_posterior = candidate_posterior
 
 			else:
 
 				# the threshold does not depend on the proposal due the symmetry thereof
-				threshold = np.exp(candidate_loglikelihood - self._last_loglikelihood)
+				threshold = np.exp(candidate_posterior - self._last_posterior)
 
 				# if the threshold is essentially or the random sample is larger
 				if np.isclose(threshold, 0.) or (self._prng.random_sample() > threshold):
@@ -239,8 +252,8 @@ class MetropolisHastings:
 					# the sample is accepted
 					self._chain[:, self._i_sample] = candidate
 
-					# the new likelihood is kept
-					self._last_loglikelihood = candidate_loglikelihood
+					# the new posterior is kept
+					self._last_posterior = candidate_posterior
 
 			self._i_sample += 1
 
@@ -327,18 +340,19 @@ class NPMC(simulations.base.SimpleSimulation):
 				M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng, name='NPMC')
 			for M, M_T in zip(self._n_particles, M_Ts)]
 
-		nonlinear_pmc_only_covar = [
-			NonLinearPopulationMonteCarloCovarOnly(
-				M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng,
-				name='NPMC_covar')
-			for M, M_T in zip(self._n_particles, M_Ts)]
+		# nonlinear_pmc_only_covar = [
+		# 	NonLinearPopulationMonteCarloCovarOnly(
+		# 		M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng,
+		# 		name='NPMC_covar')
+		# 	for M, M_T in zip(self._n_particles, M_Ts)]
 
 		# Metropolis-Hastings algorithm is run considering the larger number of samples and iterations
 		self.metropolis_hastings = MetropolisHastings(
 			self._n_iter_pmc*self._n_particles[-1], inner_pf, prior_mean, prior_covar, prng,
 			burn_in_period_metropolis_hastings, kernel_prior_covar_ratio_metropolis_hastings, name='MetropolisHastings')
 
-		self._algorithms = [pmc, nonlinear_pmc, nonlinear_pmc_only_covar]
+		# self._algorithms = [pmc, nonlinear_pmc, nonlinear_pmc_only_covar]
+		self._algorithms = [pmc, nonlinear_pmc]
 
 		# ------------------------- accumulators
 
@@ -445,7 +459,7 @@ class NPMC(simulations.base.SimpleSimulation):
 				for n_particles in self._n_particles:
 
 					self._estimated_parameters[:, i_iter, i_alg + 1, i_particles, i_trial, self._i_current_frame] =\
-						self.metropolis_hastings.compute_mean(n_particles*(i_iter +1 ))
+						self.metropolis_hastings.compute_half_sample_mean(n_particles*(i_iter +1 ))
 
 					print(self._estimated_parameters[:, i_iter, i_alg + 1, i_particles, i_trial, self._i_current_frame])
 
