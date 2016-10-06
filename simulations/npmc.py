@@ -471,12 +471,13 @@ class NPMC(simulations.base.SimpleSimulation):
 
 				print(colorama.Fore.LIGHTMAGENTA_EX + self.metropolis_hastings.name + colorama.Style.RESET_ALL)
 
-				for n_particles in self._n_particles:
+				for i_particles, n_particles in enumerate(self._n_particles):
 
-					self._estimated_parameters[:, i_iter, i_alg + 1, i_particles, i_trial, self._i_current_frame] =\
+					# the estimated parameters are saved in the slot for the *last* algorithm
+					self._estimated_parameters[:, i_iter, -1, i_particles, i_trial, self._i_current_frame] =\
 						self.metropolis_hastings.compute_half_sample_mean(n_particles*(i_iter +1 ))
 
-					print(self._estimated_parameters[:, i_iter, i_alg + 1, i_particles, i_trial, self._i_current_frame])
+					print(self._estimated_parameters[:, i_iter, -1, i_particles, i_trial, self._i_current_frame])
 
 				print('=========')
 
