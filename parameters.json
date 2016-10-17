@@ -109,14 +109,14 @@
 		"number of iterations": 10,
 
 		"Nonlinear": {
-			"number of clipped particles from overall number": "lambda x: int(np.sqrt(x))"
+			"number of clipped particles from overall number": "lambda x: int(np.log(x))"
 		}
 
 	},
 
 	"Metropolis-Hastings": {
 
-		"burn-in period": 10,
+		"burn-in period": 0,
 		"ratio kernel-prior covariances": 0.5
 
 	},

@@ -8,6 +8,7 @@ import colorama
 
 import state
 from smc.particle_filter.particle_filter import ParticleFilter
+import sensor as sensor_module
 
 sys.path.append(os.path.join(os.environ['HOME'], 'python'))
 import manu.smc.util
@@ -43,6 +44,17 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		self._log_aggregated_weight = None
 		self._loglikelihoods_product = None
 
+		# TODO: implement a *sensorsArray* class for every type of sensor
+		assert isinstance(sensors[0], sensor_module.RSSsensor)
+
+		# a sensors array is built from the individual sensors
+		self._sensors_array = sensor_module.RSSsensorsArray(self._sensors)
+
+	# this should be called whenever any of the sensors within the PF are modified
+	def reset_sensors_array(self):
+
+		self._sensors_array = sensor_module.RSSsensorsArray(self._sensors)
+
 	def initialize(self):
 
 		# initial samples...
@@ -60,9 +72,8 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		# every particle is updated (previous state is not stored...)
 		self._state = self._state_transition_kernel.next_state(self._state)
 
-		# for each sensor, we compute the likelihood of EVERY particle (position)
-		likelihoods = np.array(
-			[sensor.likelihood(obs, state.to_position(self._state)) for sensor, obs in zip(self._sensors, observations)])
+		# for EVERY sensor, we compute the likelihood of EVERY particle (position)
+		likelihoods = self._sensors_array.likelihood(observations, state.to_position(self._state))
 
 		# in order to avoid floating point arithmetic issues
 		likelihoods += 1e-200
@@ -477,9 +488,10 @@ class TargetTrackingGaussianParticleFilter(TargetTrackingParticleFilter):
 		self._state = self._state_transition_kernel.next_state(self._state[:, i_particles_resampled])
 
 		# for each sensor, we compute the likelihood of EVERY particle (position)
-		likelihoods = np.array(
-			[sensor.likelihood(obs, state.to_position(self._state)) for sensor, obs in
-			 zip(self._sensors, observations)])
+		likelihoods = np.array([
+				sensor.likelihood(obs, state.to_position(self._state))
+				for sensor, obs in zip(self._sensors, observations)
+				])
 
 		# careful with floating point arithmetic issues
 		likelihoods += 1e-200

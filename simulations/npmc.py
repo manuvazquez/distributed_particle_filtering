@@ -36,6 +36,9 @@ def loglikelihood(pf, observations, log_tx_power, log_min_power, path_loss_exp):
 			tx_power=np.exp(log_tx_power), minimum_amount_of_power=np.exp(log_min_power),
 			path_loss_exponent=path_loss_exp)
 
+
+	pf.reset_sensors_array()
+
 	res = 0.
 
 	# the collection of observations is processed

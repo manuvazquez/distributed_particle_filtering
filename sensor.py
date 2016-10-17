@@ -136,3 +136,27 @@ class RSSsensor(Sensor):
 		self._tx_power = tx_power
 		self._minimum_power = minimum_amount_of_power
 		self._path_loss_exponent = path_loss_exponent
+
+
+class RSSsensorsArray:
+
+	def __init__(self, sensors):
+
+		self._tx_power = np.array([s._tx_power for s in sensors])
+		self._path_loss_exponent = np.array([s._path_loss_exponent for s in sensors])
+		self._noise_std = np.array([s._noise_std for s in sensors])
+		self._minimum_power = np.array([s._minimum_power for s in sensors])
+		self._positions = np.hstack([s.position for s in sensors])
+
+	def likelihood(self, observations, positions):
+
+		# each row a different particle (position received), every column a sensor
+		distances = np.linalg.norm(positions[:, np.newaxis, :] - self._positions[:, :, np.newaxis], axis=0)
+
+		# each row a different particle (position received), every column a sensor
+		likelihood_mean = 10*np.log10(
+			self._tx_power[:, np.newaxis] / distances ** self._path_loss_exponent[:, np.newaxis] +
+			self._minimum_power[:, np.newaxis]
+		)
+
+		return scipy.stats.norm.pdf(observations[:, np.newaxis], likelihood_mean, self._noise_std[:, np.newaxis])
