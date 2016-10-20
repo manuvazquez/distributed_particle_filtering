@@ -72,6 +72,12 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		# every particle is updated (previous state is not stored...)
 		self._state = self._state_transition_kernel.next_state(self._state)
 
+		# FIXME: this code is needed if the sensor is not RSS
+		# # for each sensor, we compute the likelihood of EVERY particle (position)
+		# likelihoods = np.array(
+		# 	[sensor.likelihood(obs, state.to_position(self._state)) for sensor, obs in
+		# 	 zip(self._sensors, observations)])
+
 		# for EVERY sensor, we compute the likelihood of EVERY particle (position)
 		likelihoods = self._sensors_array.likelihood(observations, state.to_position(self._state))
 

@@ -36,7 +36,6 @@ def loglikelihood(pf, observations, log_tx_power, log_min_power, path_loss_exp):
 			tx_power=np.exp(log_tx_power), minimum_amount_of_power=np.exp(log_min_power),
 			path_loss_exponent=path_loss_exp)
 
-
 	pf.reset_sensors_array()
 
 	res = 0.
@@ -232,7 +231,7 @@ class MetropolisHastings:
 			log_prior = np.log(scipy.stats.multivariate_normal.pdf(
 				x=candidate, mean=self._prior_mean, cov=self._prior_covar))
 
-			# ...and its posterior (up to a proportionality constant) computed
+			# ...and its posterior (up to a proportionality constant) are computed
 			candidate_posterior = loglikelihood(self._pf, observations, *candidate) + log_prior
 
 			# if the likelihood of the candidate is larger...
