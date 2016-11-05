@@ -44,11 +44,13 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		self._log_aggregated_weight = None
 		self._loglikelihoods_product = None
 
-		# TODO: implement a *sensorsArray* class for every type of sensor
-		assert isinstance(sensors[0], sensor_module.RSSsensor)
-
-		# a sensors array is built from the individual sensors
-		self._sensors_array = sensor_module.RSSsensorsArray(self._sensors)
+		# TODO: this class and its children should receive a *sensorsArray* object
+		if isinstance(sensors[0], sensor_module.RSSsensor):
+			self._sensors_array = sensor_module.RSSsensorsArray(self._sensors)
+		elif isinstance(sensors[0], sensor_module.BinarySensor):
+			self._sensors_array = sensor_module.BinarySensorsArray(self._sensors)
+		else:
+			raise Exception('an array of this type of sensor is not supported')
 
 	# this should be called whenever any of the sensors within the PF are modified
 	def reset_sensors_array(self):
