@@ -1,6 +1,7 @@
 import sys
 import os
 import numpy as np
+import scipy.stats
 
 import colorama
 
@@ -31,6 +32,9 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 		self._covar = None
 		self._weights = None
 
+		# the smallest representable positive in this machine and for this data type
+		self._machine_eps = np.finfo(prior_covar.dtype).eps
+
 	@property
 	def weights(self):
 
@@ -53,7 +57,14 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 
 			self._loglikelihoods[i_sample] = util.loglikelihood(self._pf, observations, tx_power, min_power, path_loss_exp)
 
-		self._weights = manu.smc.util.normalize_from_logs(self._loglikelihoods)
+		log_prior = np.log(scipy.stats.multivariate_normal.pdf(
+			x=self._samples, mean=self._prior_mean, cov=self._prior_covar))
+
+		log_proposal = np.log(scipy.stats.multivariate_normal.pdf(x=self._samples, mean=self._mean, cov=self._covar))
+
+		# NOTE: the first time this is called, "log_prior" should be equal to "log_proposal"
+
+		self._weights = manu.smc.util.normalize_from_logs(self._loglikelihoods + log_prior - log_proposal)
 
 		self.update_proposal()
 
@@ -69,6 +80,25 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 		# np.ma.average(self._samples, axis=1, weights=self._weights).data
 		self._mean = self._weights @ self._samples
 		self._covar = np.cov(self._samples.T, ddof=0, aweights=self._weights)
+
+		# if the covariance matrix is "essentially" all-zeros, it may happen that samples drawn thereof have zero
+		# density (mathematically preposterous but possible due to finite precision issues); in order to avoid this...
+		# ...if all the coefficients in the covariance matrix are *close* to zero...
+		if np.allclose(self._covar, 0):
+
+			# ...the covariance matrix is set equal to the prior covariance matrix
+			self._covar = self._prior_covar
+
+			return
+
+		# ...still, we make sure it is possible to evaluate the density of a sample with the above covariance...
+		try:
+			# ...we evaluate the density at the mean
+			scipy.stats.multivariate_normal.pdf(x=self._mean, mean=self._mean, cov=self._covar)
+		# if it is not possible...
+		except (np.linalg.linalg.LinAlgError, ValueError):
+			# ...the covariance matrix is set equal to the prior covariance matrix
+			self._covar = self._prior_covar
 
 
 class NonLinearPopulationMonteCarlo(PopulationMonteCarlo):
