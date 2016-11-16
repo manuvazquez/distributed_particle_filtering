@@ -104,8 +104,11 @@ class NPMC(simulations.base.SimpleSimulation):
 			n_samples_metropolis_hastings, inner_pf, prior_mean, prior_covar, prng, burn_in_period_metropolis_hastings,
 			kernel_prior_covar_ratio_metropolis_hastings, name='MetropolisHastings')
 
-		# self._algorithms = [pmc, nonlinear_pmc, nonlinear_pmc_only_covar]
-		self._algorithms = [pmc, nonlinear_pmc]
+		if self._simulation_parameters["only run MCMC"]:
+			self._algorithms = []
+		else:
+			# self._algorithms = [pmc, nonlinear_pmc, nonlinear_pmc_only_covar]
+			self._algorithms = [pmc, nonlinear_pmc]
 
 		# ------------------------- accumulators
 

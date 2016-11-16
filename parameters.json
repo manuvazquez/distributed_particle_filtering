@@ -33,7 +33,9 @@
 					"mean": 0,
 					"variance": 4
 				}
-			}
+			},
+
+			"only run MCMC": false
 		},
 		"Mposterior revisited": {
 			"implementing class": "MposteriorRevisited",
