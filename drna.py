@@ -116,7 +116,7 @@ if command_arguments.reproduce_filename:
 
 	assert os.path.splitext(command_arguments.reproduce_filename.name)[1]==".hdf5"
 
-	saved_PRNGs = simulation.SimpleSimulation.pseudo_random_numbers_generators_from_file(
+	saved_PRNGs = simulations.base.SimpleSimulation.pseudo_random_numbers_generators_from_file(
 			command_arguments.reproduce_filename.name)
 
 	# every pseudo random numbers generator...
