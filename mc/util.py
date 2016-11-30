@@ -8,8 +8,9 @@ import manu.smc.util
 
 def normal_parameters_from_lognormal(mean, var):
 
-	var = 1 + var / mean ** 2
-	mean = np.log(mean / np.sqrt(var))
+	aux = 1 + var / mean ** 2
+	var = np.log(aux)
+	mean = np.log(mean) - np.log(np.sqrt(aux))
 
 	return mean, var
 
