@@ -11,6 +11,8 @@ import signal
 import pickle
 import argparse
 
+import colorama
+
 import region
 import target
 import state
@@ -45,16 +47,27 @@ parser.add_argument(
 	help='repeat the simulation given by the parameters file')
 
 # a different number of frames when re-running a simulation
-parser.add_argument('-n', '--new-number-of-frames', dest='new_n_frames', type=int)
+parser.add_argument(
+	'-n', '--new-number-of-frames', dest='new_n_frames', type=int,
+	help='set the number of frames regardless of the value in the parameters file (to be used along "-r")')
 
 # the frame in which the re-running will start
-parser.add_argument('-i', '--index-of-first-frame', dest='i_first_frame', default=0, type=int)
+parser.add_argument(
+	'-i', '--index-of-first-frame', dest='i_first_frame', default=0, type=int,
+	help='the index of the first frame to be (re) simulated (to be used along "-r")')
+
+# the seed for a pseudo-random numbers generator that is, in turn, used to initialize those of the *actual* ones
+parser.add_argument('-s', '--seed', type=int, help='a random seed to initialize the different PRNGs')
+
+parser.add_argument(
+	'-p', '--parameters-path', dest='parameters_file', type=argparse.FileType('r'), default='parameters.json',
+	help='parameters file')
 
 command_arguments = parser.parse_args(sys.argv[1:])
 
 # -----
 
-with open('parameters.json') as json_data:
+with open(command_arguments.parameters_file.name) as json_data:
 
 	# the parameters file is read to memory
 	parameters = json.load(json_data)
@@ -114,7 +127,7 @@ PRNGs = {}
 # if this is a re-run of a previous simulation...
 if command_arguments.reproduce_filename:
 
-	assert os.path.splitext(command_arguments.reproduce_filename.name)[1]==".hdf5"
+	assert os.path.splitext(command_arguments.reproduce_filename.name)[1] == ".hdf5"
 
 	saved_PRNGs = simulations.base.SimpleSimulation.pseudo_random_numbers_generators_from_file(
 			command_arguments.reproduce_filename.name)
@@ -127,6 +140,17 @@ if command_arguments.reproduce_filename:
 
 # if this is NOT a rerun of a previous simulation...
 else:
+
+	# if a random seed has been passed...
+	if command_arguments.seed:
+
+		# a "meta" PRNG to generate the seed of every required PRNG is built
+		meta_prng = np.random.RandomState(command_arguments.seed)
+
+		print(colorama.Fore.LIGHTWHITE_EX + 'a random seed has been received...' + colorama.Style.RESET_ALL)
+
+		# the seed of a PRNG in python must be a 32 bits usigned integer
+		max_seed = 2**32
 
 	for key in PRNGsKeys:
 
@@ -155,8 +179,12 @@ else:
 				# the first word in the key followed by the usual prefix
 				filename = key.split()[0] + '.RandomState'
 
+			# the seed is a (pseudo)random number obtained from the meta-PRNG initialized above or None,
+			# the latter meaning "pick a random seed" in the "RandomState" constructor below
+			seed = meta_prng.randint(max_seed) if command_arguments.seed else None
+
 			# a new pseudo random numbers generator object is created...
-			PRNGs[key] = np.random.RandomState()
+			PRNGs[key] = np.random.RandomState(seed)
 
 			# ...and saved
 			with open(filename, mode='wb') as f:
