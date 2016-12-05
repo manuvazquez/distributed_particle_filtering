@@ -18,13 +18,13 @@ import manu.util
 class NPMC(simulations.base.SimpleSimulation):
 
 	def __init__(
-			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file_basename,
 			pseudo_random_numbers_generators, h5py_file=None, h5py_prefix='', n_processing_elements=None,
 			n_sensors=None):
 
 		# let the super class do its thing...
 		super().__init__(
-			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file_basename,
 			pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements, n_sensors)
 
 		self._n_particles_likelihood = self._simulation_parameters["number of particles for approximating the likelihood"]

@@ -63,6 +63,9 @@ parser.add_argument(
 	'-p', '--parameters-path', dest='parameters_file', type=argparse.FileType('r'), default='parameters.json',
 	help='parameters file')
 
+parser.add_argument(
+	'-o', '--output-path', dest='output_path', default=os.getcwd(), help='path for output files')
+
 command_arguments = parser.parse_args(sys.argv[1:])
 
 # -----
@@ -93,7 +96,7 @@ settings_state_transition = parameters["state transition"]
 # for the particle filters: type of simulation and the corresponding parameters
 settings_simulation = parameters['simulations']
 
-output_file = manu.util.filename_from_host_and_date()
+output_file_basename = os.path.join(command_arguments.output_path, 'res_' + manu.util.filename_from_host_and_date())
 
 # how numpy arrays are printed on screen is specified here
 np.set_printoptions(precision=3, linewidth=300)
@@ -104,7 +107,7 @@ np.set_printoptions(precision=3, linewidth=300)
 def save_parameters():
 
 	# in a separate file with the same name as the data file but different extension...
-	parameters_file = 'res_{}.parameters'.format(output_file)
+	parameters_file = os.path.join(command_arguments.output_path, output_file_basename + '.parameters')
 
 	with open(parameters_file, mode='wb') as f:
 
@@ -290,7 +293,8 @@ if not simulation_class:
 	raise Exception("don't know about that simulation")
 
 # ...is used to instantiate the latter
-sim = simulation_class(parameters, room, resampling_algorithm, resampling_criterion, prior, transitionKernel, output_file, PRNGs)
+sim = simulation_class(
+	parameters, room, resampling_algorithm, resampling_criterion, prior, transitionKernel, output_file_basename, PRNGs)
 
 # if this is a re-run of a previous simulation
 if command_arguments.reproduce_filename:

@@ -38,12 +38,12 @@ class Convergence(simulations.base.SimpleSimulation):
 		return actual_position, estimated_position
 
 	def __init__(
-			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file_basename,
 			pseudo_random_numbers_generators, h5py_file=None, h5py_prefix=''):
 
 		# let the super class do its thing...
 		super().__init__(
-			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file_basename,
 			pseudo_random_numbers_generators, h5py_file, h5py_prefix)
 
 		# DRNA-related settings
@@ -138,8 +138,8 @@ class Convergence(simulations.base.SimpleSimulation):
 			)
 
 		# data is saved
-		scipy.io.savemat('res_' + self._output_file, data_to_be_saved)
-		print('results saved in "{}"'.format('res_' + self._output_file))
+		scipy.io.savemat(self._output_file_basename, data_to_be_saved)
+		print('results saved in "{}"'.format(self._output_file_basename))
 
 		# the above fix is undone
 		self._i_current_frame -= 1

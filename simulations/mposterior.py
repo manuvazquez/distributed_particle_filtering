@@ -16,16 +16,16 @@ import simulations.base
 
 class MultipleMposterior(simulations.base.Simulation):
 	def __init__(
-			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file_basename,
 			pseudo_random_numbers_generators):
 
 		# let the super class do its thing...
 		super().__init__(
-			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file_basename,
 			pseudo_random_numbers_generators)
 
 		# HDF5 output file
-		self._f = h5py.File('res_' + self._output_file + '.hdf5', 'w')
+		self._f = h5py.File(self._output_file_basename + '.hdf5', 'w')
 
 		# we will build several "Mposterior" objects...
 		self._simulations = []
@@ -36,7 +36,7 @@ class MultipleMposterior(simulations.base.Simulation):
 		# for every pair nPEs-nSensors we aim to simulate...
 		for (nPEs, nSensors) in self._simulation_parameters["nPEs-nSensors pairs"]:
 			self._simulations.append(Mposterior(
-				parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+				parameters, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file_basename,
 				pseudo_random_numbers_generators, self._f, '{} PEs,{} sensors/'.format(nPEs, nSensors), nPEs, nSensors))
 
 	def process_frame(self, target_position, target_velocity):
@@ -79,13 +79,13 @@ class Mposterior(simulations.base.SimpleSimulation):
 	# TODO: a method of the object is called from within "__init__" (allowed in python...but weird)
 
 	def __init__(
-			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file_basename,
 			pseudo_random_numbers_generators, h5py_file=None, h5py_prefix='', n_processing_elements=None,
 			n_sensors=None):
 
 		# let the super class do its thing...
 		super().__init__(
-			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file_basename,
 			pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements, n_sensors)
 
 		# DRNA-related settings
@@ -413,8 +413,8 @@ class Mposterior(simulations.base.SimpleSimulation):
 		)
 
 		# data is saved
-		scipy.io.savemat('res_' + self._output_file, data_to_be_saved)
-		print('results saved in "{}"'.format('res_' + self._output_file))
+		scipy.io.savemat('res_' + self._output_file_basename, data_to_be_saved)
+		print('results saved in "{}"'.format(self._output_file_basename))
 
 		print(self._estimated_pos)
 

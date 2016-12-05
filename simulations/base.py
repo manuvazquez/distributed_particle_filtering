@@ -10,7 +10,7 @@ import network_nodes
 class Simulation(metaclass=abc.ABCMeta):
 	@abc.abstractmethod
 	def __init__(
-			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file_basename,
 			pseudo_random_numbers_generators):
 
 		self._parameters = parameters
@@ -30,7 +30,7 @@ class Simulation(metaclass=abc.ABCMeta):
 		self._n_time_instants = parameters["number of time instants"]
 
 		# name of the file to store the results
-		self._output_file = output_file
+		self._output_file_basename = output_file_basename
 
 		# parameters related to plotting
 		self._settings_painter = parameters["painter"]
@@ -69,11 +69,11 @@ class Simulation(metaclass=abc.ABCMeta):
 
 class SimpleSimulation(Simulation):
 	def __init__(
-			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file_basename,
 			pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements=None, n_sensors=None):
 
 		super().__init__(
-			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file,
+			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file_basename,
 			pseudo_random_numbers_generators)
 
 		# for saving the data in HDF5
@@ -84,7 +84,7 @@ class SimpleSimulation(Simulation):
 		if h5py_file is None:
 
 			# ...a new HDF5 file is created
-			self._f = h5py.File('res_' + self._output_file + '.hdf5', 'w', driver='core', libver='latest')
+			self._f = h5py.File(self._output_file_basename + '.hdf5', 'w', driver='core', libver='latest')
 
 		# otherwise...
 		else:
