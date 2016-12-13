@@ -1,6 +1,7 @@
 import sys
 import os
 import types
+import abc
 
 import numpy as np
 import colorama
@@ -15,7 +16,7 @@ sys.path.append(os.path.join(os.environ['HOME'], 'python'))
 import manu.util
 
 
-class NPMC(simulations.base.SimpleSimulation):
+class AbstractNPMC(simulations.base.SimpleSimulation, metaclass=abc.ABCMeta):
 
 	def __init__(
 			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file_basename,
@@ -27,32 +28,22 @@ class NPMC(simulations.base.SimpleSimulation):
 			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file_basename,
 			pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements, n_sensors)
 
-		self._n_particles_likelihood = self._simulation_parameters["number of particles for approximating the likelihood"]
-		self._n_particles = self._simulation_parameters["number of particles"]
-
 		self._n_trials = self._simulation_parameters["number of trials"]
 
 		self._n_iter_pmc = parameters["Population Monte Carlo"]["number of iterations"]
 		n_clipped_particles_from_overall = eval(
 			parameters["Population Monte Carlo"]["Nonlinear"]["number of clipped particles from overall number"])
 
-		burn_in_period_metropolis_hastings = parameters["Metropolis-Hastings"]["burn-in period"]
-		kernel_prior_covar_ratio_metropolis_hastings = parameters["Metropolis-Hastings"]["ratio kernel-prior covariances"]
-
 		# the above parameter should be a function
 		assert isinstance(n_clipped_particles_from_overall, types.FunctionType)
 
+		self._n_particles = self._simulation_parameters["number of particles"]
+
 		# the number of particles to be clipped is obtained using this function
-		M_Ts = [n_clipped_particles_from_overall(M) for M in self._n_particles]
+		self._M_Ts = [n_clipped_particles_from_overall(M) for M in self._n_particles]
 
 		# the pseudo random numbers generator this class will be using
-		prng = self._PRNGs['Sensors and Monte Carlo pseudo random numbers generator']
-
-		# the "inner" PF is built
-		inner_pf = centralized.TargetTrackingParticleFilter(
-			self._n_particles_likelihood, self._resampling_algorithm, self._resampling_criterion,
-			self._prior, self._transition_kernel, self._sensors
-		)
+		self._prng = self._PRNGs['Sensors and Monte Carlo pseudo random numbers generator']
 
 		# ------------------------- prior
 
@@ -69,52 +60,123 @@ class NPMC(simulations.base.SimpleSimulation):
 
 		mean_tx_power, var_tx_power = mc.util.normal_parameters_from_lognormal(mean_log_tx_power, var_log_tx_power)
 
-		prior_mean = np.array([
+		self._prior_mean = np.array([
 			mean_tx_power,
 			mean_min_power,
 			self._simulation_parameters["prior"]["path loss exponent"]["mean"]])
 
-		prior_covar = np.diag([
+		self._prior_covar = np.diag([
 			var_tx_power,
 			var_min_power,
 			self._simulation_parameters["prior"]["path loss exponent"]["variance"]])
 
-		n_samples_metropolis_hastings = self._n_iter_pmc*self._n_particles[-1]
+		# ----- HDF5
 
-		# ------------------------- algorithms
+		# the names of the parameters are stored
+		manu.util.write_strings_list_into_hdf5(
+			self._f, self._h5py_prefix + 'parameters',
+			['transmitter_power', 'minimum_amount_of_power', 'path_loss_exponent'])
+
+		self._f.create_dataset(self._h5py_prefix + 'prior mean', data=self._prior_mean)
+		self._f.create_dataset(self._h5py_prefix + 'prior covariance', data=self._prior_covar)
+
+		# the positions of the sensors
+		self._f.create_dataset(
+			self._h5py_prefix + 'sensors/positions', shape=self._sensors_positions.shape, data=self._sensors_positions)
+
+	def initialize_pmc_algorithms(self):
+
+		for alg in self._algorithms:
+
+			for alg_particles in alg:
+
+				alg_particles.initialize()
+
+	def run_pmc_algorithms(self, i_trial, i_iter):
+
+		print(
+			colorama.Fore.LIGHTWHITE_EX + 'frame {}'.format(self._i_current_frame) + colorama.Style.RESET_ALL +
+			' | ' +
+			colorama.Fore.LIGHTGREEN_EX + 'trial {}'.format(i_trial) + colorama.Style.RESET_ALL +
+			' | ' +
+			colorama.Fore.LIGHTBLUE_EX + 'PMC iteration {}'.format(i_iter) + colorama.Style.RESET_ALL)
+
+		for i_alg, alg in enumerate(self._algorithms):
+
+			print(colorama.Fore.LIGHTMAGENTA_EX + alg[0].name + colorama.Style.RESET_ALL)
+
+			for i_particles, alg_particles in enumerate(alg):
+				print(
+					colorama.Fore.LIGHTCYAN_EX + 'n particles {}'.format(alg_particles.n_particles) +
+					colorama.Style.RESET_ALL)
+
+				alg_particles.step(self._observations)
+
+				self._estimated_parameters[:, i_iter, i_alg, i_particles, i_trial, self._i_current_frame] = \
+					alg_particles._mean
+
+				self._max_weight[i_iter, i_alg, i_particles, i_trial, self._i_current_frame] = \
+					alg_particles.weights.max()
+
+				self._M_eff[i_iter, i_alg, i_particles, i_trial, self._i_current_frame] = \
+					1. / np.sum(alg_particles.weights ** 2)
+
+			print('=========')
+
+
+class NPMC(AbstractNPMC):
+
+	def __init__(
+			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel,
+			output_file_basename, pseudo_random_numbers_generators, h5py_file=None, h5py_prefix='',
+			n_processing_elements=None, n_sensors=None):
+
+		super().__init__(
+			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel,
+			output_file_basename, pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements,
+			n_sensors)
+
+		n_particles_likelihood = self._simulation_parameters["number of particles for approximating the likelihood"]
+
+		burn_in_period_metropolis_hastings = parameters["Metropolis-Hastings"]["burn-in period"]
+		kernel_prior_covar_ratio_metropolis_hastings = parameters["Metropolis-Hastings"]["ratio kernel-prior covariances"]
+
+		# the "inner" PF is built
+		inner_pf = centralized.TargetTrackingParticleFilter(
+			n_particles_likelihood, self._resampling_algorithm, self._resampling_criterion, self._prior,
+			self._transition_kernel, self._sensors
+		)
 
 		pmc = [
 			mc.pmc.PopulationMonteCarlo(
-				M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, prng, name='PMC')
+				M, resampling_algorithm, resampling_criterion, inner_pf, self._prior_mean, self._prior_covar, self._prng, name='PMC')
 			for M in self._n_particles]
 
 		nonlinear_pmc = [
 			mc.pmc.NonLinearPopulationMonteCarlo(
-				M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng, name='NPMC')
-			for M, M_T in zip(self._n_particles, M_Ts)]
+				M, resampling_algorithm, resampling_criterion, inner_pf, self._prior_mean, self._prior_covar, M_T, self._prng, name='NPMC')
+			for M, M_T in zip(self._n_particles, self._M_Ts)]
 
-		# nonlinear_pmc_only_covar = [
-		# 	mc.pmc.NonLinearPopulationMonteCarloCovarOnly(
-		# 		M, resampling_algorithm, resampling_criterion, inner_pf, prior_mean, prior_covar, M_T, prng,
-		# 		name='NPMC_covar')
-		# 	for M, M_T in zip(self._n_particles, M_Ts)]
+		n_samples_metropolis_hastings = self._n_iter_pmc * self._n_particles[-1]
 
 		# Metropolis-Hastings algorithm is run considering the larger number of samples and iterations
 		self.metropolis_hastings = mc.mh.MetropolisHastings(
-			n_samples_metropolis_hastings, inner_pf, prior_mean, prior_covar, prng, burn_in_period_metropolis_hastings,
+			n_samples_metropolis_hastings, inner_pf, self._prior_mean, self._prior_covar, self._prng, burn_in_period_metropolis_hastings,
 			kernel_prior_covar_ratio_metropolis_hastings, name='MetropolisHastings')
 
 		if self._simulation_parameters["only run MCMC"]:
+
 			self._algorithms = []
+
 		else:
-			# self._algorithms = [pmc, nonlinear_pmc, nonlinear_pmc_only_covar]
+
 			self._algorithms = [pmc, nonlinear_pmc]
 
 		# ------------------------- accumulators
 
 		# [<component>,<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
 		self._estimated_parameters = np.empty((
-			len(prior_mean), self._n_iter_pmc, len(self._algorithms) + 1, len(self._n_particles), self._n_trials,
+			len(self._prior_mean), self._n_iter_pmc, len(self._algorithms) + 1, len(self._n_particles), self._n_trials,
 			parameters["number of frames"]))
 
 		# [<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
@@ -129,26 +191,50 @@ class NPMC(simulations.base.SimpleSimulation):
 
 		# [<component>, <sample>, <trial>, <frame>]
 		self._markov_chains = np.empty((
-			len(prior_mean), n_samples_metropolis_hastings, self._n_trials, parameters["number of frames"]))
+			len(self._prior_mean), n_samples_metropolis_hastings, self._n_trials, parameters["number of frames"]))
 
 		# ----- HDF5
-
-		# the names of the parameters are stored
-		manu.util.write_strings_list_into_hdf5(
-			self._f, self._h5py_prefix + 'parameters',
-			['transmitter_power', 'minimum_amount_of_power', 'path_loss_exponent'])
 
 		# and so are those of the algorithms
 		manu.util.write_strings_list_into_hdf5(
 			self._f, self._h5py_prefix + 'algorithms/names',
 			[alg[0].name for alg in self._algorithms] + [self.metropolis_hastings.name])
 
-		self._f.create_dataset(self._h5py_prefix + 'prior mean', data=prior_mean)
-		self._f.create_dataset(self._h5py_prefix + 'prior covariance', data=prior_covar)
+	def process_frame(self, target_position, target_velocity):
 
-		# the positions of the sensors
-		self._f.create_dataset(
-			self._h5py_prefix + 'sensors/positions', shape=self._sensors_positions.shape, data=self._sensors_positions)
+		# let the super class do its thing...
+		super().process_frame(target_position, target_velocity)
+
+		# for every Monte Carlo trial
+		for i_trial in range(self._n_trials):
+
+			self.metropolis_hastings.run(self._observations)
+
+			self._markov_chains[:, :, i_trial, self._i_current_frame] = self.metropolis_hastings.chain
+
+			self.initialize_pmc_algorithms()
+
+			for i_iter in range(self._n_iter_pmc):
+
+				self.run_pmc_algorithms(i_trial, i_iter)
+
+				print(colorama.Fore.LIGHTMAGENTA_EX + self.metropolis_hastings.name + colorama.Style.RESET_ALL)
+
+				for i_particles, n_particles in enumerate(self._n_particles):
+
+					# the estimated parameters are saved in the slot for the *last* algorithm
+					self._estimated_parameters[:, i_iter, -1, i_particles, i_trial, self._i_current_frame] =\
+						self.metropolis_hastings.compute_half_sample_mean(n_particles*(i_iter +1 ))
+
+					print(self._estimated_parameters[:, i_iter, -1, i_particles, i_trial, self._i_current_frame])
+
+				print('=========')
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		# in order to make sure the HDF5 files is valid...
+		self._f.flush()
 
 	def save_data(self, target_position):
 
@@ -167,71 +253,95 @@ class NPMC(simulations.base.SimpleSimulation):
 			# ...in order to make sure the HDF5 file is valid...
 			self._f.close()
 
+
+class NPMCvsInnerFilterNumberOfParticles(AbstractNPMC):
+
+	def __init__(
+			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel,
+			output_file_basename, pseudo_random_numbers_generators, h5py_file=None, h5py_prefix='',
+			n_processing_elements=None, n_sensors=None):
+
+		super().__init__(
+			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel,
+			output_file_basename, pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements,
+			n_sensors)
+
+		# number of particles for the filter used to compute the weights (likelihoods)
+		n_particles_likelihood = self._simulation_parameters["number of particles for approximating the likelihood"]
+
+		# the "inner" PFs are built
+		inner_pfs = [centralized.TargetTrackingParticleFilter(
+			n, self._resampling_algorithm, self._resampling_criterion, self._prior,
+			self._transition_kernel, self._sensors
+		) for n in n_particles_likelihood]
+
+		# the list of algorithms to be run
+		self._algorithms = []
+
+		for n_particles, pf in zip(n_particles_likelihood, inner_pfs):
+
+			# a NPMC algorithm embedding a PF with the given number of particles is built...
+			nonlinear_pmc = [
+				mc.pmc.NonLinearPopulationMonteCarlo(
+					M, resampling_algorithm, resampling_criterion, pf, self._prior_mean, self._prior_covar, M_T,
+					self._prng, name='NPMC (N = {})'.format(n_particles))
+				for M, M_T in zip(self._n_particles, self._M_Ts)]
+
+			# ...and added to the list
+			self._algorithms.append(nonlinear_pmc)
+
+		# ------------------------- accumulators
+
+		# [<component>,<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
+		self._estimated_parameters = np.empty((
+			len(self._prior_mean), self._n_iter_pmc, len(self._algorithms), len(self._n_particles), self._n_trials,
+			parameters["number of frames"]))
+
+		# [<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
+		self._max_weight = np.empty((
+			self._n_iter_pmc, len(self._algorithms), len(self._n_particles), self._n_trials,
+			parameters["number of frames"]))
+
+		# [<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
+		self._M_eff = np.empty((
+			self._n_iter_pmc, len(self._algorithms), len(self._n_particles), self._n_trials,
+			parameters["number of frames"]))
+
+		# ----- HDF5
+
+		# and so are those of the algorithms
+		manu.util.write_strings_list_into_hdf5(
+			self._f, self._h5py_prefix + 'algorithms/names',
+			[alg[0].name for alg in self._algorithms])
+
+	def save_data(self, target_position):
+
+		# let the *grandparent* class do its thing...
+		simulations.base.Simulation.save_data(self, target_position)
+
+		self._f.create_dataset(self._h5py_prefix + 'estimated parameters', data=self._estimated_parameters)
+		self._f.create_dataset(self._h5py_prefix + 'maximum weight', data=self._max_weight)
+		self._f.create_dataset(self._h5py_prefix + 'effective sample size', data=self._M_eff)
+
+		# if a reference to an HDF5 was not received, that means the file was created by this object,
+		# and hence it is responsible of closing it...
+		if not self._h5py_file:
+			# ...in order to make sure the HDF5 file is valid...
+			self._f.close()
+
 	def process_frame(self, target_position, target_velocity):
 
-		# let the super class do its thing...
-		super().process_frame(target_position, target_velocity)
+		# let the grandparent class do its thing...
+		AbstractNPMC.process_frame(self, target_position, target_velocity)
 
 		# for every Monte Carlo trial
 		for i_trial in range(self._n_trials):
 
-			self.metropolis_hastings.run(self._observations)
-
-			self._markov_chains[:, :, i_trial, self._i_current_frame] = self.metropolis_hastings.chain
-
-			# algorithms are initialized
-			for alg in self._algorithms:
-
-				for alg_particles in alg:
-
-					alg_particles.initialize()
+			self.initialize_pmc_algorithms()
 
 			for i_iter in range(self._n_iter_pmc):
 
-				print(
-					colorama.Fore.LIGHTWHITE_EX + 'frame {}'.format(self._i_current_frame) + colorama.Style.RESET_ALL +
-					' | ' +
-					colorama.Fore.LIGHTGREEN_EX + 'trial {}'.format(i_trial) + colorama.Style.RESET_ALL +
-					' | ' +
-					colorama.Fore.LIGHTBLUE_EX + 'PMC iteration {}'.format(i_iter) + colorama.Style.RESET_ALL)
-
-				for i_alg, alg in enumerate(self._algorithms):
-
-					print(colorama.Fore.LIGHTMAGENTA_EX + alg[0].name + colorama.Style.RESET_ALL)
-
-					for i_particles, alg_particles in enumerate(alg):
-
-						print(
-							colorama.Fore.LIGHTCYAN_EX + 'n particles {}'.format(alg_particles.n_particles) +
-							colorama.Style.RESET_ALL)
-
-						alg_particles.step(self._observations)
-
-						self._estimated_parameters[:, i_iter, i_alg, i_particles, i_trial, self._i_current_frame] =\
-							alg_particles._mean
-
-						self._max_weight[i_iter, i_alg, i_particles, i_trial, self._i_current_frame] =\
-							alg_particles.weights.max()
-
-						self._M_eff[i_iter, i_alg, i_particles, i_trial, self._i_current_frame] =\
-							1. / np.sum(alg_particles.weights ** 2)
-
-					print('=========')
-
-				print(colorama.Fore.LIGHTMAGENTA_EX + self.metropolis_hastings.name + colorama.Style.RESET_ALL)
-
-				for i_particles, n_particles in enumerate(self._n_particles):
-
-					# the estimated parameters are saved in the slot for the *last* algorithm
-					self._estimated_parameters[:, i_iter, -1, i_particles, i_trial, self._i_current_frame] =\
-						self.metropolis_hastings.compute_half_sample_mean(n_particles*(i_iter +1 ))
-
-					print(self._estimated_parameters[:, i_iter, -1, i_particles, i_trial, self._i_current_frame])
-
-				print('=========')
-
-		# import code
-		# code.interact(local=dict(globals(), **locals()))
+				self.run_pmc_algorithms(i_trial, i_iter)
 
 		# in order to make sure the HDF5 files is valid...
 		self._f.flush()

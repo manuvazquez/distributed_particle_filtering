@@ -220,6 +220,7 @@ def sigint_handler(signum, frame):
 
 
 def sigusr1_handler(signum, frame):
+
 	# plots and data are saved...
 	sim.save_data(target_position)
 
