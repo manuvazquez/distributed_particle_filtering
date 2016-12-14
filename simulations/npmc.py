@@ -245,7 +245,10 @@ class NPMC(AbstractNPMC):
 		self._f.create_dataset(self._h5py_prefix + 'maximum weight', data=self._max_weight)
 		self._f.create_dataset(self._h5py_prefix + 'effective sample size', data=self._M_eff)
 
-		self._f.create_dataset(self._h5py_prefix + 'Markov chains', data=self._markov_chains)
+		# FIXME: the MCMC chains are stored in memory anyway (in order to avoid an "if" in "process_frame" above)
+		if self._simulation_parameters["save MCMC chains"]:
+
+			self._f.create_dataset(self._h5py_prefix + 'Markov chains', data=self._markov_chains)
 
 		# if a reference to an HDF5 was not received, that means the file was created by this object,
 		# and hence it is responsible of closing it...
