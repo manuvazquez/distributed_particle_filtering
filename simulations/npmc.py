@@ -39,6 +39,9 @@ class AbstractNPMC(simulations.base.SimpleSimulation, metaclass=abc.ABCMeta):
 
 		self._n_particles = self._simulation_parameters["number of particles"]
 
+		# number of particles for the filter used to compute the weights (likelihoods)
+		self._n_particles_likelihood = self._simulation_parameters["number of particles for approximating the likelihood"]
+
 		# the number of particles to be clipped is obtained using this function
 		self._M_Ts = [n_clipped_particles_from_overall(M) for M in self._n_particles]
 
@@ -136,14 +139,12 @@ class NPMC(AbstractNPMC):
 			output_file_basename, pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements,
 			n_sensors)
 
-		n_particles_likelihood = self._simulation_parameters["number of particles for approximating the likelihood"]
-
 		burn_in_period_metropolis_hastings = parameters["Metropolis-Hastings"]["burn-in period"]
 		kernel_prior_covar_ratio_metropolis_hastings = parameters["Metropolis-Hastings"]["ratio kernel-prior covariances"]
 
 		# the "inner" PF is built
 		inner_pf = centralized.TargetTrackingParticleFilter(
-			n_particles_likelihood, self._resampling_algorithm, self._resampling_criterion, self._prior,
+			self._n_particles_likelihood, self._resampling_algorithm, self._resampling_criterion, self._prior,
 			self._transition_kernel, self._sensors
 		)
 
@@ -174,24 +175,22 @@ class NPMC(AbstractNPMC):
 
 		# ------------------------- accumulators
 
+		# [<#particles>,<trial>,<frame>]
+		common_parameters = (len(self._n_particles), self._n_trials, parameters["number of frames"])
+
 		# [<component>,<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
 		self._estimated_parameters = np.empty((
-			len(self._prior_mean), self._n_iter_pmc, len(self._algorithms) + 1, len(self._n_particles), self._n_trials,
-			parameters["number of frames"]))
+			len(self._prior_mean), self._n_iter_pmc, len(self._algorithms) + 1, *common_parameters))
 
 		# [<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
-		self._max_weight = np.empty((
-			self._n_iter_pmc, len(self._algorithms), len(self._n_particles), self._n_trials,
-			parameters["number of frames"]))
+		self._max_weight = np.empty((self._n_iter_pmc, len(self._algorithms), *common_parameters))
 
 		# [<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
-		self._M_eff = np.empty((
-			self._n_iter_pmc, len(self._algorithms), len(self._n_particles), self._n_trials,
-			parameters["number of frames"]))
+		self._M_eff = np.empty((self._n_iter_pmc, len(self._algorithms), *common_parameters))
 
 		# [<component>, <sample>, <trial>, <frame>]
 		self._markov_chains = np.empty((
-			len(self._prior_mean), n_samples_metropolis_hastings, self._n_trials, parameters["number of frames"]))
+			len(self._prior_mean), n_samples_metropolis_hastings, *common_parameters[1:]))
 
 		# ----- HDF5
 
@@ -269,19 +268,16 @@ class NPMCvsInnerFilterNumberOfParticles(AbstractNPMC):
 			output_file_basename, pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements,
 			n_sensors)
 
-		# number of particles for the filter used to compute the weights (likelihoods)
-		n_particles_likelihood = self._simulation_parameters["number of particles for approximating the likelihood"]
-
 		# the "inner" PFs are built
 		inner_pfs = [centralized.TargetTrackingParticleFilter(
 			n, self._resampling_algorithm, self._resampling_criterion, self._prior,
 			self._transition_kernel, self._sensors
-		) for n in n_particles_likelihood]
+		) for n in self._n_particles_likelihood]
 
 		# the list of algorithms to be run
 		self._algorithms = []
 
-		for n_particles, pf in zip(n_particles_likelihood, inner_pfs):
+		for n_particles, pf in zip(self._n_particles_likelihood, inner_pfs):
 
 			# a NPMC algorithm embedding a PF with the given number of particles is built...
 			nonlinear_pmc = [
@@ -295,24 +291,22 @@ class NPMCvsInnerFilterNumberOfParticles(AbstractNPMC):
 
 		# ------------------------- accumulators
 
+		# [<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
+		common_parameters = (self._n_iter_pmc, len(self._algorithms), len(self._n_particles), self._n_trials,
+			parameters["number of frames"])
+
 		# [<component>,<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
-		self._estimated_parameters = np.empty((
-			len(self._prior_mean), self._n_iter_pmc, len(self._algorithms), len(self._n_particles), self._n_trials,
-			parameters["number of frames"]))
+		self._estimated_parameters = np.empty((len(self._prior_mean), *common_parameters))
 
 		# [<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
-		self._max_weight = np.empty((
-			self._n_iter_pmc, len(self._algorithms), len(self._n_particles), self._n_trials,
-			parameters["number of frames"]))
+		self._max_weight = np.empty(common_parameters)
 
 		# [<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
-		self._M_eff = np.empty((
-			self._n_iter_pmc, len(self._algorithms), len(self._n_particles), self._n_trials,
-			parameters["number of frames"]))
+		self._M_eff = np.empty(common_parameters)
 
 		# ----- HDF5
 
-		# and so are those of the algorithms
+		# the names of the algorithms are stored
 		manu.util.write_strings_list_into_hdf5(
 			self._f, self._h5py_prefix + 'algorithms/names',
 			[alg[0].name for alg in self._algorithms])
@@ -327,7 +321,7 @@ class NPMCvsInnerFilterNumberOfParticles(AbstractNPMC):
 		self._f.create_dataset(self._h5py_prefix + 'effective sample size', data=self._M_eff)
 
 		# if a reference to an HDF5 was not received, that means the file was created by this object,
-		# and hence it is responsible of closing it...
+		# and hence the latter is responsible of closing it...
 		if not self._h5py_file:
 			# ...in order to make sure the HDF5 file is valid...
 			self._f.close()
@@ -348,3 +342,21 @@ class NPMCvsInnerFilterNumberOfParticles(AbstractNPMC):
 
 		# in order to make sure the HDF5 files is valid...
 		self._f.flush()
+
+
+class AMIS(AbstractNPMC):
+
+	def __init__(self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel,
+	             output_file_basename, pseudo_random_numbers_generators, h5py_file=None, h5py_prefix='',
+	             n_processing_elements=None, n_sensors=None):
+
+		# let the parent class do its thing
+		super().__init__(parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel,
+		                 output_file_basename, pseudo_random_numbers_generators, h5py_file, h5py_prefix,
+		                 n_processing_elements, n_sensors)
+
+		# the "inner" PF is built
+		inner_pf = centralized.TargetTrackingParticleFilter(
+			self._n_particles_likelihood, self._resampling_algorithm, self._resampling_criterion, self._prior,
+			self._transition_kernel, self._sensors
+		)
