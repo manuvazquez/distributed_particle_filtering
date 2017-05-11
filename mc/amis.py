@@ -6,141 +6,125 @@ import scipy.stats
 import colorama
 
 from . import util
-import smc.particle_filter.particle_filter
+from . import pmc
 
 sys.path.append(os.path.join(os.environ['HOME'], 'python'))
 import manu.smc.util
 
 
-class AdaptiveMultipleImportanceSampling(smc.particle_filter.particle_filter.ParticleFilter):
+class AdaptiveMultipleImportanceSampling(pmc.PopulationMonteCarlo):
 
 	def __init__(
-			self, n_particles, resampling_algorithm, resampling_criterion, pf, prior_mean, prior_covar, prng, name=None):
+			self, n_particles, n_iterations, resampling_algorithm, resampling_criterion, pf, prior_mean, prior_covar,
+			prng, name=None):
 
-		super().__init__(n_particles, resampling_algorithm, resampling_criterion, name=name)
+		super().__init__(
+			n_particles, resampling_algorithm, resampling_criterion, pf, prior_mean, prior_covar, prng, name)
 
-		self._pf = pf
-		self._prior_mean = prior_mean
-		self._prior_covar = prior_covar
-		self._prng = prng
+		# "n_particles" should now be a list and the number of iterations is inferred therefrom
+		self._n_iterations = n_iterations
 
-		# these are "global" attributes
-		self._samples = None
-		self._loglikelihoods = None
-		self._mean = None
-		self._covar = None
-		self._weights = None
+		self._means_list = None
+		self._covars_list = None
 
-		# the smallest representable positive in this machine and for this data type
-		self._machine_eps = np.finfo(prior_covar.dtype).eps
+		# the index for the current iteration
+		self._i_iter = None
 
-	@property
-	def weights(self):
+		self._structured_samples = None
+		self._structured_log_weights = None
 
-		return self._weights
+		self._structured_log_targets = None
+		self._weighted_proposals = None
 
 	def initialize(self):
 
-		# the initial mean and covariance are given by the prior
-		self._mean = self._prior_mean
-		self._covar = self._prior_covar
+		super().initialize()
+
+		# memory for the lists storing the means and covariances is reserved
+		# NOTE: this is done here so that the object can be reused by simply calling this method
+		self._means_list = [None]*self._n_iterations
+		self._covars_list = [None]*self._n_iterations
+
+		self._i_iter = 0
+
+		# the samples drawn at every iteration must be kept
+		self._structured_samples = np.zeros((self._n_particles, len(self._prior_mean), self._n_iterations))
+
+		self._structured_log_weights = np.zeros((self._n_particles, self._n_iterations))
+		self._structured_log_targets = np.zeros((self._n_particles, self._n_iterations))
+
+		# for every particle and every time instant, the linear combination of all the proposals
+		self._weighted_proposals = np.zeros((self._n_particles, self._n_iterations))
 
 	def step(self, observations):
 
-		# samples are drawn from the mean and covariance
-		self._samples = self._prng.multivariate_normal(self._mean, self._covar, size=self._n_particles)
+		# mean and covariance matrix that are to be used in this iteration are saved
+		self._means_list[self._i_iter] = self._mean.copy()
+		self._covars_list[self._i_iter] = self._covar.copy()
 
+		# samples are drawn from the mean and covariance
+		self._structured_samples[..., self._i_iter] = self._prng.multivariate_normal(
+			self._mean, self._covar, size=self._n_particles)
+
+		# for the sake of convenience
+		samples = self._structured_samples[..., self._i_iter]
+
+		# this will be "filled in" in the loop below
 		self._loglikelihoods = np.zeros(self._n_particles)
 
-		for i_sample, (tx_power, min_power, path_loss_exp) in enumerate(self._samples):
+		for i_sample, (tx_power, min_power, path_loss_exp) in enumerate(samples):
 
 			self._loglikelihoods[i_sample] = util.loglikelihood(self._pf, observations, tx_power, min_power, path_loss_exp)
 
 		log_prior = np.log(scipy.stats.multivariate_normal.pdf(
-			x=self._samples, mean=self._prior_mean, cov=self._prior_covar))
-
-		log_proposal = np.log(scipy.stats.multivariate_normal.pdf(x=self._samples, mean=self._mean, cov=self._covar))
+			x=samples, mean=self._prior_mean, cov=self._prior_covar))
 
 		# NOTE: the first time this is called, "log_prior" should be equal to "log_proposal"
 
-		self._weights = manu.smc.util.normalize_from_logs(self._loglikelihoods + log_prior - log_proposal)
+		# the previous *proposal functions* are also accounted for (along with the current one at index "self._i_iter")
+		for proposal_mean, proposal_covar in zip(self._means_list[:self._i_iter+1], self._covars_list[:self._i_iter+1]):
+
+			self._weighted_proposals[:, self._i_iter] += self._n_particles * scipy.stats.multivariate_normal.pdf(
+				x=samples, mean=proposal_mean, cov=proposal_covar)
+
+		# the *target* pdf (likelihood times prior) is stored for later reuse
+		self._structured_log_targets[..., self._i_iter] = self._loglikelihoods + log_prior
+
+		# the logarithms of the weights are computed and stored in the corresponding slice
+		self._structured_log_weights[:, self._i_iter] =\
+			self._structured_log_targets[..., self._i_iter] - np.log(self._weighted_proposals[:, self._i_iter]) + np.log(
+				(self._i_iter+1)*self._n_particles)
+
+		# the weights of the previously drawn samples also need to be updated
+		for i_iter in range(self._i_iter):
+
+			# the old particles are evaluated at the new proposal...
+			self._weighted_proposals[:, i_iter] += self._n_particles * scipy.stats.multivariate_normal.pdf(
+				x=self._structured_samples[..., i_iter], mean=self._mean, cov=self._covar)
+
+			# ...and the weights recomputed using that and the previously stored value for the *target*
+			self._structured_log_weights[:, self._i_iter] = \
+				self._structured_log_targets[..., self._i_iter] - np.log(self._weighted_proposals[:, i_iter])
+
+		# the methods in the superclass expect the samples in the usual form
+		# self._samples = self._structured_samples[..., :self._i_iter+1].reshape((samples.shape[1],-1), order='F')
+
+		# the samples from every *past* iteration are stacked one upon another
+		self._samples = np.moveaxis(self._structured_samples[..., :self._i_iter+1], 1, 2).reshape((-1, samples.shape[1]), order='F')
+
+		# the (log)weights are shaped up as a row vector and normalized afterwards
+		self._weights = manu.smc.util.normalize_from_logs(self._structured_log_weights[..., :self._i_iter + 1].ravel(order='F'))
 
 		self.update_proposal()
 
 		adjusted_mean = self._mean.copy()
 		adjusted_mean[:2] = np.exp(adjusted_mean[:2])
 
+		# the number of iteration is increased
+		self._i_iter += 1
+
 		print('mean:\n', self._mean)
 		print('covar:\n', self._covar)
 		print('adjusted mean:\n', colorama.Fore.LIGHTWHITE_EX + '{}'.format(adjusted_mean) + colorama.Style.RESET_ALL)
 
-	def update_proposal(self):
 
-		# np.ma.average(self._samples, axis=1, weights=self._weights).data
-		self._mean = self._weights @ self._samples
-		self._covar = np.cov(self._samples.T, ddof=0, aweights=self._weights)
-
-		# if the covariance matrix is "essentially" all-zeros, it may happen that samples drawn thereof have zero
-		# density (mathematically preposterous but possible due to finite precision issues); in order to avoid this...
-		# if all the coefficients in the covariance matrix are *close* to zero...
-		if np.allclose(self._covar, 0):
-
-			# ...the covariance matrix is set equal to the prior covariance matrix
-			self._covar = self._prior_covar
-
-			return
-
-		# ...still, we make sure it is possible to evaluate the density of a sample with the above covariance...
-		try:
-			# ...we evaluate the density at the mean
-			scipy.stats.multivariate_normal.pdf(x=self._mean, mean=self._mean, cov=self._covar)
-		# if it is not possible...
-		except (np.linalg.linalg.LinAlgError, ValueError):
-			# ...the covariance matrix is set equal to the prior covariance matrix
-			self._covar = self._prior_covar
-
-
-# class NonLinearPopulationMonteCarlo(PopulationMonteCarlo):
-#
-# 	def __init__(
-# 			self, n_particles, resampling_algorithm, resampling_criterion, pf, prior_mean, prior_covar, M_T, prng, name=None):
-#
-# 		super().__init__(
-# 			n_particles, resampling_algorithm, resampling_criterion, pf, prior_mean, prior_covar, prng, name=name)
-#
-# 		self._M_T = M_T
-#
-# 		self._unclipped_weights = None
-#
-# 	@property
-# 	def weights(self):
-#
-# 		return self._unclipped_weights
-#
-# 	def update_proposal(self):
-#
-# 		# this is saved because it's returned by the above property
-# 		self._unclipped_weights = self._weights.copy()
-#
-# 		# indices of the samples whose weight is to be clipped
-# 		i_clipped = np.argpartition(self._loglikelihoods, -self._M_T)[-self._M_T:]
-#
-# 		# minimum (unnormalized) weight among those to be clipped
-# 		clipping_threshold = self._loglikelihoods[i_clipped[0]]
-#
-# 		self._loglikelihoods[i_clipped] = clipping_threshold
-#
-# 		self._weights = manu.smc.util.normalize_from_logs(self._loglikelihoods)
-#
-# 		self._mean = self._weights @ self._samples
-# 		self._covar = np.cov(self._samples.T, ddof=0, aweights=self._weights)
-#
-#
-# class NonLinearPopulationMonteCarloCovarOnly(NonLinearPopulationMonteCarlo):
-#
-# 	def update_proposal(self):
-#
-# 		super().update_proposal()
-#
-# 		# mean is recomputed using the unclipped weights
-# 		self._mean = self._unclipped_weights @ self._samples

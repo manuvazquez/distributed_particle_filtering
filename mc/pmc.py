@@ -120,7 +120,7 @@ class NonLinearPopulationMonteCarlo(PopulationMonteCarlo):
 
 	def update_proposal(self):
 
-		# this is saved because it's returned by the above property
+		# weights before clipping are saved since they are returned by the above property
 		self._unclipped_weights = self._weights.copy()
 
 		# indices of the samples whose weight is to be clipped

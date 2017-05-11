@@ -9,6 +9,7 @@ import colorama
 import mc.util
 import mc.pmc
 import mc.mh
+import mc.amis
 import smc.particle_filter.centralized as centralized
 import simulations.base
 
@@ -17,6 +18,11 @@ import manu.util
 
 
 class AbstractNPMC(simulations.base.SimpleSimulation, metaclass=abc.ABCMeta):
+
+	@property
+	def monte_carlo_algorithm_name(self):
+
+		return "Population Monte Carlo"
 
 	def __init__(
 			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file_basename,
@@ -30,9 +36,9 @@ class AbstractNPMC(simulations.base.SimpleSimulation, metaclass=abc.ABCMeta):
 
 		self._n_trials = self._simulation_parameters["number of trials"]
 
-		self._n_iter_pmc = parameters["Population Monte Carlo"]["number of iterations"]
+		self._n_iter_pmc = parameters[self.monte_carlo_algorithm_name]["number of iterations"]
 		n_clipped_particles_from_overall = eval(
-			parameters["Population Monte Carlo"]["Nonlinear"]["number of clipped particles from overall number"])
+			parameters[self.monte_carlo_algorithm_name]["Nonlinear"]["number of clipped particles from overall number"])
 
 		# the above parameter should be a function
 		assert isinstance(n_clipped_particles_from_overall, types.FunctionType)
@@ -346,17 +352,90 @@ class NPMCvsInnerFilterNumberOfParticles(AbstractNPMC):
 
 class AMIS(AbstractNPMC):
 
-	def __init__(self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel,
-	             output_file_basename, pseudo_random_numbers_generators, h5py_file=None, h5py_prefix='',
-	             n_processing_elements=None, n_sensors=None):
+	@property
+	def monte_carlo_algorithm_name(self):
+
+		return "Adaptive Multiple Importance Sampling"
+
+	def __init__(
+			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel,
+			output_file_basename, pseudo_random_numbers_generators, h5py_file=None, h5py_prefix='',
+			n_processing_elements=None, n_sensors=None):
 
 		# let the parent class do its thing
-		super().__init__(parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel,
-		                 output_file_basename, pseudo_random_numbers_generators, h5py_file, h5py_prefix,
-		                 n_processing_elements, n_sensors)
+		super().__init__(
+			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel,
+			output_file_basename, pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements,
+			n_sensors)
 
 		# the "inner" PF is built
 		inner_pf = centralized.TargetTrackingParticleFilter(
 			self._n_particles_likelihood, self._resampling_algorithm, self._resampling_criterion, self._prior,
 			self._transition_kernel, self._sensors
 		)
+
+		amis = [
+			mc.amis.AdaptiveMultipleImportanceSampling(
+				M, parameters[self.monte_carlo_algorithm_name]["number of iterations"], resampling_algorithm,
+				resampling_criterion, inner_pf, self._prior_mean, self._prior_covar, self._prng, name='AMIS')
+			for M in self._n_particles]
+
+		self._algorithms = [amis]
+
+		# ------------------------- accumulators
+
+		# [<#particles>,<trial>,<frame>]
+		common_parameters = (self._n_iter_pmc, len(self._algorithms), len(self._n_particles), self._n_trials, parameters["number of frames"])
+
+		# [<component>,<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
+		self._estimated_parameters = np.empty((len(self._prior_mean), *common_parameters))
+
+		# [<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
+		self._max_weight = np.empty(common_parameters)
+
+		# [<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
+		self._M_eff = np.empty(common_parameters)
+
+		# ----- HDF5
+
+		# the names of the algorithms are stored
+		manu.util.write_strings_list_into_hdf5(
+			self._f, self._h5py_prefix + 'algorithms/names',
+			[alg[0].name for alg in self._algorithms])
+
+	def process_frame(self, target_position, target_velocity):
+
+		# let the super class do its thing...
+		super().process_frame(target_position, target_velocity)
+
+		# for every Monte Carlo trial
+		for i_trial in range(self._n_trials):
+
+			self.initialize_pmc_algorithms()
+
+			for i_iter in range(self._n_iter_pmc):
+
+				self.run_pmc_algorithms(i_trial, i_iter)
+
+				print('=========')
+
+		# import code
+		# code.interact(local=dict(globals(), **locals()))
+
+		# in order to make sure the HDF5 files is valid...
+		self._f.flush()
+
+	def save_data(self, target_position):
+
+		# let the *grandparent* class do its thing...
+		simulations.base.Simulation.save_data(self, target_position)
+
+		self._f.create_dataset(self._h5py_prefix + 'estimated parameters', data=self._estimated_parameters)
+		self._f.create_dataset(self._h5py_prefix + 'maximum weight', data=self._max_weight)
+		self._f.create_dataset(self._h5py_prefix + 'effective sample size', data=self._M_eff)
+
+		# if a reference to an HDF5 was not received, that means the file was created by this object,
+		# and hence it is responsible of closing it...
+		if not self._h5py_file:
+			# ...in order to make sure the HDF5 file is valid...
+			self._f.close()

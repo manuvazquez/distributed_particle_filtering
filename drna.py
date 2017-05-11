@@ -22,6 +22,9 @@ import simulations.drna
 import simulations.mposterior
 import simulations.npmc
 
+# # in order to turn every warning into an exception
+# np.seterr(all='raise')
+
 simulation_modules = [simulations.drna, simulations.mposterior, simulations.npmc]
 
 sys.path.append(os.path.join(os.environ['HOME'], 'python'))
