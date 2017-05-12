@@ -36,10 +36,18 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 		# the smallest representable positive in this machine and for this data type
 		self._machine_eps = np.finfo(prior_covar.dtype).eps
 
+		# a "ProposalUpdater" is instantiated (to be decided by the children classes)
+		self._proposal_updater = self.build_proposal_updater()
+
 	@property
 	def weights(self):
 
 		return self._weights
+
+	def build_proposal_updater(self):
+
+		# the "vanilla" "ProposalUpdater" is used
+		return util.ProposalUpdater()
 
 	def initialize(self):
 
@@ -68,7 +76,8 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 
 		self._weights = manu.smc.util.normalize_from_logs(self._unnormalized_log_weights)
 
-		self.update_proposal()
+		# self.update_proposal()
+		self._proposal_updater.update_proposal(self)
 
 		adjusted_mean = self._mean.copy()
 		adjusted_mean[:2] = np.exp(adjusted_mean[:2])
@@ -77,41 +86,17 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 		print('covar:\n', self._covar)
 		print('adjusted mean:\n', colorama.Fore.LIGHTWHITE_EX + '{}'.format(adjusted_mean) + colorama.Style.RESET_ALL)
 
-	def update_proposal(self):
-
-		# np.ma.average(self._samples, axis=1, weights=self._weights).data
-		self._mean = self._weights @ self._samples
-		self._covar = np.cov(self._samples.T, ddof=0, aweights=self._weights)
-
-		# if the covariance matrix is "essentially" all-zeros, it may happen that samples drawn thereof have zero
-		# density (mathematically preposterous but possible due to finite precision issues); in order to avoid this...
-		# if all the coefficients in the covariance matrix are *close* to zero...
-		if np.allclose(self._covar, 0):
-
-			# ...the covariance matrix is set equal to the prior covariance matrix
-			self._covar = self._prior_covar
-
-			return
-
-		# ...still, we make sure it is possible to evaluate the density of a sample with the above covariance...
-		try:
-			# ...we evaluate the density at the mean
-			scipy.stats.multivariate_normal.pdf(x=self._mean, mean=self._mean, cov=self._covar)
-		# if it is not possible...
-		except (np.linalg.linalg.LinAlgError, ValueError):
-			# ...the covariance matrix is set equal to the prior covariance matrix
-			self._covar = self._prior_covar
-
 
 class NonLinearPopulationMonteCarlo(PopulationMonteCarlo):
 
 	def __init__(
 			self, n_particles, resampling_algorithm, resampling_criterion, pf, prior_mean, prior_covar, M_T, prng, name=None):
 
+		# "build_proposal_updater" (below) called by the parent needs this parameter
+		self._M_T = M_T
+
 		super().__init__(
 			n_particles, resampling_algorithm, resampling_criterion, pf, prior_mean, prior_covar, prng, name=name)
-
-		self._M_T = M_T
 
 		self._unclipped_weights = None
 
@@ -120,31 +105,14 @@ class NonLinearPopulationMonteCarlo(PopulationMonteCarlo):
 
 		return self._unclipped_weights
 
-	def update_proposal(self):
+	def build_proposal_updater(self):
 
-		# weights before clipping are saved since they are returned by the above property (to be used when marking down
-		# the largest weight and also when computing the effective sample size)
-		self._unclipped_weights = self._weights.copy()
-
-		# indices of the samples whose weight is to be clipped
-		i_clipped = np.argpartition(self._unnormalized_log_weights, -self._M_T)[-self._M_T:]
-
-		# minimum (unnormalized) weight among those to be clipped
-		clipping_threshold = self._unnormalized_log_weights[i_clipped[0]]
-
-		self._unnormalized_log_weights[i_clipped] = clipping_threshold
-
-		self._weights = manu.smc.util.normalize_from_logs(self._unnormalized_log_weights)
-
-		self._mean = self._weights @ self._samples
-		self._covar = np.cov(self._samples.T, ddof=0, aweights=self._weights)
+		# the *Clipping* "ProposalUpdater" is used
+		return util.ClippingProposalUpdater(self._M_T)
 
 
 class NonLinearPopulationMonteCarloCovarOnly(NonLinearPopulationMonteCarlo):
 
-	def update_proposal(self):
+	def build_proposal_updater(self):
 
-		super().update_proposal()
-
-		# mean is recomputed using the unclipped weights
-		self._mean = self._unclipped_weights @ self._samples
+		return util.ClippedCovarianceProposalUpdater(self._M_T)

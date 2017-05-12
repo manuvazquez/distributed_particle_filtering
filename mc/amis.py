@@ -31,6 +31,8 @@ class AdaptiveMultipleImportanceSampling(pmc.PopulationMonteCarlo):
 		self._i_iter = None
 
 		self._structured_samples = None
+
+		self._unnormalized_log_weights = None
 		self._structured_log_weights = None
 
 		self._structured_log_targets = None
@@ -112,10 +114,14 @@ class AdaptiveMultipleImportanceSampling(pmc.PopulationMonteCarlo):
 		# the samples from every *past* iteration are stacked one upon another
 		self._samples = np.moveaxis(self._structured_samples[..., :self._i_iter+1], 1, 2).reshape((-1, samples.shape[1]), order='F')
 
-		# the (log)weights are shaped up as a row vector and normalized afterwards
-		self._weights = manu.smc.util.normalize_from_logs(self._structured_log_weights[..., :self._i_iter + 1].ravel(order='F'))
+		# this is actually *required* since the ProposalUpdater is counting on it
+		self._unnormalized_log_weights = self._structured_log_weights[..., :self._i_iter + 1].ravel(order='F')
 
-		self.update_proposal()
+		# the (log)weights are shaped up as a row vector and normalized afterwards
+		self._weights = manu.smc.util.normalize_from_logs(self._unnormalized_log_weights)
+
+		# self.update_proposal()
+		self._proposal_updater.update_proposal(self)
 
 		adjusted_mean = self._mean.copy()
 		adjusted_mean[:2] = np.exp(adjusted_mean[:2])
@@ -128,3 +134,28 @@ class AdaptiveMultipleImportanceSampling(pmc.PopulationMonteCarlo):
 		print('adjusted mean:\n', colorama.Fore.LIGHTWHITE_EX + '{}'.format(adjusted_mean) + colorama.Style.RESET_ALL)
 
 
+class NonLinearAdaptiveMultipleImportanceSampling(AdaptiveMultipleImportanceSampling):
+
+	def __init__(
+			self, n_particles, n_iterations, resampling_algorithm, resampling_criterion, pf, prior_mean,
+			prior_covar, M_T, prng, name=None):
+
+		# "build_proposal_updater" (below) called by the parent needs this parameter
+		self._M_T = M_T
+
+		# call the __init__ method of the parent
+		super().__init__(
+			n_particles, n_iterations, resampling_algorithm, resampling_criterion, pf, prior_mean,prior_covar,
+			prng, name)
+
+		self._unclipped_weights = None
+
+	@property
+	def weights(self):
+
+		return self._unclipped_weights
+
+	def build_proposal_updater(self):
+
+		# the "vanilla" "ProposalUpdater" is used
+		return util.ClippingProposalUpdater(self._M_T)

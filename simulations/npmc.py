@@ -380,7 +380,13 @@ class AMIS(AbstractNPMC):
 				resampling_criterion, inner_pf, self._prior_mean, self._prior_covar, self._prng, name='AMIS')
 			for M in self._n_particles]
 
-		self._algorithms = [amis]
+		nonlinear_amis = [
+			mc.amis.NonLinearAdaptiveMultipleImportanceSampling(
+				M, parameters[self.monte_carlo_algorithm_name]["number of iterations"], resampling_algorithm,
+				resampling_criterion, inner_pf, self._prior_mean, self._prior_covar, M_T, self._prng, name='NAMIS')
+			for M, M_T in zip(self._n_particles, self._M_Ts)]
+
+		self._algorithms = [amis, nonlinear_amis]
 
 		# ------------------------- accumulators
 
