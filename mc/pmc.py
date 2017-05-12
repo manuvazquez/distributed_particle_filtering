@@ -31,6 +31,7 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 		self._mean = None
 		self._covar = None
 		self._weights = None
+		self._unnormalized_log_weights = None
 
 		# the smallest representable positive in this machine and for this data type
 		self._machine_eps = np.finfo(prior_covar.dtype).eps
@@ -63,8 +64,9 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 		log_proposal = np.log(scipy.stats.multivariate_normal.pdf(x=self._samples, mean=self._mean, cov=self._covar))
 
 		# NOTE: the first time this is called, "log_prior" should be equal to "log_proposal"
+		self._unnormalized_log_weights = self._loglikelihoods + log_prior - log_proposal
 
-		self._weights = manu.smc.util.normalize_from_logs(self._loglikelihoods + log_prior - log_proposal)
+		self._weights = manu.smc.util.normalize_from_logs(self._unnormalized_log_weights)
 
 		self.update_proposal()
 
@@ -120,18 +122,19 @@ class NonLinearPopulationMonteCarlo(PopulationMonteCarlo):
 
 	def update_proposal(self):
 
-		# weights before clipping are saved since they are returned by the above property
+		# weights before clipping are saved since they are returned by the above property (to be used when marking down
+		# the largest weight and also when computing the effective sample size)
 		self._unclipped_weights = self._weights.copy()
 
 		# indices of the samples whose weight is to be clipped
-		i_clipped = np.argpartition(self._loglikelihoods, -self._M_T)[-self._M_T:]
+		i_clipped = np.argpartition(self._unnormalized_log_weights, -self._M_T)[-self._M_T:]
 
 		# minimum (unnormalized) weight among those to be clipped
-		clipping_threshold = self._loglikelihoods[i_clipped[0]]
+		clipping_threshold = self._unnormalized_log_weights[i_clipped[0]]
 
-		self._loglikelihoods[i_clipped] = clipping_threshold
+		self._unnormalized_log_weights[i_clipped] = clipping_threshold
 
-		self._weights = manu.smc.util.normalize_from_logs(self._loglikelihoods)
+		self._weights = manu.smc.util.normalize_from_logs(self._unnormalized_log_weights)
 
 		self._mean = self._weights @ self._samples
 		self._covar = np.cov(self._samples.T, ddof=0, aweights=self._weights)
