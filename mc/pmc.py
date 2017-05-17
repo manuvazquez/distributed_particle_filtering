@@ -55,6 +55,9 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 		self._mean = self._prior_mean
 		self._covar = self._prior_covar
 
+		# this may be needed for some "ProposalUpdater"s
+		self._proposal_updater.initialize()
+
 	def step(self, observations):
 
 		# samples are drawn from the mean and covariance

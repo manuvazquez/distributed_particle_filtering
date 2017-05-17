@@ -2,6 +2,7 @@ import sys
 import os
 import numpy as np
 import scipy.stats
+import typing
 
 sys.path.append(os.path.join(os.environ['HOME'], 'python'))
 import manu.smc.util
@@ -76,6 +77,11 @@ class ProposalUpdater:
 			# ...the covariance matrix is set equal to the prior covariance matrix
 			particle_filter._covar = particle_filter._prior_covar
 
+	def initialize(self):
+
+		# no need here
+		pass
+
 
 class ClippingProposalUpdater(ProposalUpdater):
 
@@ -113,3 +119,28 @@ class ClippedCovarianceProposalUpdater(ClippingProposalUpdater):
 
 		# mean is recomputed using the unclipped weights
 		particle_filter._mean = particle_filter._unclipped_weights @ particle_filter._samples
+
+
+class VaryingClippedNumberClippingProposalUpdater(ClippingProposalUpdater):
+
+	def __init__(self, n_clipped: typing.Sequence[int]) -> None:
+
+		# the whole list is kept
+		self._n_clipped_list = n_clipped
+
+		self._i_n_clipped = 0
+
+	def update_proposal(self, particle_filter):
+
+		# the appropriate "n_clipped" (M_T) is picked
+		self._n_clipped = self._n_clipped_list[self._i_n_clipped]
+
+		super().update_proposal(particle_filter)
+
+		# in the next iteration, if any, the following "n_clipped" element in the list should be picked
+		self._i_n_clipped += 1
+
+	def initialize(self):
+
+		# reset
+		self._i_n_clipped = 0

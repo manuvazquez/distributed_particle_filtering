@@ -149,27 +149,17 @@ class NPMC(AbstractNPMC):
 		kernel_prior_covar_ratio_metropolis_hastings = parameters["Metropolis-Hastings"]["ratio kernel-prior covariances"]
 
 		# the "inner" PF is built
-		inner_pf = centralized.TargetTrackingParticleFilter(
+		self._inner_pf = centralized.TargetTrackingParticleFilter(
 			self._n_particles_likelihood, self._resampling_algorithm, self._resampling_criterion, self._prior,
 			self._transition_kernel, self._sensors
 		)
-
-		pmc = [
-			mc.pmc.PopulationMonteCarlo(
-				M, resampling_algorithm, resampling_criterion, inner_pf, self._prior_mean, self._prior_covar, self._prng, name='PMC')
-			for M in self._n_particles]
-
-		nonlinear_pmc = [
-			mc.pmc.NonLinearPopulationMonteCarlo(
-				M, resampling_algorithm, resampling_criterion, inner_pf, self._prior_mean, self._prior_covar, M_T, self._prng, name='NPMC')
-			for M, M_T in zip(self._n_particles, self._M_Ts)]
 
 		n_samples_metropolis_hastings = self._n_iter_pmc * self._n_particles[-1]
 
 		# Metropolis-Hastings algorithm is run considering the larger number of samples and iterations
 		self.metropolis_hastings = mc.mh.MetropolisHastings(
-			n_samples_metropolis_hastings, inner_pf, self._prior_mean, self._prior_covar, self._prng, burn_in_period_metropolis_hastings,
-			kernel_prior_covar_ratio_metropolis_hastings, name='MetropolisHastings')
+			n_samples_metropolis_hastings, self._inner_pf, self._prior_mean, self._prior_covar, self._prng,
+			burn_in_period_metropolis_hastings, kernel_prior_covar_ratio_metropolis_hastings, name='MetropolisHastings')
 
 		if self._simulation_parameters["only run MCMC"]:
 
@@ -177,7 +167,7 @@ class NPMC(AbstractNPMC):
 
 		else:
 
-			self._algorithms = [pmc, nonlinear_pmc]
+			self._algorithms = self.create_smc_algoritms()
 
 		# ------------------------- accumulators
 
@@ -205,6 +195,22 @@ class NPMC(AbstractNPMC):
 			self._f, self._h5py_prefix + 'algorithms/names',
 			[alg[0].name for alg in self._algorithms] + [self.metropolis_hastings.name])
 
+	def create_smc_algoritms(self):
+
+		pmc = [
+			mc.pmc.PopulationMonteCarlo(
+				M, self._resampling_algorithm, self._resampling_criterion, self._inner_pf, self._prior_mean,
+				self._prior_covar, self._prng, name='PMC')
+			for M in self._n_particles]
+
+		nonlinear_pmc = [
+			mc.pmc.NonLinearPopulationMonteCarlo(
+				M, self._resampling_algorithm, self._resampling_criterion, self._inner_pf, self._prior_mean,
+				self._prior_covar, M_T, self._prng, name='NPMC')
+			for M, M_T in zip(self._n_particles, self._M_Ts)]
+
+		return [pmc, nonlinear_pmc]
+
 	def process_frame(self, target_position, target_velocity):
 
 		# let the super class do its thing...
@@ -213,6 +219,8 @@ class NPMC(AbstractNPMC):
 		# for every Monte Carlo trial
 		for i_trial in range(self._n_trials):
 
+			# the implementation of Metropolis-Hastings does not require initialization (it's automatically performed
+			# by run at the end)
 			self.metropolis_hastings.run(self._observations)
 
 			self._markov_chains[:, :, i_trial, self._i_current_frame] = self.metropolis_hastings.chain
@@ -445,3 +453,54 @@ class AMIS(AbstractNPMC):
 		if not self._h5py_file:
 			# ...in order to make sure the HDF5 file is valid...
 			self._f.close()
+
+
+class NPMCvAMIS(NPMC):
+
+	def __init__(
+			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel,
+			output_file_basename, pseudo_random_numbers_generators, h5py_file=None, h5py_prefix='',
+			n_processing_elements=None, n_sensors=None):
+
+		super().__init__(
+			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel,
+			output_file_basename, pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements, n_sensors)
+
+		assert self._parameters["Adaptive Multiple Importance Sampling"]["number of iterations"] ==\
+		       self._parameters["Population Monte Carlo"]["number of iterations"]
+
+		assert self._parameters["Adaptive Multiple Importance Sampling"]["Nonlinear"]["number of clipped particles from overall number"] ==\
+		       self._parameters["Population Monte Carlo"]["Nonlinear"]["number of clipped particles from overall number"]
+
+	def create_smc_algoritms(self):
+
+		# for the sake of convenience
+		n_iterations = self._parameters["Adaptive Multiple Importance Sampling"]["number of iterations"]
+
+		amis = [
+			mc.amis.AdaptiveMultipleImportanceSampling(
+				M, n_iterations, self._resampling_algorithm, self._resampling_criterion, self._inner_pf,
+				self._prior_mean, self._prior_covar, self._prng, name='AMIS')
+			for M in self._n_particles]
+
+		nonlinear_amis = [
+			mc.amis.NonLinearAdaptiveMultipleImportanceSampling(
+				M, n_iterations, self._resampling_algorithm, self._resampling_criterion, self._inner_pf,
+				self._prior_mean, self._prior_covar, M_T, self._prng, name='NAMIS')
+			for M, M_T in zip(self._n_particles, self._M_Ts)]
+
+		# the function to get M_T from the number of particles
+		n_clipped_particles_from_overall = eval(
+			self._parameters["Adaptive Multiple Importance Sampling"]["Nonlinear"]["number of clipped particles from overall number"])
+
+		# a list of lists in which every list contains the M_Ts for a different number of particles (M)
+		m_ts_for_every_iteration = [
+			[n_clipped_particles_from_overall(M*(i+1)) for i in range(n_iterations)] for M in self._n_particles]
+
+		vaying_clipped_number_nonlinear_amis = [
+			mc.amis.VaryingClippedNumberNonLinearAdaptiveMultipleImportanceSampling(
+				M, n_iterations, self._resampling_algorithm, self._resampling_criterion, self._inner_pf,
+				self._prior_mean, self._prior_covar, M_T, self._prng, name='NAMIS_varying_Mt')
+			for M, M_T in zip(self._n_particles, m_ts_for_every_iteration)]
+
+		return super().create_smc_algoritms() + [amis, nonlinear_amis, vaying_clipped_number_nonlinear_amis]

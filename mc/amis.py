@@ -60,7 +60,7 @@ class AdaptiveMultipleImportanceSampling(pmc.PopulationMonteCarlo):
 
 	def step(self, observations):
 
-		# mean and covariance matrix that are to be used in this iteration are saved
+		# mean and covariance matrix to be used in this iteration are saved
 		self._means_list[self._i_iter] = self._mean.copy()
 		self._covars_list[self._i_iter] = self._covar.copy()
 
@@ -109,15 +109,15 @@ class AdaptiveMultipleImportanceSampling(pmc.PopulationMonteCarlo):
 				self._structured_log_targets[..., self._i_iter] - np.log(self._weighted_proposals[:, i_iter])
 
 		# the methods in the superclass expect the samples in the usual form
-		# self._samples = self._structured_samples[..., :self._i_iter+1].reshape((samples.shape[1],-1), order='F')
 
 		# the samples from every *past* iteration are stacked one upon another
-		self._samples = np.moveaxis(self._structured_samples[..., :self._i_iter+1], 1, 2).reshape((-1, samples.shape[1]), order='F')
+		self._samples = np.moveaxis(self._structured_samples[..., :self._i_iter+1], 1, 2).\
+			reshape((-1, samples.shape[1]), order='F')
 
 		# this is actually *required* since the ProposalUpdater is counting on it
 		self._unnormalized_log_weights = self._structured_log_weights[..., :self._i_iter + 1].ravel(order='F')
 
-		# the (log)weights are shaped up as a row vector and normalized afterwards
+		# the (log)weights are normalized (above have already been shaped up as a row vector)
 		self._weights = manu.smc.util.normalize_from_logs(self._unnormalized_log_weights)
 
 		# self.update_proposal()
@@ -159,3 +159,22 @@ class NonLinearAdaptiveMultipleImportanceSampling(AdaptiveMultipleImportanceSamp
 
 		# the "vanilla" "ProposalUpdater" is used
 		return util.ClippingProposalUpdater(self._M_T)
+
+
+class VaryingClippedNumberNonLinearAdaptiveMultipleImportanceSampling(NonLinearAdaptiveMultipleImportanceSampling):
+
+	def __init__(
+			self, n_particles, n_iterations, resampling_algorithm, resampling_criterion, pf, prior_mean, prior_covar,
+			M_T, prng, name=None):
+
+		super().__init__(
+			n_particles, n_iterations, resampling_algorithm, resampling_criterion, pf, prior_mean, prior_covar, M_T,
+			prng, name)
+
+		# an "M_T" for every iteration must have been received
+		assert n_iterations == len(M_T)
+
+	def build_proposal_updater(self):
+
+		# the "vanilla" "ProposalUpdater" is used
+		return util.VaryingClippedNumberClippingProposalUpdater(self._M_T)

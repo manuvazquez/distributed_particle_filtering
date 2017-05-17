@@ -93,6 +93,37 @@
 			}
 		},
 
+		"Nonlinear Adaptive Multiple Importance Sampling and Population Monte Carlo": {
+			"implementing class": "NPMCvAMIS",
+			"network": "randomly strewn sensors and PEs",
+			"sensors-PEs connector": "sensors connected to the closest PEs",
+			"number of particles for approximating the likelihood": 100,
+
+			"number of particles": [50, 100, 200, 500],
+
+			"number of trials": 50,
+
+			"prior": {
+				"transmitter power": {
+					"mean": 1,
+					"variance": 0.25
+				},
+				"minimum amount of power": {
+					"mean": 2e-5,
+					"variance": 2e-10
+				},
+				"path loss exponent": {
+					"mean": 0,
+					"variance": 4
+				}
+			},
+
+			"only run MCMC": false,
+
+			"save MCMC chains": false
+
+		},
+
 		"Mposterior revisited": {
 			"implementing class": "MposteriorRevisited",
 			"network": "randomly strewn sensors and PEs",
