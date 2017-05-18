@@ -54,6 +54,10 @@ class AbstractNPMC(simulations.base.SimpleSimulation, metaclass=abc.ABCMeta):
 		# the pseudo random numbers generator this class will be using
 		self._prng = self._PRNGs['Sensors and Monte Carlo pseudo random numbers generator']
 
+		# "True" if Monte Carlo samples are to be saved (might take up a lot of space) by the children classes
+		self._save_monte_carlo_samples =\
+			("save MC samples" in self._simulation_parameters) and self._simulation_parameters["save MC samples"]
+
 		# ------------------------- prior
 
 		# the *minimum amount of power* is assumed to be log-normal" (it must be positive)...
@@ -115,6 +119,7 @@ class AbstractNPMC(simulations.base.SimpleSimulation, metaclass=abc.ABCMeta):
 			print(colorama.Fore.LIGHTMAGENTA_EX + alg[0].name + colorama.Style.RESET_ALL)
 
 			for i_particles, alg_particles in enumerate(alg):
+
 				print(
 					colorama.Fore.LIGHTCYAN_EX + 'n particles {}'.format(alg_particles.n_particles) +
 					colorama.Style.RESET_ALL)
@@ -129,6 +134,14 @@ class AbstractNPMC(simulations.base.SimpleSimulation, metaclass=abc.ABCMeta):
 
 				self._M_eff[i_iter, i_alg, i_particles, i_trial, self._i_current_frame] = \
 					1. / np.sum(alg_particles.weights ** 2)
+
+				if self._save_monte_carlo_samples:
+
+					# [<sample>,<component>,<iteration>,<algorithm>,<trial>,<frame>]
+					self._monte_carlo_samples[i_particles][..., i_iter, i_alg, i_trial, self._i_current_frame] = alg_particles.samples
+
+					# [<sample>,<iteration>,<algorithm>,<trial>,<frame>]
+					self._monte_carlo_weights[i_particles][:, i_iter, i_alg, i_trial, self._i_current_frame] = alg_particles.weights
 
 			print('=========')
 
@@ -187,6 +200,22 @@ class NPMC(AbstractNPMC):
 		# [<component>, <sample>, <trial>, <frame>]
 		self._markov_chains = np.empty((
 			len(self._prior_mean), n_samples_metropolis_hastings, *common_parameters[1:]))
+
+		# it must be done *in this class* because earlier the number of algorithms is still unknown
+		if self._save_monte_carlo_samples:
+
+			self._monte_carlo_samples = [
+				# [<sample>,<component>,<iteration>,<algorithm>,<trial>,<frame>]
+				np.empty((
+					M, len(self._prior_mean), self._n_iter_pmc, len(self._algorithms), self._n_trials,
+					self._parameters["number of frames"]))
+				for M in self._n_particles]
+
+			self._monte_carlo_weights = [
+				# [<sample>,<iteration>,<algorithm>,<trial>,<frame>]
+				np.empty((
+					M, self._n_iter_pmc, len(self._algorithms), self._n_trials, self._parameters["number of frames"]))
+				for M in self._n_particles]
 
 		# ----- HDF5
 
@@ -262,6 +291,13 @@ class NPMC(AbstractNPMC):
 		if self._simulation_parameters["save MCMC chains"]:
 
 			self._f.create_dataset(self._h5py_prefix + 'Markov chains', data=self._markov_chains)
+
+		if self._save_monte_carlo_samples:
+
+			for M, samples, weights in zip(self._n_particles, self._monte_carlo_samples, self._monte_carlo_weights):
+
+				self._f.create_dataset(self._h5py_prefix + 'number of particles/{}/samples'.format(M), data=samples)
+				self._f.create_dataset(self._h5py_prefix + 'number of particles/{}/weights'.format(M), data=weights)
 
 		# if a reference to an HDF5 was not received, that means the file was created by this object,
 		# and hence it is responsible of closing it...

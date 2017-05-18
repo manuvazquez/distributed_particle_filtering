@@ -44,6 +44,11 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 
 		return self._weights
 
+	@property
+	def samples(self):
+
+		return self._samples
+
 	def build_proposal_updater(self):
 
 		# the "vanilla" "ProposalUpdater" is used

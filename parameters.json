@@ -37,7 +37,9 @@
 
 			"only run MCMC": false,
 
-			"save MCMC chains": false
+			"save MCMC chains": false,
+
+			"save MC samples": false
 		},
 
 		"Nonlinear Population Monte Carlo: number of particles of the inner PF": {
