@@ -504,3 +504,70 @@ class NPMCvAMIS(NPMC):
 			for M, M_T in zip(self._n_particles, m_ts_for_every_iteration)]
 
 		return super().create_smc_algoritms() + [amis, nonlinear_amis, vaying_clipped_number_nonlinear_amis]
+
+
+class EffectiveSampleSizeBeforeAndAfterClipping(NPMC):
+
+	def __init__(
+			self, parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel,
+			output_file_basename, pseudo_random_numbers_generators, h5py_file=None, h5py_prefix='',
+			n_processing_elements=None, n_sensors=None):
+
+		super().__init__(
+			parameters, room, resampling_algorithm, resampling_criterion, prior, transition_kernel, output_file_basename,
+			pseudo_random_numbers_generators, h5py_file, h5py_prefix, n_processing_elements, n_sensors)
+
+		# [<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
+		common_parameters = (self._n_iter_pmc, len(self._algorithms)+1, len(self._n_particles), self._n_trials,
+			parameters["number of frames"])
+
+		# [<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
+		self._max_weight = np.empty(common_parameters)
+
+		# [<iteration>,<algorithm>,<#particles>,<trial>,<frame>]
+		self._M_eff = np.empty(common_parameters)
+
+		# Metropolis-Hastings is not even run
+		self._simulation_parameters["save MCMC chains"] = False
+
+	def create_smc_algoritms(self):
+
+		nonlinear_pmc = [
+			mc.pmc.NonLinearPopulationMonteCarlo(
+				M, self._resampling_algorithm, self._resampling_criterion, self._inner_pf, self._prior_mean,
+				self._prior_covar, M_T, self._prng, name='NPMC')
+			for M, M_T in zip(self._n_particles, self._M_Ts)]
+
+		return [nonlinear_pmc]
+
+	def run_pmc_algorithms(self, i_trial, i_iter):
+
+		super().run_pmc_algorithms(i_trial, i_iter)
+
+		# the maximum weight and ESS are saved in the "last slice" of the corresponding arrays
+		for i_particles, alg_particles in enumerate(self._algorithms[-1]):
+
+			self._max_weight[i_iter, -1, i_particles, i_trial, self._i_current_frame] = \
+				alg_particles.clipped_weights.max()
+
+			self._M_eff[i_iter, -1, i_particles, i_trial, self._i_current_frame] = \
+				1. / np.sum(alg_particles.clipped_weights ** 2)
+
+	def process_frame(self, target_position, target_velocity):
+
+		# let the super-super class do its thing...
+		AbstractNPMC.process_frame(self, target_position, target_velocity)
+
+		# for every Monte Carlo trial
+		for i_trial in range(self._n_trials):
+
+			self.initialize_pmc_algorithms()
+
+			for i_iter in range(self._n_iter_pmc):
+
+				self.run_pmc_algorithms(i_trial, i_iter)
+
+				print('=========')
+
+		# in order to make sure the HDF5 files is valid...
+		self._f.flush()

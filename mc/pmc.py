@@ -108,6 +108,11 @@ class NonLinearPopulationMonteCarlo(PopulationMonteCarlo):
 
 		return self._unclipped_weights
 
+	@property
+	def clipped_weights(self):
+
+		return self._weights
+
 	def build_proposal_updater(self):
 
 		# the *Clipping* "ProposalUpdater" is used
