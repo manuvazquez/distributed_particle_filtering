@@ -123,8 +123,7 @@ class AdaptiveMultipleImportanceSampling(pmc.PopulationMonteCarlo):
 		# self.update_proposal()
 		self._proposal_updater.update_proposal(self)
 
-		adjusted_mean = self._mean.copy()
-		adjusted_mean[:2] = np.exp(adjusted_mean[:2])
+		adjusted_mean = np.exp(self._mean.copy())
 
 		# the number of iteration is increased
 		self._i_iter += 1

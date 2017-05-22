@@ -87,8 +87,7 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 		# self.update_proposal()
 		self._proposal_updater.update_proposal(self)
 
-		adjusted_mean = self._mean.copy()
-		adjusted_mean[:2] = np.exp(adjusted_mean[:2])
+		adjusted_mean = np.exp(self._mean.copy())
 
 		print('mean:\n', self._mean)
 		print('covar:\n', self._covar)

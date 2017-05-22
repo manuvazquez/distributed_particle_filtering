@@ -67,21 +67,28 @@ class AbstractNPMC(simulations.base.SimpleSimulation, metaclass=abc.ABCMeta):
 		# ...and the parameters of the corresponding normal are
 		mean_min_power, var_min_power = mc.util.normal_parameters_from_lognormal(mean_log_min_power, var_log_min_power)
 
+		# ---
+
 		# the same for the *transmitter power*
 		mean_log_tx_power = self._simulation_parameters["prior"]["transmitter power"]["mean"]
 		var_log_tx_power = self._simulation_parameters["prior"]["transmitter power"]["variance"]
 
 		mean_tx_power, var_tx_power = mc.util.normal_parameters_from_lognormal(mean_log_tx_power, var_log_tx_power)
 
-		self._prior_mean = np.array([
-			mean_tx_power,
-			mean_min_power,
-			self._simulation_parameters["prior"]["path loss exponent"]["mean"]])
+		# ---
 
-		self._prior_covar = np.diag([
-			var_tx_power,
-			var_min_power,
-			self._simulation_parameters["prior"]["path loss exponent"]["variance"]])
+		# the same for the *transmitter power*
+		mean_log_path_loss_exponent = self._simulation_parameters["prior"]["path loss exponent"]["mean"]
+		var_log_path_loss_exponent = self._simulation_parameters["prior"]["path loss exponent"]["variance"]
+
+		mean_path_loss_exponent, var_path_loss_exponent = mc.util.normal_parameters_from_lognormal(
+			mean_log_path_loss_exponent, var_log_path_loss_exponent)
+
+		# ---
+
+		self._prior_mean = np.array([mean_tx_power, mean_min_power, mean_path_loss_exponent])
+
+		self._prior_covar = np.diag([var_tx_power, var_min_power, var_path_loss_exponent])
 
 		# ----- HDF5
 

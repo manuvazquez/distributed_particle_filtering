@@ -27,7 +27,7 @@ def loglikelihood(pf, observations, log_tx_power, log_min_power, path_loss_exp):
 
 		s.set_parameters(
 			tx_power=np.exp(log_tx_power), minimum_amount_of_power=np.exp(log_min_power),
-			path_loss_exponent=path_loss_exp)
+			path_loss_exponent=np.exp(path_loss_exp))
 
 	# this is needed to rebuild the sensors with the new parameters
 	pf.reset_sensors_array()
