@@ -4,7 +4,7 @@ import numpy as np
 import scipy.stats
 import typing
 
-sys.path.append(os.path.join(os.environ['HOME'], 'python'))
+# sys.path.append(os.path.join(os.environ['HOME'], 'python'))
 import manu.smc.util
 
 

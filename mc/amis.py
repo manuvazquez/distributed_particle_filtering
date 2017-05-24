@@ -8,7 +8,7 @@ import colorama
 from . import util
 from . import pmc
 
-sys.path.append(os.path.join(os.environ['HOME'], 'python'))
+# sys.path.append(os.path.join(os.environ['HOME'], 'python'))
 import manu.smc.util
 
 

@@ -27,7 +27,7 @@ import simulations.npmc
 
 simulation_modules = [simulations.drna, simulations.mposterior, simulations.npmc]
 
-sys.path.append(os.path.join(os.environ['HOME'], 'python'))
+# sys.path.append(os.path.join(os.environ['HOME'], 'python'))
 
 import manu.util
 import manu.smc.resampling

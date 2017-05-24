@@ -10,7 +10,7 @@ import state
 from smc.particle_filter.particle_filter import ParticleFilter
 import sensor as sensor_module
 
-sys.path.append(os.path.join(os.environ['HOME'], 'python'))
+# sys.path.append(os.path.join(os.environ['HOME'], 'python'))
 import manu.smc.util
 
 
