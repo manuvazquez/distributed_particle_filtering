@@ -17,7 +17,7 @@ def normal_parameters_from_lognormal(mean, var):
 	return mean, var
 
 
-def loglikelihood(pf, observations, log_tx_power, log_min_power, path_loss_exp):
+def loglikelihood(pf, observations, log_tx_power, log_min_power, log_path_loss_exp):
 
 	# the "inner" PF (for approximating the likelihood) is initialized
 	pf.initialize()
@@ -27,7 +27,7 @@ def loglikelihood(pf, observations, log_tx_power, log_min_power, path_loss_exp):
 
 		s.set_parameters(
 			tx_power=np.exp(log_tx_power), minimum_amount_of_power=np.exp(log_min_power),
-			path_loss_exponent=np.exp(path_loss_exp))
+			path_loss_exponent=np.exp(log_path_loss_exp))
 
 	# this is needed to rebuild the sensors with the new parameters
 	pf.reset_sensors_array()

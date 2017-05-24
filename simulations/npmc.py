@@ -10,6 +10,7 @@ import mc.util
 import mc.pmc
 import mc.mh
 import mc.amis
+import mc.distributions
 import smc.particle_filter.centralized as centralized
 import simulations.base
 
@@ -176,10 +177,14 @@ class NPMC(AbstractNPMC):
 
 		n_samples_metropolis_hastings = self._n_iter_pmc * self._n_particles[-1]
 
-		# Metropolis-Hastings algorithm is run considering the larger number of samples and iterations
+		prior = mc.distributions.Gaussian(self._prng, {'mean': self._prior_mean, 'cov': self._prior_covar})
+		proposal = mc.distributions.Gaussian(self._prng, {
+			'cov': self._prior_covar*kernel_prior_covar_ratio_metropolis_hastings})
+
+		# Metropolis-Hastings algorithm is run considering the largest number of samples and iterations
 		self.metropolis_hastings = mc.mh.MetropolisHastings(
-			n_samples_metropolis_hastings, self._inner_pf, self._prior_mean, self._prior_covar, self._prng,
-			burn_in_period_metropolis_hastings, kernel_prior_covar_ratio_metropolis_hastings, name='MetropolisHastings')
+			n_samples_metropolis_hastings, self._inner_pf, prior, self._prng, burn_in_period_metropolis_hastings,
+			proposal, name='MetropolisHastings')
 
 		if self._simulation_parameters["only run MCMC"]:
 
@@ -303,8 +308,10 @@ class NPMC(AbstractNPMC):
 
 			for M, samples, weights in zip(self._n_particles, self._monte_carlo_samples, self._monte_carlo_weights):
 
-				self._f.create_dataset(self._h5py_prefix + 'number of particles/{}/samples'.format(M), data=samples)
-				self._f.create_dataset(self._h5py_prefix + 'number of particles/{}/weights'.format(M), data=weights)
+				dataset = self._f.create_dataset(self._h5py_prefix + 'number of particles/{}/samples'.format(M), data=samples)
+				dataset.attrs['mapping'] = '[<sample>,<component>,<iteration>,<algorithm>,<trial>,<frame>]'
+				dataset = self._f.create_dataset(self._h5py_prefix + 'number of particles/{}/weights'.format(M), data=weights)
+				dataset.attrs['mapping'] = '[<sample>,<iteration>,<algorithm>,<trial>,<frame>]'
 
 		# if a reference to an HDF5 was not received, that means the file was created by this object,
 		# and hence it is responsible of closing it...
