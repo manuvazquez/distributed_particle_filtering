@@ -19,8 +19,10 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 
 		super().__init__(n_particles, resampling_algorithm, resampling_criterion, name=name)
 
+		# modifying the sensors is *not* a problem since all observations have already been computed, hence no need for
 		# self._pf = copy.deepcopy(pf)
 		self._pf = pf
+
 		self._prior_mean = prior_mean
 		self._prior_covar = prior_covar
 		self._prng = prng

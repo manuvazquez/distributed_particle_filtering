@@ -24,6 +24,7 @@ import simulations.npmc
 
 # # in order to turn every warning into an exception
 # np.seterr(all='raise')
+# np.seterr(over='raise')
 
 simulation_modules = [simulations.drna, simulations.mposterior, simulations.npmc]
 
