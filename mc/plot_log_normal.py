@@ -1,16 +1,22 @@
 #! /usr/bin/env python3
 
+import argparse
+import sys
+
 import numpy as np
 import matplotlib.pyplot as plt
 
 import util
 
+parser = argparse.ArgumentParser(description='plot log-normal"')
+parser.add_argument('mean', type=float, help='mean (of the non-logarithmized random variable)')
+parser.add_argument('variance', type=float, help='variance (of the non-logarithmized random variable)')
+
+arguments = parser.parse_args(sys.argv[1:])
+
 plt.ion()
 
-# mu_log_normal, var_log_normal = 1, 0.25
-# mu_log_normal, var_log_normal = 2e-5, 2e-7
-# mu_log_normal, var_log_normal = 1, 6
-mu_log_normal, var_log_normal = 3, 3
+mu_log_normal, var_log_normal = arguments.mean, arguments.variance
 
 mu, var = util.normal_parameters_from_lognormal(mu_log_normal, var_log_normal)
 

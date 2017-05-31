@@ -3,6 +3,8 @@ import abc
 import numpy as np
 import scipy.stats
 
+import manu.smc.util
+
 
 class Sensor(metaclass=abc.ABCMeta):
 
@@ -143,10 +145,22 @@ class RSSsensorsArray:
 	def __init__(self, sensors):
 
 		self._tx_power = np.array([s._tx_power for s in sensors])
-		self._path_loss_exponent = np.array([s._path_loss_exponent for s in sensors])
-		self._noise_std = np.array([s._noise_std for s in sensors])
 		self._minimum_power = np.array([s._minimum_power for s in sensors])
+		self._path_loss_exponent = np.array([s._path_loss_exponent for s in sensors])
+
+		self._noise_std = np.array([s._noise_std for s in sensors])
 		self._positions = np.hstack([s.position for s in sensors])
+
+		# TODO: "loglikelihood" is only implemented for identical sensors
+		assert not np.any(self._noise_std - self._noise_std[0])
+
+		# for the sake of convenience
+		noise_std = self._noise_std[0]
+
+		self.twice_the_variance = 2*(noise_std**2)
+
+		# self.constant = np.log((1./(np.sqrt(2*np.pi)*noise_std))**len(sensors)) ...is equivalent to
+		self.constant = len(sensors)*(-0.5*np.log(2*np.pi) - np.log(noise_std))
 
 	def likelihood(self, observations, positions):
 
@@ -160,6 +174,22 @@ class RSSsensorsArray:
 		)
 
 		return scipy.stats.norm.pdf(observations[:, np.newaxis], likelihood_mean, self._noise_std[:, np.newaxis])
+
+	def log_average_likelihood(self, observations, positions):
+
+		# each row a sensor, every column a different particle (position received)
+		distances = np.linalg.norm(positions[:, np.newaxis, :] - self._positions[:, :, np.newaxis], axis=0)
+
+		# each row a sensor, every column a different particle (position received)
+		likelihood_mean = 10*np.log10(
+			self._tx_power[:, np.newaxis] / distances ** self._path_loss_exponent[:, np.newaxis] +
+			self._minimum_power[:, np.newaxis]
+		)
+
+		# exponents
+		l = ((observations[:, np.newaxis] - likelihood_mean)**2).sum(axis=0)/self.twice_the_variance
+
+		return manu.smc.util.log_sum_from_individual_logs(-l), self.constant - np.log(len(l))
 
 
 class BinarySensorsArray:

@@ -9,33 +9,32 @@ from matplotlib import cm
 
 class Likelihood:
 
-	def __init__(self, true_tx_power=0.8, true_min_power=1e-5, true_path_loss_exp=3) -> None:
+	def __init__(self, true_tx_power=0.8, true_min_power=1e-5, true_path_loss_exp=3, n=10) -> None:
 
 		self.true_tx_power = true_tx_power
 		self.true_min_power = true_min_power
 		self.true_path_loss_exp = true_path_loss_exp
 
+		self.tx_power_array = np.linspace(true_tx_power/2., true_tx_power*2., num=n)
+		self.min_power_array = np.linspace(true_min_power / 2., true_min_power * 2., num=n)
+		self.path_loss_exp_array = np.linspace(true_path_loss_exp / 2., true_path_loss_exp * 2., num=n)
+
 		self.i_max = None
 		self.i_closest = None
-
-		self.tx_power_array = None
-		self.min_power_array = None
-		self.path_loss_exp_array = None
 		
 		self.likelihood = None
 
+		# non-blocking plots
 		plt.ion()
 
-		# a,b = np.meshgrid(self.tx_power_array, self.min_power_array)
-		# a,b = np.meshgrid(self.tx_power_array, self.path_loss_exp_array)
-		# a,b = np.meshgrid(self.tx_power_array, self.path_loss_exp_array)
+		self.tx_power_grid_1st, self.min_power_grid_2nd = np.meshgrid(self.tx_power_array, self.min_power_array)
+		_, self.path_loss_exp_grid_2nd = np.meshgrid(self.tx_power_array, self.path_loss_exp_array)
+		self.min_power_grid_1st, _ = np.meshgrid(self.min_power_array, self.path_loss_exp_array)
+
+		self.plots_z_value = 10000
 
 	# to be run from, at least, mc.pmc.PopulationMonteCarlo.step
 	def explore(self, pf, observations):
-
-		self.tx_power_array = np.linspace(self.true_tx_power/2., self.true_tx_power*2., num=10)
-		self.min_power_array = np.linspace(self.true_min_power / 2., self.true_min_power * 2., num=10)
-		self.path_loss_exp_array = np.linspace(self.true_path_loss_exp / 2., self.true_path_loss_exp * 2., num=10)
 
 		log_tx_power_array, log_min_power_array, log_path_loss_exp_array =\
 			np.log(self.tx_power_array), np.log(self.min_power_array), np.log(self.path_loss_exp_array)
@@ -84,20 +83,30 @@ class Likelihood:
 		X, Y = np.meshgrid(x, y)
 		ax.plot_surface(X, Y, Z, cmap=cm.coolwarm, linewidth=0, antialiased=False)
 
-		ax.scatter([self.true_tx_power], [self.true_min_power], [self.true_path_loss_exp], s=20)
-
 		plt.show()
 
 		return ax
 
-	def plot(self, i_fixed_dimension):
+	def plot(self, i_fixed_dimension, z_value=None):
 
-		self.plot3d(self.tx_power_array, self.min_power_array, self.likelihood[:, :, i_fixed_dimension].T)
+		ax = self.plot3d(self.tx_power_array, self.min_power_array, self.likelihood[:, :, i_fixed_dimension].T)
 
-	def fixed_min_power(self, i_fixed_dimension):
+		ax.scatter([self.true_tx_power], [self.true_min_power], [z_value if z_value else self.plots_z_value], s=20)
 
-		self.plot3d(self.tx_power_array, self.path_loss_exp_array, self.likelihood[:, i_fixed_dimension, :].T)
+		plt.show()
 
-	def fixed_tx_power(self, i_fixed_dimension):
+	def fixed_min_power(self, i_fixed_dimension, z_value=None):
 
-		self.plot3d(self.min_power_array, self.path_loss_exp_array, self.likelihood[i_fixed_dimension, :, :].T)
+		ax = self.plot3d(self.tx_power_array, self.path_loss_exp_array, self.likelihood[:, i_fixed_dimension, :].T)
+
+		ax.scatter([self.true_tx_power], [self.true_path_loss_exp], [z_value if z_value else self.plots_z_value], s=20)
+
+		plt.show()
+
+	def fixed_tx_power(self, i_fixed_dimension, z_value=None):
+
+		ax = self.plot3d(self.min_power_array, self.path_loss_exp_array, self.likelihood[i_fixed_dimension, :, :].T)
+
+		ax.scatter([self.true_min_power], [self.true_path_loss_exp], [z_value if z_value else self.plots_z_value], s=20)
+
+		plt.show()

@@ -826,3 +826,28 @@ class TargetTrackingSelectiveGossipParticleFilter(TargetTrackingParticleFilter):
 
 		self._state = significant_state[:, i_resampling]
 		self.weights = np.full(self.n_particles, 1/self.n_particles)
+
+
+class ParticleFilterDecorator:
+
+	def __init__(self, decorated):
+
+		self._decorated = decorated
+
+		self.estimates_history = []
+
+	def __getattr__(self, item):
+
+		return getattr(self._decorated, item)
+
+	def initialize(self):
+
+		self._decorated.initialize()
+
+		self.estimates_history.append(self._decorated.compute_mean())
+
+	def step(self, observations):
+
+		self._decorated.step(observations)
+
+		self.estimates_history.append(self._decorated.compute_mean())
