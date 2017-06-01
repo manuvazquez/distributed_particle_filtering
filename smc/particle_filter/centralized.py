@@ -10,7 +10,6 @@ import state
 from smc.particle_filter.particle_filter import ParticleFilter
 import sensor as sensor_module
 
-# sys.path.append(os.path.join(os.environ['HOME'], 'python'))
 import manu.smc.util
 
 
@@ -122,12 +121,6 @@ class TargetTrackingParticleFilter(ParticleFilter):
 
 			# the above indexes are used to update the state
 			self._state = self._state[:, i_particles_to_be_kept]
-
-			# if present...
-			if self._loglikelihoods_product is not None:
-
-				# ...the loglikelihoods that are kept need also be updated
-				self._loglikelihoods_product = self._loglikelihoods_product[i_particles_to_be_kept]
 
 			# note that if the weights have been normalized ("standard" centralized particle filter),
 			# then "self.aggregated_weight" is equal to 1
@@ -828,13 +821,13 @@ class TargetTrackingSelectiveGossipParticleFilter(TargetTrackingParticleFilter):
 		self.weights = np.full(self.n_particles, 1/self.n_particles)
 
 
-class ParticleFilterDecorator:
+class EstimateStoringParticleFilterDecorator:
 
 	def __init__(self, decorated):
 
 		self._decorated = decorated
 
-		self.estimates_history = []
+		self.estimates_history = None
 
 	def __getattr__(self, item):
 
@@ -844,7 +837,7 @@ class ParticleFilterDecorator:
 
 		self._decorated.initialize()
 
-		self.estimates_history.append(self._decorated.compute_mean())
+		self.estimates_history = [self._decorated.compute_mean()]
 
 	def step(self, observations):
 

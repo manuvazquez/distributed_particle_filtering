@@ -14,7 +14,6 @@ import mc.distributions
 import smc.particle_filter.centralized as centralized
 import simulations.base
 
-# sys.path.append(os.path.join(os.environ['HOME'], 'python'))
 import manu.util
 
 
