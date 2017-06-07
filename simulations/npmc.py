@@ -144,11 +144,15 @@ class AbstractNPMC(simulations.base.SimpleSimulation, metaclass=abc.ABCMeta):
 
 				if self._save_monte_carlo_samples:
 
-					# [<sample>,<component>,<iteration>,<algorithm>,<trial>,<frame>]
-					self._monte_carlo_samples[i_particles][..., i_iter, i_alg, i_trial, self._i_current_frame] = alg_particles.samples
+					# [<sample>,<component>,<trial>,<frame>]
+					self._monte_carlo_samples[i_alg][i_particles][i_iter][
+						..., i_trial, self._i_current_frame] = alg_particles.samples
 
-					# [<sample>,<iteration>,<algorithm>,<trial>,<frame>]
-					self._monte_carlo_weights[i_particles][:, i_iter, i_alg, i_trial, self._i_current_frame] = alg_particles.weights
+					# [<sample>,<algorithm>,<trial>,<frame>]
+					self._monte_carlo_weights[i_alg][i_particles][i_iter][
+						..., i_trial, self._i_current_frame] = alg_particles.weights
+
+					print('wa')
 
 			print('=========')
 
@@ -215,18 +219,24 @@ class NPMC(AbstractNPMC):
 		# it must be done *in this class* because earlier the number of algorithms is still unknown
 		if self._save_monte_carlo_samples:
 
-			self._monte_carlo_samples = [
-				# [<sample>,<component>,<iteration>,<algorithm>,<trial>,<frame>]
-				np.empty((
-					M, len(self._prior_mean), self._n_iter_pmc, len(self._algorithms), self._n_trials,
-					self._parameters["number of frames"]))
-				for M in self._n_particles]
+			self._monte_carlo_samples = [([None] * len(self._n_particles)) for _ in enumerate(self._algorithms)]
+			self._monte_carlo_weights = [([None] * len(self._n_particles)) for _ in enumerate(self._algorithms)]
 
-			self._monte_carlo_weights = [
-				# [<sample>,<iteration>,<algorithm>,<trial>,<frame>]
-				np.empty((
-					M, self._n_iter_pmc, len(self._algorithms), self._n_trials, self._parameters["number of frames"]))
-				for M in self._n_particles]
+			for i_alg, alg in enumerate(self._algorithms):
+
+				for i_n_part, alg_n_part in enumerate(alg):
+
+					self._monte_carlo_samples[i_alg][i_n_part] = [
+						np.empty((
+							# [<sample>,<component>,<trial>,<frame>]
+							alg_n_part.n_particles_at_iteration(iter_pmc), len(self._prior_mean), self._n_trials,
+							self._parameters["number of frames"])) for iter_pmc in range(self._n_iter_pmc)]
+
+					self._monte_carlo_weights[i_alg][i_n_part] = [
+						np.empty((
+							# [<sample>,<trial>,<frame>]
+							alg_n_part.n_particles_at_iteration(iter_pmc), self._n_trials,
+							self._parameters["number of frames"])) for iter_pmc in range(self._n_iter_pmc)]
 
 		# ----- HDF5
 
@@ -305,12 +315,24 @@ class NPMC(AbstractNPMC):
 
 		if self._save_monte_carlo_samples:
 
-			for M, samples, weights in zip(self._n_particles, self._monte_carlo_samples, self._monte_carlo_weights):
+			for i_alg, alg in enumerate(self._algorithms):
 
-				dataset = self._f.create_dataset(self._h5py_prefix + 'number of particles/{}/samples'.format(M), data=samples)
-				dataset.attrs['mapping'] = '[<sample>,<component>,<iteration>,<algorithm>,<trial>,<frame>]'
-				dataset = self._f.create_dataset(self._h5py_prefix + 'number of particles/{}/weights'.format(M), data=weights)
-				dataset.attrs['mapping'] = '[<sample>,<iteration>,<algorithm>,<trial>,<frame>]'
+				for i_n_part, alg_n_part in enumerate(alg):
+
+					for iter_pmc, (samples, weights) in enumerate(
+							zip(self._monte_carlo_samples[i_alg][i_n_part], self._monte_carlo_weights[i_alg][i_n_part])):
+
+						dataset = self._f.create_dataset(
+							self._h5py_prefix +
+							'Monte Carlo samples/algorithms/{}/number of particles/{}/iteration/{}/samples'.format(
+								alg_n_part.name, alg_n_part.n_particles, iter_pmc), data=samples)
+						dataset.attrs['mapping'] = '[<sample>,<component>,<trial>,<frame>]'
+
+						dataset = self._f.create_dataset(
+							self._h5py_prefix +
+							'Monte Carlo samples/algorithms/{}/number of particles/{}/iteration/{}/weights'.format(
+								alg_n_part.name, alg_n_part.n_particles, iter_pmc), data=weights)
+						dataset.attrs['mapping'] = '[<sample>,<trial>,<frame>]'
 
 		# if a reference to an HDF5 was not received, that means the file was created by this object,
 		# and hence it is responsible of closing it...

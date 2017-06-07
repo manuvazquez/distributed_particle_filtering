@@ -37,6 +37,10 @@ class AdaptiveMultipleImportanceSampling(pmc.PopulationMonteCarlo):
 		self._structured_log_targets = None
 		self._weighted_proposals = None
 
+	def n_particles_at_iteration(self, iteration: int) -> int:
+
+		return self._n_particles*(iteration+1)
+
 	def initialize(self):
 
 		super().initialize()

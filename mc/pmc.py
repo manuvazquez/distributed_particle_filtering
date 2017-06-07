@@ -40,6 +40,10 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 		# a "ProposalUpdater" is instantiated (to be decided by the children classes)
 		self._proposal_updater = self.build_proposal_updater()
 
+	def n_particles_at_iteration(self, iteration: int) -> int:
+
+		return self._n_particles
+
 	@property
 	def weights(self):
 
