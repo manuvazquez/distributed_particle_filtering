@@ -152,8 +152,6 @@ class AbstractNPMC(simulations.base.SimpleSimulation, metaclass=abc.ABCMeta):
 					self._monte_carlo_weights[i_alg][i_particles][i_iter][
 						..., i_trial, self._i_current_frame] = alg_particles.weights
 
-					print('wa')
-
 			print('=========')
 
 
