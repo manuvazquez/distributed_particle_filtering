@@ -11,13 +11,11 @@ distributed particle filter_][DRNA], Joaquín Míguez, Manuel A. Vázquez. Signa
 wireless sensors networks_][MPOSTERIOR], Manuel A. Vázquez, Joaquín Míguez. Signal Processing. 131, pp. 190-201. (*Mposterior** simulations)
 
 ## Nonlinear Importance Sampling
-* [_Analysis of a nonlinear importance sampling scheme for
-Bayesian parameter estimation in state-space models
-_][NIS], Joaquín Míguez, Inés P. Mariño, Manuel A. Vázquez. Signal Processing. 142, pp. 281-291. (*Nonlinear** simulations)
+* [Analysis of a nonlinear importance sampling scheme for
+Bayesian parameter estimation in state-space models][NIS], Joaquín Míguez, Inés P. Mariño, Manuel A. Vázquez. Signal Processing. 142, pp. 281-291. (*Nonlinear** simulations)
 
 
 [DRNA]: https://www.sciencedirect.com/science/article/pii/S0165168415004077
-[ISNTW]: http://digital-library.theiet.org/content/journals/10.1049/el.2016.3462
 [NIS]: https://www.sciencedirect.com/science/article/pii/S0165168417302761
 [MPOSTERIOR]: https://www.sciencedirect.com/science/article/pii/S016516841630189X
 
