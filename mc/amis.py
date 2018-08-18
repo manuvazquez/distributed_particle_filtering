@@ -8,7 +8,7 @@ import colorama
 from . import util
 from . import pmc
 
-import manu.smc.util
+import smc_tools.util
 
 
 class AdaptiveMultipleImportanceSampling(pmc.PopulationMonteCarlo):
@@ -121,7 +121,7 @@ class AdaptiveMultipleImportanceSampling(pmc.PopulationMonteCarlo):
 		self._unnormalized_log_weights = self._structured_log_weights[..., :self._i_iter + 1].ravel(order='F')
 
 		# the (log)weights are normalized (above have already been shaped up as a row vector)
-		self._weights = manu.smc.util.normalize_from_logs(self._unnormalized_log_weights)
+		self._weights = smc_tools.util.normalize_from_logs(self._unnormalized_log_weights)
 
 		# self.update_proposal()
 		self._proposal_updater.update_proposal(self)

@@ -28,8 +28,8 @@ import simulations.npmc
 
 simulation_modules = [simulations.drna, simulations.mposterior, simulations.npmc]
 
-import manu.util
-import manu.smc.resampling
+import utils.file
+import smc_tools.resampling
 
 # keys used to identify the different pseudo random numbers generators
 # (they must coincide with those in the parameters file...)
@@ -98,7 +98,7 @@ settings_state_transition = parameters["state transition"]
 # for the particle filters: type of simulation and the corresponding parameters
 settings_simulation = parameters['simulations']
 
-output_file_basename = os.path.join(command_arguments.output_path, 'res_' + manu.util.filename_from_host_and_date())
+output_file_basename = os.path.join(command_arguments.output_path, 'res_' + utils.file.filename_from_host_and_date())
 
 # how numpy arrays are printed on screen is specified here
 np.set_printoptions(precision=3, linewidth=300)
@@ -263,12 +263,12 @@ transitionKernel = getattr(state, settings_transition_kernel['implementing class
 # ------------------------------------------------ SMC stuff -----------------------------------------------------------
 
 # a resampling algorithm...
-resampling_algorithm = manu.smc.resampling.MultinomialResamplingAlgorithm(
+resampling_algorithm = smc_tools.resampling.MultinomialResamplingAlgorithm(
 	PRNGs["Sensors and Monte Carlo pseudo random numbers generator"])
 
 # ...and a resampling criterion are needed for the particle filters
-# resampling_criterion = manu.smc.resampling.EffectiveSampleSizeBasedResamplingCriterion(parameters["SMC"]["resampling ratio"])
-resampling_criterion = manu.smc.resampling.AlwaysResamplingCriterion()
+# resampling_criterion = smc_tools.resampling.EffectiveSampleSizeBasedResamplingCriterion(parameters["SMC"]["resampling ratio"])
+resampling_criterion = smc_tools.resampling.AlwaysResamplingCriterion()
 
 # -------------------------------------------------- other stuff  ------------------------------------------------------
 

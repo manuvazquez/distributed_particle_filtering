@@ -3,7 +3,7 @@ import abc
 import numpy as np
 import scipy.stats
 
-import manu.smc.util
+import smc_tools.util
 
 
 class Sensor(metaclass=abc.ABCMeta):
@@ -189,7 +189,7 @@ class RSSsensorsArray:
 		# exponents
 		l = ((observations[:, np.newaxis] - likelihood_mean)**2).sum(axis=0)/self.twice_the_variance
 
-		return manu.smc.util.log_sum_from_individual_logs(-l), self.constant - np.log(len(l))
+		return smc_tools.util.log_sum_from_individual_logs(-l), self.constant - np.log(len(l))
 
 
 class BinarySensorsArray:

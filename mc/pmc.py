@@ -8,7 +8,7 @@ import colorama
 from . import util
 import smc.particle_filter.particle_filter
 
-import manu.smc.util
+import smc_tools.util
 
 
 class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
@@ -87,7 +87,7 @@ class PopulationMonteCarlo(smc.particle_filter.particle_filter.ParticleFilter):
 		# NOTE: the first time this is called, "log_prior" should be equal to "log_proposal"
 		self._unnormalized_log_weights = self._loglikelihoods + log_prior - log_proposal
 
-		self._weights = manu.smc.util.normalize_from_logs(self._unnormalized_log_weights)
+		self._weights = smc_tools.util.normalize_from_logs(self._unnormalized_log_weights)
 
 		# self.update_proposal()
 		self._proposal_updater.update_proposal(self)

@@ -4,7 +4,7 @@ import numpy as np
 import scipy.stats
 import typing
 
-import manu.smc.util
+import smc_tools.util
 
 
 def normal_parameters_from_lognormal(mean, var):
@@ -43,7 +43,7 @@ def loglikelihood(pf, observations, log_tx_power, log_min_power, log_path_loss_e
 		loglikes = pf.last_unnormalized_loglikelihoods
 
 		# logarithm of the average
-		res += manu.smc.util.log_sum_from_individual_logs(loglikes) - np.log(len(loglikes))
+		res += smc_tools.util.log_sum_from_individual_logs(loglikes) - np.log(len(loglikes))
 
 	return res
 
@@ -104,7 +104,7 @@ class ClippingProposalUpdater(ProposalUpdater):
 
 		particle_filter._unnormalized_log_weights[i_clipped] = clipping_threshold
 
-		particle_filter._weights = manu.smc.util.normalize_from_logs(particle_filter._unnormalized_log_weights)
+		particle_filter._weights = smc_tools.util.normalize_from_logs(particle_filter._unnormalized_log_weights)
 
 		particle_filter._mean = particle_filter._weights @ particle_filter._samples
 		particle_filter._covar = np.cov(particle_filter._samples.T, ddof=0, aweights=particle_filter._weights)

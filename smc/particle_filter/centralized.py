@@ -1,5 +1,4 @@
 import sys
-import os
 import copy
 
 import numpy as np
@@ -10,7 +9,7 @@ import state
 from smc.particle_filter.particle_filter import ParticleFilter
 import sensor as sensor_module
 
-import manu.smc.util
+import smc_tools.util
 
 
 class TargetTrackingParticleFilter(ParticleFilter):
@@ -33,7 +32,7 @@ class TargetTrackingParticleFilter(ParticleFilter):
 		# the sensors are kept
 		self._sensors = copy.deepcopy(sensors)
 
-		# EVERY time, this PF is initialized, the aggregated weight is set to this value
+		# EVERY time this PF is initialized, the aggregated weight is set to this value
 		self._initial_aggregated_weight = aggregated_weight
 
 		self._log_initial_aggregated_weight = np.log(aggregated_weight)
@@ -186,7 +185,7 @@ class TargetTrackingParticleFilter(ParticleFilter):
 	def update_aggregated_weight(self):
 
 		# the aggregated weight is simply the sum of the non-normalized weights
-		self._log_aggregated_weight = manu.smc.util.log_sum_from_individual_logs(self._log_weights)
+		self._log_aggregated_weight = smc_tools.util.log_sum_from_individual_logs(self._log_weights)
 
 	def compute_mean(self):
 
@@ -207,7 +206,7 @@ class TargetTrackingParticleFilter(ParticleFilter):
 
 	def normalize_weights_and_update_aggregated(self):
 
-		self._log_weights -= manu.smc.util.log_sum_from_individual_logs(self._log_weights)
+		self._log_weights -= smc_tools.util.log_sum_from_individual_logs(self._log_weights)
 
 		# this is enforced above
 		self._log_aggregated_weight = 0.

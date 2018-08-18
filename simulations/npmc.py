@@ -1,5 +1,3 @@
-import sys
-import os
 import types
 import abc
 
@@ -14,7 +12,7 @@ import mc.distributions
 import smc.particle_filter.centralized as centralized
 import simulations.base
 
-import manu.util
+import utils.file
 
 
 class AbstractNPMC(simulations.base.SimpleSimulation, metaclass=abc.ABCMeta):
@@ -93,7 +91,7 @@ class AbstractNPMC(simulations.base.SimpleSimulation, metaclass=abc.ABCMeta):
 		# ----- HDF5
 
 		# the names of the parameters are stored
-		manu.util.write_strings_list_into_hdf5(
+		utils.file.write_strings_list_into_hdf5(
 			self._f, self._h5py_prefix + 'parameters',
 			['transmitter_power', 'minimum_amount_of_power', 'path_loss_exponent'])
 
@@ -239,7 +237,7 @@ class NPMC(AbstractNPMC):
 		# ----- HDF5
 
 		# and so are those of the algorithms
-		manu.util.write_strings_list_into_hdf5(
+		utils.file.write_strings_list_into_hdf5(
 			self._f, self._h5py_prefix + 'algorithms/names',
 			[alg[0].name for alg in self._algorithms] + [self.metropolis_hastings.name])
 
@@ -390,7 +388,7 @@ class NPMCvsInnerFilterNumberOfParticles(AbstractNPMC):
 		# ----- HDF5
 
 		# the names of the algorithms are stored
-		manu.util.write_strings_list_into_hdf5(
+		utils.file.write_strings_list_into_hdf5(
 			self._f, self._h5py_prefix + 'algorithms/names',
 			[alg[0].name for alg in self._algorithms])
 
@@ -482,7 +480,7 @@ class AMIS(AbstractNPMC):
 		# ----- HDF5
 
 		# the names of the algorithms are stored
-		manu.util.write_strings_list_into_hdf5(
+		utils.file.write_strings_list_into_hdf5(
 			self._f, self._h5py_prefix + 'algorithms/names',
 			[alg[0].name for alg in self._algorithms])
 
