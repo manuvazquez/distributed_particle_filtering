@@ -1,6 +1,6 @@
-[submodule "smc_tools"]
-	path = smc_tools
-	url = github-manuvazquez:manuvazquez/smc_tools
 [submodule "utils"]
 	path = utils
-	url = github-manuvazquez:manuvazquez/utils
+	url = https://github.com/manuvazquez/utils
+[submodule "smc_tools"]
+	path = smc_tools
+	url = https://github.com/manuvazquez/smc_tools
